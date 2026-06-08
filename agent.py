@@ -320,8 +320,8 @@ class GaokaoAdvisor:
         # 构建消息
         system_msg = self._build_system_message()
         messages = [{"role": "system", "content": system_msg}]
-        # 添加历史（最近6轮）
-        for h in self.conversation[-12:]:
+        # 添加历史（最近10轮=20条消息）
+        for h in self.conversation[-20:]:
             messages.append(h)
         messages.append({"role": "user", "content": user_msg})
 
