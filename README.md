@@ -7,6 +7,10 @@
 
 ---
 
+[▶ 观看演示视频](https://github.com/ziqihe10-droid/xuefeng-agent/blob/master/demo-video.mp4?raw=true)
+
+---
+
 ## 知识库规模
 
 这个 Agent 不是空壳。它的知识体系来自对海量志愿填报资料的深度学习：
