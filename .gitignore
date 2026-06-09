@@ -9,6 +9,13 @@ __pycache__/
 # 开发备份
 backup/
 
+# 视频制作临时文件
+xuefeng-promo-video/
+demo-thumb.gif
+
+# 缓存数据库（运行时生成）
+gaokao_cache.db
+
 # 系统文件
 .DS_Store
 Thumbs.db
