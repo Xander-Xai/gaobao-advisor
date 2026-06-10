@@ -9,7 +9,7 @@
 
 ![](demo-preview.gif)
 
-[▶ 点击观看完整演示视频（25秒）](https://github.com/ziqihe10-droid/xuefeng-agent/blob/master/demo-video.mp4?raw=true)
+> 🎬 [观看完整演示视频]() — 把视频发 B站或抖音后把链接贴这里
 
 ---
 

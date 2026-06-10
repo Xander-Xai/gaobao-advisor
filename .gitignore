@@ -12,6 +12,7 @@ backup/
 # 视频制作临时文件
 xuefeng-promo-video/
 demo-thumb.gif
+demo-video.mp4
 
 # 缓存数据库（运行时生成）
 gaokao_cache.db
