@@ -31,25 +31,78 @@
 
 ---
 
+## v2.0 升级（2026.06）
+
+**v2.0 让这个 Agent 从"能聊"变成"能用"**——接入真实数据，强化表达引擎。
+
+### 数据层（从 0 到有）
+
+| 数据 | 来源 | 规模 | 等级 |
+|------|------|------|------|
+| 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,003 所**（985/211/双一流/普通） | T2 |
+| 本科专业 | 教育部 2024 专业目录 | **193 个**（12 学科门类，含就业率/薪资） | T1 |
+| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **7,000+ 条**（2024年，覆盖20个省份） | T2 |
+| 张雪峰语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
+| 知识库 | Eric-Yibo-Shen/zhangxuefeng-skillset | **20 个模块**（含 AI 时代校正） | T2 |
+
+> 数据采集脚本：`python scripts/import_baidu_gaokao.py --top-n 80` 可扩展到万级分数线
+
+### 智能层（从"能聊"到"能用"）
+
+| 升级 | 内容 |
+|------|------|
+| **位次法推荐** | 分数→位次映射（一分一段表反推），冲/稳/保三档位次法推荐 |
+| **百度高考 API** | 替代低质量百度 HTML 解析，直接获取结构化 JSON 数据 |
+| **语录库注入** | 根据用户提到的专业，自动注入相关张雪峰语录 |
+| **表达引擎 v2.0** | 8 种开场模板、铺垫→反转→金句节奏、禁词列表、8 项自检清单 |
+| **省份自适应** | Step 0 自动识别高考模式（3+3/3+1+2/传统文理） |
+| **情绪 SOP** | 5 阶段情绪危机处理（接住→稳定→转场→方案→收尾） |
+| **多轮状态** | 4 阶段对话流程（探测→定向→推荐→风险审查） |
+
+### 知识库模块（20 个）
+
+```
+knowledge_base.md         # 主知识库（838 行，17 个核心模块）
+knowledge/
+├── 00_ai_era_correction.md    # AI 时代校正框架（红/黄/绿区）
+├── 06_university_life_planning.md  # 大学在校 4 年规划
+├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
+└── quotes/                    # 张雪峰语录库（105 条）
+    ├── _index.json            # 全量索引
+    ├── _by_major.json         # 按专业反查索引（74 个专业）
+    ├── zhuanye.json           # 专业选择（28 条）
+    ├── jiuye.json             # 就业前景（18 条）
+    ├── rensheng.json          # 人生哲理（18 条）
+    ├── yuanxiao.json          # 院校推荐（16 条）
+    ├── xuexi.json             # 学习建议（12 条）
+    └── zhiyuan-celue.json     # 志愿策略（13 条）
+```
+
+---
+
 ## 效果展示
 
 ```
-👤：湖北物理类580分，位次28000，普通工薪家庭，想去武汉学计算机
+👤：我是广东考生，物理类，600分，位次大概5500，想学计算机，普通家庭，最看重就业
 
-🤖：你这情况很典型——湖北580分，2万8位次，普通家庭想靠技术吃饭。
-    我说句实话，你这个分在湖北不差，但也别想985了。
+🤖：你这条件在广东算中上游，但想靠计算机翻身，路只有一条：
+    去有行业壁垒的学校，别去那些名字好听但没干货的"综合类大学"。
 
-    冲的话——武汉理工。211，工科底子硬。你的位次冲它的计算机
-    有点悬，但电子信息类专业组可以试试。冲上了血赚，冲不上也正常。
+    广东本地600分5500位次，想上广州/深圳的211计算机，基本没戏。
+    华南理工、中山大学的计算机录取位次通常在2000-3000名以内。
 
-    稳的——湖北大学、武汉科技大。这两个在武汉本地口碑很好，
-    580分稳稳地进计算机或电气。毕业在武汉找个IT工作，日子不会差。
+    冲的话——中山大学，985，计算机专业非常强，能让你接触到
+    最新的科研资源和技术。但冲上的概率不大，建议冲的同时留好保底。
 
-    保底——武汉工程大学、三峡大学。三峡大学的电气是原电力部直属，
-    年年电网来校招，虽然不在武汉，但就业真不差。
+    稳的——广州大学、深圳大学。广大的计算机在广州市内口碑不错，
+    深大背靠深圳产业，就业极硬。
 
-    提醒你一句：现在计算机行业在分化。基础码农岗位在减少，
-    大学期间必须往AI方向靠，别光学学校教的那点东西。
+    保底——广东工业大学。计算机在广东内稳上，性价比高。
+
+    别死磕"计算机科学与技术"这个专业名。软件工程、网络工程、
+    信息安全，在就业市场上是一样的。
+
+    专业选对，努力不废；学校选错，全家受罪。
 ```
 
 ---
@@ -426,27 +479,38 @@ LLM_PROVIDER=ollama     # 本地模型
 ## 项目结构
 
 ```
-├── agent.py              # 主程序（命令行版）
-├── app.py                # Web 前端（Streamlit 版）
-├── knowledge_base.md     # 知识库（17模块，850+行）
-├── system_prompt.md      # Agent 行为规则
-├── gaokao_data.py        # 录取数据查询模块
-├── requirements.txt      # Python 依赖
-├── README.md             # 本文件
-├── TUTORIAL.md           # 零基础安装使用教程
-├── LICENSE               # MIT 协议
+├── agent.py              # ⭐ 核心 Agent（槽位采集 + 搜索链 + LLM 对话）
+├── app.py                # Streamlit Web 前端
+├── gaokao_data.py        # 数据查询层（DB→百度API→搜索 三级链路）
+├── system_prompt.md      # v2.0 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP）
+├── knowledge_base.md     # 主知识库（20 模块，850+ 行）
+├── requirements.txt      # 依赖（SQLAlchemy + Streamlit + OpenAI）
 ├── .env.example          # 配置模板
-├── .gitignore
-├── 启动.bat              # Windows 命令行版启动
-├── 启动Web版.bat          # Windows Web版启动
-├── .streamlit/           # Streamlit 配置
-├── docs/                 # 文档
-│   ├── 2026-06-11-xuefeng-agent-opc-strategy.md  # OPC 商业战略
-│   └── web-deployment-guide.md                     # Web版部署指南
-├── content_scripts/      # 抖音内容脚本
-│   └── 抖音内容脚本库.md  # 55条短视频脚本
-└── examples/
-    └── demo_conversation.md  # 案例对话
+├── db/                   # 数据库 ORM 层
+│   ├── database.py       # SQLite 连接（零依赖，开箱即用）
+│   ├── models.py         # 5 张表（院校/专业/分数线/招生计划/学科排名）
+│   └── crud.py           # CRUD + 位次法匹配算法
+├── scrapers/             # 数据采集器
+│   ├── baidu_gaokao.py   # ⭐ 百度高考 API 采集（结构化 JSON，公开无认证）
+│   ├── baidu.py          # 百度搜索爬虫（兜底 T4 级）
+│   └── zhiyuan.py        # 掌上高考 API（备选 T2 级）
+├── scripts/              # 数据导入脚本
+│   ├── import_baidu_gaokao.py      # ⭐ 主采集（院校 + 分数线，约 30 分钟）
+│   ├── import_majors_taxonomy.py   # 专业分类体系（193 个专业）
+│   ├── import_yi_fen_yi_duan.py    # 一分一段表查询（位次法核心）
+│   ├── seed_data.py               # 种子数据（985/211 硬编码）
+│   └── seed_quotes.py             # 语录库索引生成（105 条）
+├── knowledge/            # 扩展知识库（v2.0 新增）
+│   ├── 00_ai_era_correction.md    # AI 时代校正框架
+│   ├── 06_university_life_planning.md  # 大学在校规划
+│   ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
+│   └── quotes/                    # 张雪峰语录库（105 条，6 个分类）
+├── content_scripts/      # 抖音内容脚本（55 条）
+├── docs/
+├── examples/
+├── data/gaokao.db        # SQLite 数据库（自动创建）
+├── 启动.bat              # Windows 命令行版
+└── 启动Web版.bat          # Windows Web版
 ```
 
 ---

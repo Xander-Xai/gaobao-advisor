@@ -10,9 +10,14 @@ Usage:
 import os, sys, json, re, urllib.request, urllib.parse, urllib.error
 from openai import OpenAI
 
-# 高考数据模块
+# 高考数据模块（数据库优先 + 百度搜索兜底）
 try:
-    from gaokao_data import query_admission, format_admission_info
+    from gaokao_data import (
+        query_admission, format_admission_info,
+        query_school_info, query_major_info, query_match_schools,
+        query_subject_ranking, search_policy, get_db_stats,
+        query_yi_fen_yi_duan, query_match_schools_v2,
+    )
     HAS_DATA_MODULE = True
 except ImportError:
     HAS_DATA_MODULE = False
@@ -86,6 +91,17 @@ SEARCH_ENGINE = "https://www.baidu.com/s?wd="
 # ── 加载知识库 ──────────────────────────────────────
 KNOWLEDGE_BASE_PATH = os.path.join(HERE, "knowledge_base.md")
 SYSTEM_PROMPT_PATH = os.path.join(HERE, "system_prompt.md")
+QUOTES_INDEX_PATH = os.path.join(HERE, "knowledge", "quotes", "_by_major.json")
+
+# 加载语录索引（用于按专业查询张雪峰语录）
+def load_quotes_index():
+    """加载语录的反向索引（专业→语录列表）"""
+    if os.path.exists(QUOTES_INDEX_PATH):
+        with open(QUOTES_INDEX_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+QUOTES_INDEX = load_quotes_index()
 
 def load_file(path):
     if os.path.exists(path):
@@ -104,21 +120,25 @@ SLOTS = {
     "goal":         {"label": "核心诉求", "filled": False, "value": ""},
 }
 
-def filled_slots():
-    return {k: v for k, v in SLOTS.items() if v["filled"]}
+def filled_slots(slots=None):
+    s = slots if slots is not None else SLOTS
+    return {k: v for k, v in s.items() if v["filled"]}
 
-def missing_slots():
-    return [k for k, v in SLOTS.items() if not v["filled"]]
+def missing_slots(slots=None):
+    s = slots if slots is not None else SLOTS
+    return [k for k, v in s.items() if not v["filled"]]
 
-def slots_summary():
+def slots_summary(slots=None):
+    s = slots if slots is not None else SLOTS
     lines = []
-    for k, v in SLOTS.items():
+    for k, v in s.items():
         status = "[OK]" if v["filled"] else "[ ]"
         lines.append(f"  {status} {v['label']}: {v['value'] if v['filled'] else '(未填)'}")
     return "\n".join(lines)
 
-def extract_slots_from_message(msg):
+def extract_slots_from_message(msg, slots=None):
     """从用户消息中自动提取槽位信息。"""
+    s = slots if slots is not None else SLOTS
     updated = []
     msg_lower = msg.lower()
 
@@ -130,59 +150,99 @@ def extract_slots_from_message(msg):
         "甘肃", "青海", "台湾", "内蒙古", "广西", "西藏", "宁夏", "新疆",
     ]
     for p in provinces:
-        if p in msg and not SLOTS["province"]["filled"]:
-            SLOTS["province"]["value"] = p
-            SLOTS["province"]["filled"] = True
+        if p in msg and not s["province"]["filled"]:
+            s["province"]["value"] = p
+            s["province"]["filled"] = True
             updated.append(f"省份→{p}")
 
-    # 分数/位次检测
+    # 分数/位次检测（增强版）
     score_match = re.search(r'(\d{3})\s*分', msg)
-    rank_match = re.search(r'(\d{4,7})\s*[位名]', msg)
-    if score_match and not SLOTS["score_rank"]["filled"]:
-        SLOTS["score_rank"]["value"] = score_match.group(1) + "分"
-        SLOTS["score_rank"]["filled"] = True
-        updated.append(f"分数→{score_match.group(1)}分")
-    if rank_match and not SLOTS["score_rank"]["filled"]:
-        SLOTS["score_rank"]["value"] = "位次" + rank_match.group(1)
-        SLOTS["score_rank"]["filled"] = True
-        updated.append(f"位次→{rank_match.group(1)}")
-    if rank_match and SLOTS["score_rank"]["filled"]:
-        SLOTS["score_rank"]["value"] += " / 位次" + rank_match.group(1)
+    # 多种位次格式：15000位次、位次15000、1.5万位次、省排15000、排名15000
+    rank_patterns = [
+        r'(\d{4,7})\s*(?:位次|名次|排名|名)',
+        r'位次[是为：:]\s*(\d{4,7})',
+        r'省排[名]?\s*(\d{4,7})',
+        r'(\d+(?:\.\d+)?)\s*万\s*(?:位次|名|名次)',
+    ]
+    rank_value = None
+    for rp in rank_patterns:
+        m = re.search(rp, msg)
+        if m:
+            raw = m.group(1)
+            if '万' in rp and '.' in raw:
+                rank_value = str(int(float(raw) * 10000))
+            elif '万' in rp:
+                rank_value = str(int(raw) * 10000)
+            else:
+                rank_value = raw
+            break
 
-    # 选科检测
+    if score_match and not s["score_rank"]["filled"]:
+        s["score_rank"]["value"] = score_match.group(1) + "分"
+        s["score_rank"]["filled"] = True
+        updated.append(f"分数→{score_match.group(1)}分")
+    if rank_value and not s["score_rank"]["filled"]:
+        s["score_rank"]["value"] = "位次" + rank_value
+        s["score_rank"]["filled"] = True
+        updated.append(f"位次→{rank_value}")
+    if rank_value and s["score_rank"]["filled"] and "位次" not in s["score_rank"]["value"]:
+        s["score_rank"]["value"] += " / 位次" + rank_value
+
+    # 选科检测（增加 3+1+2、3+3 模式识别）
     for subj in ["物理", "历史", "物化生", "物化地", "物化政", "物生政",
                   "史政地", "史政生", "史地生", "理科", "文科"]:
-        if subj in msg and not SLOTS["subject"]["filled"]:
-            SLOTS["subject"]["value"] = subj
-            SLOTS["subject"]["filled"] = True
+        if subj in msg and not s["subject"]["filled"]:
+            s["subject"]["value"] = subj
+            s["subject"]["filled"] = True
             updated.append(f"选科→{subj}")
             break
 
-    # 地域检测
+    # 地域检测（扩展城市列表）
     for r in ["省内", "本省", "离家近", "北上广", "江浙沪", "北京", "上海",
-               "深圳", "广州", "杭州", "成都", "武汉", "南京", "西安"]:
-        if r in msg and not SLOTS["region"]["filled"]:
-            SLOTS["region"]["value"] = r
-            SLOTS["region"]["filled"] = True
+               "深圳", "广州", "杭州", "成都", "武汉", "南京", "西安",
+               "天津", "重庆", "长沙", "合肥", "济南", "郑州", "昆明",
+               "厦门", "苏州", "无锡", "佛山", "东莞"]:
+        if r in msg and not s["region"]["filled"]:
+            s["region"]["value"] = r
+            s["region"]["filled"] = True
             updated.append(f"地域→{r}")
             break
 
-    # 家庭资源检测
+    # 家庭资源检测（增加经济条件、家庭状况）
     for fw in ["电力", "电网", "铁路", "医生", "教师", "老师", "做生意",
-                "公务员", "烟草", "石油", "普通家庭", "没资源"]:
-        if fw in msg and not SLOTS["family"]["filled"]:
-            SLOTS["family"]["value"] = fw
-            SLOTS["family"]["filled"] = True
+                "公务员", "烟草", "石油", "普通家庭", "没资源",
+                "经济一般", "经济压力大", "条件一般", "家里没钱", "没钱",
+                "能负担", "能接受高学费", "私立", "中外合作"]:
+        if fw in msg and not s["family"]["filled"]:
+            s["family"]["value"] = fw
+            s["family"]["filled"] = True
             updated.append(f"家庭→{fw}")
             break
 
     # 诉求检测
     for g in ["就业", "考公", "考研", "稳定", "高薪", "赚钱", "深造", "出国"]:
-        if g in msg and not SLOTS["goal"]["filled"]:
-            SLOTS["goal"]["value"] = g
-            SLOTS["goal"]["filled"] = True
+        if g in msg and not s["goal"]["filled"]:
+            s["goal"]["value"] = g
+            s["goal"]["filled"] = True
             updated.append(f"诉求→{g}")
             break
+
+    # 兴趣/厌恶检测（专业方向）
+    interest_keywords = [
+        "计算机", "软件", "人工智能", "AI", "电气", "电子信息", "通信",
+        "临床医学", "口腔", "金融", "会计", "法学", "土木", "机械",
+        "新闻", "汉语言", "数学", "物理", "化学", "生物", "材料",
+        "环境", "自动化", "集成电路", "大数据", "信息安全", "车辆",
+        "建筑学", "统计学", "药学", "师范", "英语", "历史学", "哲学",
+        "想学", "喜欢", "想读", "感兴趣", "讨厌", "不想学", "不喜欢",
+        "绝对不", "绝不",
+    ]
+    if not s["interest"]["filled"]:
+        matched_interests = [kw for kw in interest_keywords if kw in msg]
+        if matched_interests:
+            s["interest"]["value"] = " ".join(matched_interests[:3])
+            s["interest"]["filled"] = True
+            updated.append(f"兴趣→{'、'.join(matched_interests[:3])}")
 
     return updated
 
@@ -274,36 +334,68 @@ def cleanup_format(text):
     return text.strip()
 
 class GaokaoAdvisor:
-    def __init__(self):
-        self.client = OpenAI(base_url=CONFIG["base_url"], api_key=CONFIG["api_key"])
+    def __init__(self, api_key=None, base_url=None, model=None, slots=None):
+        # 支持外部传入 API 配置（多用户场景各自用自己的 key）
+        _api_key = api_key or CONFIG["api_key"]
+        _base_url = base_url or CONFIG["base_url"]
+        _model = model or CONFIG["model"]
+        self.model = _model
+        self.client = OpenAI(base_url=_base_url, api_key=_api_key)
         self.knowledge_base = load_file(KNOWLEDGE_BASE_PATH)
         self.system_prompt = load_file(SYSTEM_PROMPT_PATH)
         self.conversation = []
+        # 支持外部传入独立的 slots（多用户场景各自有自己的槽位）
+        self.slots = slots if slots is not None else {k: dict(v) for k, v in SLOTS.items()}
 
     def _build_system_message(self):
-        """构建系统消息，包含 system prompt + 知识库摘要 + 当前槽位状态。"""
-        # 加载完整知识库，不做截断
+        """构建系统消息，包含 system prompt + 知识库 + 数据库状态 + 数据治理规则 + 槽位状态。"""
         kb = self.knowledge_base if self.knowledge_base else ""
-        kb_summary = kb  # 全量加载，不限制
-        slots_status = slots_summary()
+        slots_status = slots_summary(self.slots)
         search_note = ""
         if CONFIG["enable_search"]:
-            search_note = "\n\n【联网搜索已启用。遇到最新政策/分数线/就业数据等问题时，请在回答中说明需要搜索最新信息，或使用搜索工具查询。】"
+            search_note = "\n\n【联网搜索已启用。遇到最新政策/分数线/就业数据等问题时，优先查询本地数据库，数据不足时再搜索。】"
+
+        # 数据库状态
+        db_info = ""
+        if HAS_DATA_MODULE:
+            try:
+                stats = get_db_stats()
+                if isinstance(stats, dict) and "schools" in stats:
+                    db_info = f"""
+【本地数据库已就绪】
+- 院校: {stats['schools']} 条（985/211/双一流/普通）
+- 专业: {stats['majors']} 条（含就业率、薪资、就业方向）
+- 录取分数线: {stats['admission_scores']} 条（多省份多年份）
+- 学科排名: {stats['subject_rankings']} 条（教育部评估）
+- 招生政策: {stats['policies']} 条
+
+数据来源分级：T1-官方数据（教育部/省考试院）> T2-权威平台（掌上高考/麦可思）> T4-百度搜索（仅供参考）
+引用录取分数/就业数据时必须标注数据来源和年份。"""
+            except Exception:
+                db_info = "\n【本地数据库加载中...】"
 
         full_system = f"""{self.system_prompt}
-
+{db_info}
 {search_note}
 
 【知识库参考】
-{kb_summary}
+{kb}
 
 【当前用户信息采集状态】
 {slots_status}
 
+【数据查询规则】
+当用户问到具体学校/专业/分数时，按以下优先级获取数据：
+1. 本地数据库（有结构化的录取分数、院校信息、专业就业数据）→ 直接引用并标注来源
+2. 百度实时搜索（数据库没有时的兜底方案）→ 标注"百度搜索，仅供参考，请核实官方数据"
+3. 用户自行查询（数据完全缺失时）→ 建议去省考试院官网/阳光高考平台查询
+
+严禁编造具体的录取分数和位次。不确定的数据必须标注"请核实"。
+
 请在回答时：
 1. 如果用户信息不全，追问缺失的槽位（用自然的方式，不要像填表）。
-2. 如果信息已经足够（至少省份+分数/位次+核心诉求），给出冲稳保推荐。
-3. 遇到需要最新数据时，提示用户"建议查XX官方渠道"，或主动搜索。
+2. 如果信息已经足够（至少省份+分数/位次+核心诉求），查询数据库获取匹配院校后给出冲稳保推荐。
+3. 引用数据时标注来源（如"根据教育部2023年学科评估..."或"数据库显示该校2024年录取线..."）。
 4. 保持直爽、接地气的风格。"""
         return full_system
 
@@ -311,8 +403,8 @@ class GaokaoAdvisor:
         """处理一轮对话。返回 assistant 的回复。"""
         # 检查意图
         if is_consultation_intent(user_msg):
-            # 提取槽位
-            updates = extract_slots_from_message(user_msg)
+            # 提取槽位（使用实例自己的 slots）
+            updates = extract_slots_from_message(user_msg, self.slots)
         else:
             updates = []
 
@@ -329,31 +421,137 @@ class GaokaoAdvisor:
             hint = f"(系统自动识别到: {', '.join(updates)}。请在回复中确认并追问缺失信息。)"
             messages.append({"role": "system", "content": hint})
 
-        # 搜索（更积极 + 真实数据）
+        # 语录库注入：根据用户提到的专业，注入相关语录作为参考
+        if QUOTES_INDEX:
+            quote_keywords = []
+            for major_key in QUOTES_INDEX:
+                if major_key in user_msg:
+                    quote_keywords.append(major_key)
+            if quote_keywords:
+                quotes_to_inject = []
+                for mk in quote_keywords[:2]:  # 最多注入 2 个专业的语录
+                    for q in QUOTES_INDEX[mk][:2]:  # 每专业最多 2 条
+                        quotes_to_inject.append(q["text"])
+                if quotes_to_inject:
+                    quote_text = "\n".join([f"· {q}" for q in quotes_to_inject[:3]])
+                    messages.append({
+                        "role": "system",
+                        "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）"
+                    })
+
+        # 搜索（数据库优先 + 百度兜底）
         search_results = None
         if CONFIG["enable_search"] and should_search(user_msg):
-            # 尝试用数据模块搜真实录取数据
-            school_match = re.findall(r'[一-鿿]{2,6}(?:大学|学院)', user_msg)
-            prov_match = re.findall(r'(北京|天津|上海|重庆|河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|江西|山东|河南|湖北|湖南|广东|广西|海南|四川|贵州|云南|陕西|甘肃|青海|台湾|内蒙古|西藏|宁夏|新疆)', user_msg)
+            data_hints = []
 
-            if school_match and prov_match and HAS_DATA_MODULE:
-                try:
-                    raw = query_admission(school_match[0], prov_match[0])
-                    admission_text = format_admission_info(raw)
-                    if admission_text and "暂无" not in admission_text:
-                        search_hint = f"【真实录取数据搜索】\n{admission_text}"
-                        messages.append({"role": "system", "content": search_hint})
-                        search_results = "data_module_used"
-                except:
-                    pass
+            # 提取学校名和省份
+            school_match = re.findall(r'[一-鿿]{2,10}(?:大学|学院|学校)', user_msg)
+            prov_match = re.findall(
+                r'(北京|天津|上海|重庆|河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|江西|山东|河南|湖北|湖南|广东|广西|海南|四川|贵州|云南|陕西|甘肃|青海|台湾|内蒙古|西藏|宁夏|新疆)',
+                user_msg
+            )
 
-            # 降级：用普通搜索
+            if HAS_DATA_MODULE:
+                # 1. 查录取分数线（学校+省份）
+                if school_match and prov_match:
+                    try:
+                        raw = query_admission(school_match[0], prov_match[0])
+                        admission_text = format_admission_info(raw)
+                        if admission_text and "暂无" not in admission_text:
+                            data_hints.append(f"【录取数据查询结果】\n{admission_text}")
+                    except Exception:
+                        pass
+
+                # 2. 查院校基本信息
+                if school_match:
+                    try:
+                        info = query_school_info(school_match[0])
+                        if info:
+                            level_parts = []
+                            if info.get("is_985"): level_parts.append("985")
+                            if info.get("is_211"): level_parts.append("211")
+                            if info.get("is_double_first_class"): level_parts.append("双一流")
+                            level_str = "/".join(level_parts) if level_parts else info.get("level", "")
+                            data_hints.append(
+                                f"【院校信息】{info['name']} | {info['province']}{info['city']} | "
+                                f"{level_str} {info.get('school_type','')} | 软科排名{info.get('ranking','未知')} | "
+                                f"来源：{info['data_source']}"
+                            )
+                    except Exception:
+                        pass
+
+                # 3. 提取专业关键词，查就业数据
+                major_match = re.findall(
+                    r'(计算机|软件|人工智能|电气|电子信息|通信|临床医学|口腔|金融|法学|会计|土木|机械|新闻|汉语言|数学|物理|化学|生物|材料|环境|自动化|集成电路|大数据|物联网|信息安全|车辆工程|建筑学|统计学|药学|师范|英语|历史学|哲学)',
+                    user_msg
+                )
+                if major_match:
+                    try:
+                        major_info = query_major_info(major_match[0])
+                        if major_info:
+                            emp_rate = f"{major_info['employment_rate']*100:.0f}%" if major_info.get('employment_rate') else "未知"
+                            salary = f"{major_info['avg_salary']:.0f}元/月" if major_info.get('avg_salary') else "未知"
+                            data_hints.append(
+                                f"【就业数据】{major_info['name']} | {major_info.get('category','')} | "
+                                f"就业率{emp_rate} | 毕业5年均薪{salary} | "
+                                f"来源：{major_info['data_source']}"
+                            )
+                    except Exception:
+                        pass
+
+                # 4. 如果有分数+省份+选科信息，做位次法匹配推荐
+                score_match = re.search(r'(\d{3})\s*分', user_msg)
+                if score_match and prov_match and not school_match:
+                    try:
+                        score = int(score_match.group(1))
+                        subject = "物理类" if "物理" in user_msg else ("历史类" if "历史" in user_msg else "综合")
+                        # 先查位次
+                        rank_info = query_yi_fen_yi_duan(prov_match[0], score, subject, 2024)
+                        if rank_info and rank_info.get("rank"):
+                            data_hints.append(
+                                f"【分数→位次】{prov_match[0]} {score}分 {subject} → 位次约 {rank_info['rank']:,}\n"
+                                f"来源：{rank_info['source']}\n"
+                                f"置信度：{rank_info['confidence']}"
+                            )
+
+                        # 冲/稳/保三档推荐
+                        for strategy in ["冲", "稳", "保"]:
+                            matches = query_match_schools_v2(
+                                score, prov_match[0], subject, strategy, year=2024
+                            )
+                            if matches:
+                                match_lines = []
+                                for m in matches[:5]:
+                                    badge = ""
+                                    if m.get("is_985"): badge = "985/"
+                                    elif m.get("is_211"): badge = "211/"
+                                    match_lines.append(
+                                        f"  {m.get('school_name','')[:15]:15}({badge}{m.get('school_level','')}) "
+                                        f"{m.get('batch','')[:8]:8} "
+                                        f"最低分{m.get('min_score','')} 位次{m.get('min_rank','')}"
+                                    )
+                                data_hints.append(
+                                    f"【{strategy}档位次法推荐】{prov_match[0]} {score}分 {subject}：\n" +
+                                    "\n".join(match_lines)
+                                )
+                    except Exception as e:
+                        pass
+
+            # 汇总数据库结果
+            if data_hints:
+                messages.append({"role": "system", "content": "\n\n".join(data_hints)})
+                search_results = "db_used"
+
+            # 降级：数据库没有足够数据 → 百度搜索
             if not search_results:
                 search_query = user_msg[:100]
-                search_results = web_search(search_query)
-                if search_results:
-                    search_hint = f"【搜索结果】\n" + "\n".join(
-                        f"· {r}" for r in search_results[:3]
+                try:
+                    baidu_results = web_search(search_query)
+                except Exception:
+                    baidu_results = []
+                if baidu_results:
+                    search_hint = "【百度搜索结果（T4级，仅供参考，请核实官方数据）】\n" + "\n".join(
+                        f"· {r}" for r in baidu_results[:3]
                     )
                     messages.append({"role": "system", "content": search_hint})
 
@@ -383,9 +581,9 @@ class GaokaoAdvisor:
     def reset(self):
         """重置对话和槽位。"""
         self.conversation = []
-        for k in SLOTS:
-            SLOTS[k]["filled"] = False
-            SLOTS[k]["value"] = ""
+        for k in self.slots:
+            self.slots[k]["filled"] = False
+            self.slots[k]["value"] = ""
 
 # ── CLI 界面 ─────────────────────────────────────────
 def test_connection():

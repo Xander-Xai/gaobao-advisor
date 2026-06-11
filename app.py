@@ -13,27 +13,26 @@ import streamlit as st
 # ── Streamlit Cloud Secrets 支持 ─────────────────────
 # 如果在 Streamlit Cloud 上运行，从 st.secrets 加载环境变量
 # 本地运行时则从 .env 文件加载（由 agent.py 的 dotenv 处理）
-if hasattr(st, "secrets"):
-    for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER",
-                "ENABLE_SEARCH"]:
-        val = st.secrets.get(key)
-        if val:
-            os.environ[key] = str(val)
+try:
+    if hasattr(st, "secrets") and st.secrets:
+        for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER",
+                    "ENABLE_SEARCH"]:
+            val = st.secrets.get(key)
+            if val:
+                os.environ[key] = str(val)
+except Exception:
+    # 没有 secrets.toml 文件时忽略，使用 .env 配置
+    pass
 
 # 确保当前目录在 path 中，以便导入 agent 模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from agent import (
     GaokaoAdvisor,
-    resolve_config,
     slots_summary,
-    filled_slots,
-    SLOTS,
 )
 
 # ── 常量 ─────────────────────────────────────────────
-FREE_LIMIT = 3
-UPGRADE_LINK = "#"  # 付费链接占位
 
 WELCOME_MSG = (
     "你好！我是 **AI 高考志愿顾问**，专门帮你解决志愿填报难题。\n\n"
@@ -201,8 +200,22 @@ st.markdown(
 # ── Session State 初始化 ──────────────────────────────
 def init_session():
     """初始化 session state 中的顾问实例和计数器。"""
-    if "advisor" not in st.session_state:
-        st.session_state.advisor = GaokaoAdvisor()
+    # 先初始化 per-session 的 slots（每个用户独立）
+    if "slots" not in st.session_state:
+        st.session_state.slots = {
+            "province":     {"label": "省份", "filled": False, "value": ""},
+            "score_rank":   {"label": "分数/位次", "filled": False, "value": ""},
+            "subject":      {"label": "选科", "filled": False, "value": ""},
+            "interest":     {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
+            "region":       {"label": "地域偏好", "filled": False, "value": ""},
+            "family":       {"label": "家庭资源", "filled": False, "value": ""},
+            "goal":         {"label": "核心诉求", "filled": False, "value": ""},
+        }
+    # API Key 输入状态
+    if "user_api_key" not in st.session_state:
+        st.session_state.user_api_key = ""
+    if "api_key_confirmed" not in st.session_state:
+        st.session_state.api_key_confirmed = False
     if "msg_count" not in st.session_state:
         st.session_state.msg_count = 0
     if "messages" not in st.session_state:
@@ -214,8 +227,29 @@ def init_session():
 
 init_session()
 
-# 取出实例
-advisor = st.session_state.advisor
+# 检查是否有可用的 API Key（环境变量 or 用户输入）
+_env_api_key = os.environ.get("LLM_API_KEY", "")
+_has_env_key = bool(_env_api_key) and _env_api_key != "sk-your-api-key-here"
+
+
+def get_or_create_advisor():
+    """获取或创建 advisor 实例（根据 API Key 是否可用）。"""
+    if st.session_state.api_key_confirmed and st.session_state.user_api_key:
+        if "advisor" not in st.session_state or st.session_state.get("_advisor_key") != st.session_state.user_api_key:
+            st.session_state.advisor = GaokaoAdvisor(
+                api_key=st.session_state.user_api_key,
+                slots=st.session_state.slots,
+            )
+            st.session_state._advisor_key = st.session_state.user_api_key
+    elif _has_env_key:
+        if "advisor" not in st.session_state:
+            st.session_state.advisor = GaokaoAdvisor(slots=st.session_state.slots)
+    else:
+        return None
+    return st.session_state.advisor
+
+
+advisor = get_or_create_advisor()
 msg_count = st.session_state.msg_count
 
 # ── 顶部标题 ──────────────────────────────────────────
@@ -233,6 +267,30 @@ with st.sidebar:
     st.markdown("### 🎓 免费 AI 高考志愿顾问")
     st.markdown("---")
 
+    # API Key 输入（仅当环境变量中没有 key 时显示，正常部署不会出现）
+    if not _has_env_key:
+        st.markdown("#### ⚙️ 需要配置 API Key")
+        st.markdown(
+            "应用尚未配置 AI 服务。\n\n"
+            "**部署者**：请在 Streamlit Cloud 的 Settings → Secrets 中添加：\n"
+            "```toml\nLLM_API_KEY = \"sk-你的key\"\n```\n"
+            "或者你也可以临时在下方输入自己的 Key 来体验："
+        )
+        api_input = st.text_input(
+            "临时 API Key",
+            type="password",
+            placeholder="sk-...",
+            key="api_key_input",
+        )
+        if st.button("✅ 使用此 Key", use_container_width=True, disabled=not api_input):
+            st.session_state.user_api_key = api_input
+            st.session_state.api_key_confirmed = True
+            if "advisor" in st.session_state:
+                del st.session_state["advisor"]
+            st.rerun()
+        st.markdown("[免费获取 DeepSeek Key →](https://platform.deepseek.com)")
+        st.markdown("---")
+
     st.markdown("**智能分析你的分数**，推荐最合适的冲、稳、保院校。")
 
     st.markdown("#### 💡 使用技巧")
@@ -241,58 +299,35 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 槽位进度
-    filled = len(filled_slots())
-    total = len(SLOTS)
+    # 槽位进度（使用 session 级的 slots）
+    _slots = st.session_state.slots
+    filled = sum(1 for v in _slots.values() if v["filled"])
+    total = len(_slots)
     st.markdown(f"#### 📊 信息采集进度 ({filled}/{total})")
     dots = ""
-    for k, v in SLOTS.items():
+    for k, v in _slots.items():
         cls = "slot-filled" if v["filled"] else "slot-empty"
         dots += f'<span class="slot-dot {cls}" title="{v["label"]}: {v["value"] if v["filled"] else "未填"}"></span>'
     st.markdown(f'<div class="slot-bar">{dots}</div>', unsafe_allow_html=True)
 
-    for k, v in SLOTS.items():
+    for k, v in _slots.items():
         status = "✅" if v["filled"] else "⬜"
         val = v["value"] if v["filled"] else "未填"
         st.markdown(f"{status} {v['label']}: {val}")
 
     st.markdown("---")
 
-    # 免费次数显示
-    remaining = max(0, FREE_LIMIT - msg_count)
-    if remaining > 1:
-        badge_cls = "counter-ok"
-        counter_text = f"✅ 剩余免费次数：{remaining} 次"
-    elif remaining == 1:
-        badge_cls = "counter-warn"
-        counter_text = f"⚠️ 仅剩最后 1 次免费机会"
-    else:
-        badge_cls = "counter-limit"
-        counter_text = "❌ 免费次数已用完"
-    st.markdown(
-        f'<div class="counter-badge {badge_cls}">{counter_text}</div>',
-        unsafe_allow_html=True,
-    )
-
-    # 升级提示
-    if msg_count >= FREE_LIMIT:
-        st.markdown(
-            '<div class="upgrade-box">'
-            "<strong>🚀 解锁完整版</strong><br>"
-            "无限对话 + 深度分析 + 志愿方案导出<br>"
-            f'<a href="{UPGRADE_LINK}">立即升级</a>'
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
-
     # 重置按钮
     if st.button("🔄 重新开始对话", use_container_width=True):
-        advisor.reset()
+        if advisor:
+            advisor.reset()
         st.session_state.messages = []
         st.session_state.msg_count = 0
         st.session_state.limit_reached = False
+        # 重置 slots
+        for k in st.session_state.slots:
+            st.session_state.slots[k]["filled"] = False
+            st.session_state.slots[k]["value"] = ""
         st.rerun()
 
 
@@ -329,27 +364,15 @@ if not user_input:
     user_input = st.chat_input("输入你的情况，例如：我是山东考生，580分...")
 
 if user_input:
-    # 检查是否达到免费限制
-    if msg_count >= FREE_LIMIT:
-        st.session_state.limit_reached = True
-        # 显示用户的输入（让用户看到自己发了什么）
+    # 检查是否有 API Key
+    if not advisor:
+        no_key_msg = "请先在左侧边栏输入你的 **API Key** 才能使用顾问。\n\n免费获取：[DeepSeek Platform](https://platform.deepseek.com)"
         with st.chat_message("user"):
             st.markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
-
-        # 显示升级提示作为回复
-        upgrade_msg = (
-            "抱歉，你今天的 **免费咨询次数已用完** 😔\n\n"
-            "升级到完整版即可享受：\n"
-            "- ♾️ **无限对话**，不设次数限制\n"
-            "- 📊 **深度院校分析**，包含录取概率评估\n"
-            "- 📄 **志愿方案导出**，一键生成填报表\n"
-            "- 🔍 **实时数据搜索**，获取最新分数线\n\n"
-            f"[👉 点击这里升级]({UPGRADE_LINK})"
-        )
         with st.chat_message("assistant"):
-            st.markdown(upgrade_msg)
-        st.session_state.messages.append({"role": "assistant", "content": upgrade_msg})
+            st.markdown(no_key_msg)
+        st.session_state.messages.append({"role": "assistant", "content": no_key_msg})
         st.stop()
 
     # 显示用户消息
@@ -360,6 +383,9 @@ if user_input:
     # 处理指令：/reset
     if user_input.strip().lower() == "/reset":
         advisor.reset()
+        for k in st.session_state.slots:
+            st.session_state.slots[k]["filled"] = False
+            st.session_state.slots[k]["value"] = ""
         reset_msg = "✅ 已重置对话和信息采集，我们可以重新开始。"
         with st.chat_message("assistant"):
             st.markdown(reset_msg)
@@ -370,10 +396,11 @@ if user_input:
 
     # 处理指令：/slots
     if user_input.strip().lower() == "/slots":
+        _slots_text = slots_summary(st.session_state.slots)
         with st.chat_message("assistant"):
-            st.markdown(f"```\n{slots_summary()}\n```")
+            st.markdown(f"```\n{_slots_text}\n```")
         st.session_state.messages.append(
-            {"role": "assistant", "content": f"```\n{slots_summary()}\n```"}
+            {"role": "assistant", "content": f"```\n{_slots_text}\n```"}
         )
         st.stop()
 
