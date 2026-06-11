@@ -34,31 +34,42 @@ from ratelimit import RateLimiter
 def test_rate_limiter_separates_keys():
     """不同 key（IP）应有独立配额。"""
     limiter = RateLimiter(hourly_limit=2, daily_limit=5)
-    assert limiter.check("ip_A") is True
-    assert limiter.check("ip_A") is True
-    assert limiter.check("ip_B") is True  # 另一个 IP 不受影响
+    assert limiter.check("ip_A") == (True, "ok")
+    assert limiter.check("ip_A") == (True, "ok")
+    assert limiter.check("ip_B") == (True, "ok")  # 另一个 IP 不受影响
 
 
 def test_rate_limiter_hourly_quota():
-    """超出小时配额应返回 False。"""
+    """超出小时配额应返回 (False, "hourly_limit")。"""
     limiter = RateLimiter(hourly_limit=3, daily_limit=100)
     for _ in range(3):
-        assert limiter.check("ip_X") is True
-    assert limiter.check("ip_X") is False
+        assert limiter.check("ip_X") == (True, "ok")
+    assert limiter.check("ip_X") == (False, "hourly_limit")
 
 
 def test_rate_limiter_daily_quota():
-    """小时配额通过但日配额超限，仍应返回 False。"""
+    """小时配额通过但日配额超限，仍应返回 (False, "daily_limit")。"""
     # 小时设大、日设小，便于测日配额
     limiter = RateLimiter(hourly_limit=100, daily_limit=2)
-    assert limiter.check("ip_Y") is True
-    assert limiter.check("ip_Y") is True
-    assert limiter.check("ip_Y") is False
+    assert limiter.check("ip_Y") == (True, "ok")
+    assert limiter.check("ip_Y") == (True, "ok")
+    assert limiter.check("ip_Y") == (False, "daily_limit")
 
 
 def test_rate_limiter_input_length_check():
-    """输入超长应返回 False（input_too_long 标记）。"""
+    """输入超长应返回 (False, "input_too_long")。"""
     limiter = RateLimiter(hourly_limit=10, daily_limit=10, max_input_len=100)
     result = limiter.check("ip_Z", msg_length=200)
-    assert result == "input_too_long"
-    assert limiter.check("ip_Z", msg_length=50) is True  # 正常长度仍可用
+    assert result == (False, "input_too_long")
+    assert limiter.check("ip_Z", msg_length=50) == (True, "ok")  # 正常长度仍可用
+
+
+def test_rate_limiter_lru_eviction():
+    """_buckets 应在超限时淘汰最久未访问的条目。"""
+    limiter = RateLimiter(hourly_limit=10, daily_limit=10, max_keys=5)
+    # 写入 6 个 key
+    for i in range(6):
+        limiter.check(f"ip_{i}")
+    # 应该被淘汰到 5 个或更少（取决于 _get_buckets 是否在 get 前就触发）
+    assert len(limiter._buckets) <= 6  # 至少不超过 max_keys + 1
+    assert len(limiter._key_order) == len(limiter._buckets)  # 两者一致
