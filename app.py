@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import uuid
+import html
 import streamlit as st
 
 # ── Streamlit Cloud Secrets 支持 ─────────────────────
@@ -686,7 +687,9 @@ with st.sidebar:
     dots = ""
     for k, v in _slots.items():
         cls = "slot-filled" if v["filled"] else "slot-empty"
-        dots += f'<span class="slot-dot {cls}" title="{v["label"]}: {v["value"] if v["filled"] else "未填"}"></span>'
+        safe_label = html.escape(v["label"])
+        safe_value = html.escape(v["value"] if v["filled"] else "未填")
+        dots += f'<span class="slot-dot {cls}" title="{safe_label}: {safe_value}"></span>'
     st.markdown(f'<div class="slot-bar">{dots}</div>', unsafe_allow_html=True)
 
     for k, v in _slots.items():
@@ -797,6 +800,49 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.warning("请至少填写省份或分数中的一项。")
+
+    st.markdown("---")
+
+    # 📤 导出 & 分享
+    with st.expander("📤 导出 & 分享", expanded=False):
+        _sid = st.session_state.session_id
+        # 分享链接
+        _base_url = st.query_params.get("sid", _sid)
+        st.markdown(
+            f"**会话 ID**：`{_sid}`\n\n"
+            f"关闭页面后，通过此链接可恢复对话：\n\n"
+            f"页面地址栏中已包含 `?sid={_sid}`"
+        )
+        st.caption("💡 复制浏览器地址栏链接，发给家人或自己保存即可。")
+        # 导出对话为 Markdown
+        if st.button("📥 导出对话记录（Markdown）", use_container_width=True):
+            export_lines = []
+            export_lines.append(f"# AI 高考志愿顾问 — 对话记录")
+            export_lines.append(f"**会话 ID**: {_sid}\n")
+            # 槽位信息
+            _slots = st.session_state.slots
+            filled_slots = {k: v for k, v in _slots.items() if v["filled"]}
+            if filled_slots:
+                export_lines.append("## 已采集信息\n")
+                for k, v in filled_slots.items():
+                    export_lines.append(f"- **{v['label']}**: {v['value']}")
+                export_lines.append("")
+            export_lines.append("## 对话内容\n")
+            for msg in st.session_state.messages:
+                role_label = "👤 用户" if msg["role"] == "user" else "🤖 顾问"
+                content = msg["content"]
+                # 清理 HTML 标签
+                import re as _re3
+                content = _re3.sub(r'<[^>]+>', '', content)
+                export_lines.append(f"### {role_label}\n{content}\n")
+            export_text = "\n".join(export_lines)
+            st.download_button(
+                "💾 下载 Markdown 文件",
+                data=export_text,
+                file_name=f"高考志愿咨询记录_{_sid}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
 
     st.markdown("---")
 
