@@ -7,21 +7,46 @@
       "text": "你以为你毕业能进银行当行长？你只能去银行卖理财产品。",
       "text_en": "You think you'll become a bank president after graduation? You'll just be selling financial products at a bank.",
       "context": "揭示金融专业毕业生的真实就业情况",
-      "tags": ["金融", "银行", "就业现实", "理想与现实"],
-      "target_audience": ["高考生", "大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "金融",
+        "银行",
+        "就业现实",
+        "理想与现实"
+      ],
+      "target_audience": [
+        "高考生",
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "humorous",
       "confidence": "attributed",
-      "related_majors": ["金融学", "经济学"]
+      "related_majors": [
+        "金融学",
+        "经济学"
+      ]
     },
     {
       "id": "zxf-jiuye-002",
       "text": "什么是好工作？钱多、事少、离家近、稳定。但你最多只能占两个。",
       "text_en": "What's a good job? Good pay, light work, close to home, stable. But you can only have two at most.",
       "context": "理性分析好工作的标准",
-      "tags": ["好工作", "标准", "现实", "取舍"],
-      "target_audience": ["高考生", "大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "好工作",
+        "标准",
+        "现实",
+        "取舍"
+      ],
+      "target_audience": [
+        "高考生",
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "neutral",
       "confidence": "attributed",
       "related_majors": []
@@ -31,9 +56,21 @@
       "text": "考公考编，是当代年轻人最大的确定性。别嫌弃体制内，等你35岁被裁员就知道了。",
       "text_en": "Civil service exams are the greatest certainty for today's youth. Don't dismiss government jobs — you'll understand when you get laid off at 35.",
       "context": "鼓励考公务员和事业编制",
-      "tags": ["考公", "编制", "体制内", "35岁", "裁员"],
-      "target_audience": ["大学生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "考公",
+        "编制",
+        "体制内",
+        "35岁",
+        "裁员"
+      ],
+      "target_audience": [
+        "大学生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "attributed",
       "related_majors": []
@@ -43,33 +80,73 @@
       "text": "你学了四年管理学，毕业去管谁？人家凭什么让你管？",
       "text_en": "You studied management for four years — who are you going to manage after graduation? Why would anyone let you manage them?",
       "context": "批评管理学专业本科毕业生的就业尴尬",
-      "tags": ["管理学", "就业", "本科", "经验"],
-      "target_audience": ["高考生"],
-      "source": { "platform": "抖音", "type": "短视频" },
+      "tags": [
+        "管理学",
+        "就业",
+        "本科",
+        "经验"
+      ],
+      "target_audience": [
+        "高考生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "短视频"
+      },
       "sentiment": "humorous",
       "confidence": "attributed",
-      "related_majors": ["工商管理", "行政管理", "人力资源管理"]
+      "related_majors": [
+        "工商管理",
+        "行政管理",
+        "人力资源管理"
+      ]
     },
     {
       "id": "zxf-jiuye-005",
       "text": "互联网行业的高薪是用青春换的。你能拼到35岁，然后呢？",
       "text_en": "The high salaries in tech are traded for your youth. You can push yourself until 35, then what?",
       "context": "分析互联网行业的年龄危机",
-      "tags": ["互联网", "高薪", "35岁", "青春", "年龄危机"],
-      "target_audience": ["大学生", "高考生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "互联网",
+        "高薪",
+        "35岁",
+        "青春",
+        "年龄危机"
+      ],
+      "target_audience": [
+        "大学生",
+        "高考生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "attributed",
-      "related_majors": ["计算机科学与技术", "软件工程"]
+      "related_majors": [
+        "计算机科学与技术",
+        "软件工程"
+      ]
     },
     {
       "id": "zxf-jiuye-006",
       "text": "学技术的永远不会失业，因为社会永远需要能干活的人。",
       "text_en": "Those who learn practical skills will never be unemployed, because society always needs people who can do the work.",
       "context": "强调技术类专业的就业保障",
-      "tags": ["技术", "就业", "实用", "保障"],
-      "target_audience": ["高考生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "技术",
+        "就业",
+        "实用",
+        "保障"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "encouraging",
       "confidence": "attributed",
       "related_majors": []
@@ -79,9 +156,19 @@
       "text": "第一份工作非常重要，它决定了你在哪个圈子、接触什么人、未来往哪个方向走。",
       "text_en": "Your first job is extremely important — it determines your circle, the people you meet, and the direction of your future.",
       "context": "强调第一份工作对职业发展的奠基作用",
-      "tags": ["第一份工作", "职业发展", "圈子", "方向"],
-      "target_audience": ["大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "第一份工作",
+        "职业发展",
+        "圈子",
+        "方向"
+      ],
+      "target_audience": [
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -91,9 +178,20 @@
       "text": "别光看平均薪资，你要看中位数。平均薪资是被马云拉上去的，跟你没关系。",
       "text_en": "Don't just look at average salaries — look at the median. Average salaries are pulled up by billionaires; it has nothing to do with you.",
       "context": "揭示专业薪资数据的统计陷阱",
-      "tags": ["薪资", "中位数", "统计陷阱", "现实"],
-      "target_audience": ["高考生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "薪资",
+        "中位数",
+        "统计陷阱",
+        "现实"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "humorous",
       "confidence": "paraphrased",
       "related_majors": []
@@ -103,9 +201,20 @@
       "text": "国企的好处不是工资高，是工资稳。你旱涝保收，过年有年终奖，退休有保障。",
       "text_en": "The advantage of state-owned enterprises isn't high pay — it's stable pay. Rain or shine you get paid, with year-end bonuses and retirement security.",
       "context": "分析国企就业的核心优势",
-      "tags": ["国企", "稳定", "福利", "退休"],
-      "target_audience": ["大学生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "国企",
+        "稳定",
+        "福利",
+        "退休"
+      ],
+      "target_audience": [
+        "大学生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "encouraging",
       "confidence": "paraphrased",
       "related_majors": []
@@ -115,9 +224,19 @@
       "text": "私企给你画饼，国企给你发饼。你自己选。",
       "text_en": "Private companies paint you a pie (make empty promises); state-owned companies actually give you the pie. You choose.",
       "context": "对比私企和国企的薪酬兑现",
-      "tags": ["私企", "国企", "画饼", "选择"],
-      "target_audience": ["大学生"],
-      "source": { "platform": "抖音", "type": "短视频" },
+      "tags": [
+        "私企",
+        "国企",
+        "画饼",
+        "选择"
+      ],
+      "target_audience": [
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "短视频"
+      },
       "sentiment": "humorous",
       "confidence": "paraphrased",
       "related_majors": []
@@ -127,9 +246,19 @@
       "text": "自媒体不是职业，是副业。你见过几个自媒体做了十年还活得好的？",
       "text_en": "Social media isn't a career — it's a side hustle. How many content creators have you seen thriving after ten years?",
       "context": "警告年轻人不要把自媒体当主业",
-      "tags": ["自媒体", "自由职业", "稳定性", "风险"],
-      "target_audience": ["大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "自媒体",
+        "自由职业",
+        "稳定性",
+        "风险"
+      ],
+      "target_audience": [
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -139,9 +268,19 @@
       "text": "考研不是逃避就业的借口。你要想清楚，三年后就业环境会不会比现在更好？",
       "text_en": "Grad school isn't an excuse to avoid employment. Think clearly: will the job market be any better in three years?",
       "context": "批评盲目考研的延迟就业行为",
-      "tags": ["考研", "延迟就业", "规划", "就业"],
-      "target_audience": ["大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "考研",
+        "延迟就业",
+        "规划",
+        "就业"
+      ],
+      "target_audience": [
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -151,9 +290,20 @@
       "text": "毕业去大城市还是回小城市？有能力去大城市，没关系回小城市。就这么简单。",
       "text_en": "Go to a big city or return to a small town after graduation? If you're capable, go to the big city. If you have connections, go back to the small town. It's that simple.",
       "context": "分析大城市和小城市的就业选择",
-      "tags": ["大城市", "小城市", "就业选择", "能力", "关系"],
-      "target_audience": ["大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "大城市",
+        "小城市",
+        "就业选择",
+        "能力",
+        "关系"
+      ],
+      "target_audience": [
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "neutral",
       "confidence": "paraphrased",
       "related_majors": []
@@ -163,9 +313,20 @@
       "text": "行业有周期，你得在上升期进去，别在下降期接盘。房地产、教培就是前车之鉴。",
       "text_en": "Industries have cycles. Get in during the upswing, don't be the one holding the bag on the decline. Real estate and tutoring are cautionary tales.",
       "context": "分析行业周期对就业的影响",
-      "tags": ["行业周期", "房地产", "教培", "择业"],
-      "target_audience": ["高考生", "大学生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "行业周期",
+        "房地产",
+        "教培",
+        "择业"
+      ],
+      "target_audience": [
+        "高考生",
+        "大学生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -175,9 +336,20 @@
       "text": "女生就业确实比男生难，这是现实。所以女生更要选对专业，别让专业再给你加一道坎。",
       "text_en": "It's harder for women to find jobs — that's reality. So women need to choose the right major even more carefully; don't let your major add another hurdle.",
       "context": "直面性别就业差距的现实",
-      "tags": ["性别", "就业差距", "女生", "专业选择"],
-      "target_audience": ["高考生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "性别",
+        "就业差距",
+        "女生",
+        "专业选择"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -187,9 +359,20 @@
       "text": "起薪高不代表天花板高。有些行业起薪8000封顶一万，有些起薪5000但能到五万。看长远。",
       "text_en": "High starting salary doesn't mean a high ceiling. Some industries start at 8K but cap at 10K; others start at 5K but can reach 50K. Think long-term.",
       "context": "分析起薪和职业天花板的关系",
-      "tags": ["起薪", "天花板", "职业发展", "长远"],
-      "target_audience": ["大学生", "高考生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "起薪",
+        "天花板",
+        "职业发展",
+        "长远"
+      ],
+      "target_audience": [
+        "大学生",
+        "高考生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "neutral",
       "confidence": "paraphrased",
       "related_majors": []
@@ -199,9 +382,20 @@
       "text": "海归也不值钱了。你花两百万出去留学，回来跟国内985抢同一个岗位，人家还嫌你不了解国内市场。",
       "text_en": "Overseas degrees aren't worth much anymore. You spend 2 million on studying abroad, come back competing with domestic 985 grads for the same job, and they say you don't understand the local market.",
       "context": "分析海归学历贬值的现象",
-      "tags": ["海归", "留学", "学历贬值", "就业"],
-      "target_audience": ["家长", "高考生"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "海归",
+        "留学",
+        "学历贬值",
+        "就业"
+      ],
+      "target_audience": [
+        "家长",
+        "高考生"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "cautionary",
       "confidence": "paraphrased",
       "related_majors": []
@@ -211,12 +405,1717 @@
       "text": "好的大专比烂的本科强。你学个护理、学个数控，出来就能上手干活，企业抢着要。",
       "text_en": "A good vocational school beats a bad university. Learn nursing or CNC machining, and you can start working immediately — companies fight to hire you.",
       "context": "为职业教育正名",
-      "tags": ["大专", "职业教育", "技术", "就业", "本科"],
-      "target_audience": ["高考生", "家长"],
-      "source": { "platform": "抖音", "type": "直播" },
+      "tags": [
+        "大专",
+        "职业教育",
+        "技术",
+        "就业",
+        "本科"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "抖音",
+        "type": "直播"
+      },
       "sentiment": "encouraging",
       "confidence": "paraphrased",
-      "related_majors": ["护理学", "机械设计制造"]
+      "related_majors": [
+        "护理学",
+        "机械设计制造"
+      ]
+    },
+    {
+      "id": "q_230",
+      "text": "计算机专业是普通家庭孩子改变命运的性价比之王。这话我说一万遍都不变。",
+      "text_en": "",
+      "context": "强调计算机在阶层跃升中的作用",
+      "tags": [
+        "计算机"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "计算机"
+      ]
+    },
+    {
+      "id": "q_231",
+      "text": "电气工程是普通家庭进体制内的金钥匙。国家电网，你考上了全家都光荣。",
+      "text_en": "",
+      "context": "推荐电气作为体制内就业路径",
+      "tags": [
+        "电气"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "电气"
+      ]
+    },
+    {
+      "id": "q_232",
+      "text": "师范类专业不赚钱，但稳定。女孩想求稳，教师编是不错的选择。",
+      "text_en": "",
+      "context": "分析师范类就业的稳定性",
+      "tags": [
+        "师范"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "师范"
+      ]
+    },
+    {
+      "id": "q_233",
+      "text": "医学专业读到博士是质变。本科毕业和博士毕业，社会地位天上地下。",
+      "text_en": "",
+      "context": "分析医学专业学历对就业的影响",
+      "tags": [
+        "临床医学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "临床医学"
+      ]
+    },
+    {
+      "id": "q_234",
+      "text": "考公务员不是退路，是另一条赛道。想清楚你到底要稳定还是要钱。",
+      "text_en": "",
+      "context": "分析考公的职业定位",
+      "tags": [
+        "公共管理"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "公共管理"
+      ]
+    },
+    {
+      "id": "q_235",
+      "text": "法学专业过法考是分水岭。没过的去公司做法务，过的能进公检法。",
+      "text_en": "",
+      "context": "分析法考对法学就业的关键影响",
+      "tags": [
+        "法学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "法学"
+      ]
+    },
+    {
+      "id": "q_236",
+      "text": "汉语言文学考公岗位多，这就是它最大的就业优势。别小看这个。",
+      "text_en": "",
+      "context": "分析汉语言专业的考公优势",
+      "tags": [
+        "汉语言"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "汉语言"
+      ]
+    },
+    {
+      "id": "q_237",
+      "text": "新闻学毕业能去传统媒体的不多了。要么转行，要么做自媒体。",
+      "text_en": "",
+      "context": "分析新闻专业的现实就业去向",
+      "tags": [
+        "新闻"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "新闻"
+      ]
+    },
+    {
+      "id": "q_238",
+      "text": "会计专业不考研的话，出路就是代账公司。工资三千五，累死累活。",
+      "text_en": "",
+      "context": "分析会计本科的真实就业",
+      "tags": [
+        "会计"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "会计"
+      ]
+    },
+    {
+      "id": "q_239",
+      "text": "集成电路专业的毕业生，华为、中芯国际抢着要。这就是专业选对的红利。",
+      "text_en": "",
+      "context": "分析集成电路专业的就业热度",
+      "tags": [
+        "集成电路"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "集成电路"
+      ]
+    },
+    {
+      "id": "q_240",
+      "text": "临床医生前期很苦，但四十岁之后就是越老越值钱。选这行要耐得住。",
+      "text_en": "",
+      "context": "分析医生职业的长期回报",
+      "tags": [
+        "临床医学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "临床医学"
+      ]
+    },
+    {
+      "id": "q_241",
+      "text": "金融行业看学校更看资源。普通家庭的孩子，进了头部券商也是螺丝钉。",
+      "text_en": "",
+      "context": "分析金融行业的资源壁垒",
+      "tags": [
+        "金融"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "金融"
+      ]
+    },
+    {
+      "id": "q_242",
+      "text": "工科里就业最好的是计算机和电气，文科里就业最好的是法学和汉语言。",
+      "text_en": "",
+      "context": "总结文工科就业最佳专业",
+      "tags": [
+        "计算机",
+        "电气",
+        "法学",
+        "汉语言"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "计算机",
+        "电气",
+        "法学",
+        "汉语言"
+      ]
+    },
+    {
+      "id": "q_243",
+      "text": "想进大厂就选计算机或电子信息。想进体制就选电气、师范或法学。中间的不上不下。",
+      "text_en": "",
+      "context": "分析大厂和体制的就业方向选择",
+      "tags": [
+        "计算机",
+        "电气",
+        "法学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "计算机",
+        "电气",
+        "法学"
+      ]
+    },
+    {
+      "id": "q_244",
+      "text": "土木毕业生现在去工地和工人没什么区别。提桶跑路不是玩笑话。",
+      "text_en": "",
+      "context": "分析土木专业当前就业现实",
+      "tags": [
+        "土木"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "土木"
+      ]
+    },
+    {
+      "id": "q_245",
+      "text": "机械专业进厂是常态。想做工程师，得熬十年八年。先做好心理准备。",
+      "text_en": "",
+      "context": "分析机械专业的长期发展周期",
+      "tags": [
+        "机械"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "机械"
+      ]
+    },
+    {
+      "id": "q_246",
+      "text": "统计学毕业生去互联网做数据分析，起薪就是二十万。这就是数学的力量。",
+      "text_en": "",
+      "context": "分析统计学的就业起薪",
+      "tags": [
+        "统计学",
+        "数学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "统计学",
+        "数学"
+      ]
+    },
+    {
+      "id": "q_247",
+      "text": "心理学本科毕业基本找不到对口工作。要么转行做销售，要么读研读博。",
+      "text_en": "",
+      "context": "分析心理学专业就业现实",
+      "tags": [
+        "心理学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "心理学"
+      ]
+    },
+    {
+      "id": "q_248",
+      "text": "环境工程本科毕业基本转行。要么读研进设计院，要么考公。",
+      "text_en": "",
+      "context": "分析环境工程专业就业路径",
+      "tags": [
+        "环境"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "环境"
+      ]
+    },
+    {
+      "id": "q_249",
+      "text": "能源与动力工程，新能源车企抢着要。传统方向只能进电厂。",
+      "text_en": "",
+      "context": "分析能动专业的方向分化",
+      "tags": [
+        "能源与动力工程"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v2_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "能源与动力工程"
+      ]
+    },
+    {
+      "id": "q_600",
+      "text": "第一份工作比学校重要，起跑线错了，后面怎么跑都追不上。",
+      "text_en": "",
+      "context": "第一份工作重要性",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_601",
+      "text": "国企不是铁饭碗，现在很多国企也在裁员，别把鸡蛋放一个篮子。",
+      "text_en": "",
+      "context": "国企稳定性变化",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_602",
+      "text": "考研不是目的，是手段。如果考研只是为了逃避就业，读完研更难找。",
+      "text_en": "",
+      "context": "考研动机分析",
+      "tags": [
+        "考研"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考研"
+      ]
+    },
+    {
+      "id": "q_603",
+      "text": "考公是普通家庭最稳的路，但竞争比50:1，得有心理准备。",
+      "text_en": "",
+      "context": "考公竞争现实",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_604",
+      "text": "985本科比985硕士值钱，第一学历卡人是真实存在的。",
+      "text_en": "",
+      "context": "第一学历重要性",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_605",
+      "text": "海归早就不是金字招牌了，普通海归回国月薪六七千，不如国内985。",
+      "text_en": "",
+      "context": "海归贬值",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_606",
+      "text": "体制内和体制外是两个世界，选错了想转很难。",
+      "text_en": "",
+      "context": "体制内外选择",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_607",
+      "text": "行业选错了，再努力也白搭。十年前土木是香饽饽，现在是天坑。",
+      "text_en": "",
+      "context": "行业周期教训",
+      "tags": [
+        "土木"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "土木"
+      ]
+    },
+    {
+      "id": "q_608",
+      "text": "起薪不重要，天花板才重要。医生起薪低，但天花板比大多数职业高。",
+      "text_en": "",
+      "context": "薪资看天花板",
+      "tags": [
+        "临床医学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "临床医学"
+      ]
+    },
+    {
+      "id": "q_609",
+      "text": "35岁危机是真的，但只存在于没有技术壁垒的岗位。",
+      "text_en": "",
+      "context": "35岁危机分析",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_610",
+      "text": "公务员不是喝茶看报，基层公务员加班是常态，别美化。",
+      "text_en": "",
+      "context": "公务员真实状态",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_611",
+      "text": "事业单位和公务员不一样，事业单位在改革，稳定性在下降。",
+      "text_en": "",
+      "context": "事业单位变化",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_612",
+      "text": "烟草系统招聘不透明，有关系比有学历管用，普通家庭别指望。",
+      "text_en": "",
+      "context": "烟草招聘现实",
+      "tags": [
+        "烟草"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "烟草"
+      ]
+    },
+    {
+      "id": "q_613",
+      "text": "电网是好单位，但大城市竞争激烈，县级以下更容易进。",
+      "text_en": "",
+      "context": "电网就业地域",
+      "tags": [
+        "电网"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "电网"
+      ]
+    },
+    {
+      "id": "q_614",
+      "text": "互联网大厂已经不是遍地黄金了，996是常态，35岁优化也是。",
+      "text_en": "",
+      "context": "互联网现实",
+      "tags": [
+        "计算机",
+        "互联网"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "计算机",
+        "互联网"
+      ]
+    },
+    {
+      "id": "q_615",
+      "text": "制造业在升级，蓝领技工的工资已经超过很多白领了。",
+      "text_en": "",
+      "context": "蓝领价值提升",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_616",
+      "text": "教师编制越来越难考，有些岗位100:1竞争。",
+      "text_en": "",
+      "context": "教师编制竞争",
+      "tags": [
+        "师范"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "师范"
+      ]
+    },
+    {
+      "id": "q_617",
+      "text": "银行柜员不是铁饭碗，智能柜台已经替代了大部分业务。",
+      "text_en": "",
+      "context": "银行岗位变化",
+      "tags": [
+        "银行"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "银行"
+      ]
+    },
+    {
+      "id": "q_618",
+      "text": "自媒体不是正经职业，99%的人赚不到钱，别赌。",
+      "text_en": "",
+      "context": "自媒体现实",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_619",
+      "text": "外卖骑手、快递员是过渡，不是职业，别让孩子走这条路。",
+      "text_en": "",
+      "context": "蓝领工作认知",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_620",
+      "text": "出国读研要看国家和专业，水硕回来没有竞争力。",
+      "text_en": "",
+      "context": "留学风险",
+      "tags": [
+        "考研"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考研"
+      ]
+    },
+    {
+      "id": "q_621",
+      "text": "选调生比普通公务员起点高，但要求双一流+党员+学生干部。",
+      "text_en": "",
+      "context": "选调生门槛",
+      "tags": [
+        "选调生",
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "选调生",
+        "考公"
+      ]
+    },
+    {
+      "id": "q_622",
+      "text": "央企校招看学校层次，非211简历直接被筛掉。",
+      "text_en": "",
+      "context": "央企招聘门槛",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_623",
+      "text": "先就业再择业是毒鸡汤，第一份工作决定了你的起点和视野。",
+      "text_en": "",
+      "context": "第一份工作决定性",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_624",
+      "text": "创业不适合刚毕业的大学生，没有资源没有经验，成功率极低。",
+      "text_en": "",
+      "context": "创业风险",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_625",
+      "text": "读博的成本很高，4-6年时间，出来也不一定有好工作。",
+      "text_en": "",
+      "context": "读博成本",
+      "tags": [
+        "读博"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "读博"
+      ]
+    },
+    {
+      "id": "q_626",
+      "text": "IT培训出来的和科班出身的，在大厂眼里不是一个档次。",
+      "text_en": "",
+      "context": "IT培训局限",
+      "tags": [
+        "计算机"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "计算机"
+      ]
+    },
+    {
+      "id": "q_627",
+      "text": "劳务派遣和正式编制差距巨大，别被hr忽悠了。",
+      "text_en": "",
+      "context": "用工形式差异",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_628",
+      "text": "新一线城市的性价比比北上广高，房价低、就业机会也不少。",
+      "text_en": "",
+      "context": "新一线城市优势",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_629",
+      "text": "女性就业受歧视是事实，选专业时要考虑行业的性别友好度。",
+      "text_en": "",
+      "context": "性别就业差异",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_630",
+      "text": "实习经历比gpa重要，大厂实习是就业的敲门砖。",
+      "text_en": "",
+      "context": "实习重要性",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_631",
+      "text": "行测申论要从大三开始准备，大四才开始已经晚了。",
+      "text_en": "",
+      "context": "考公准备时间",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_632",
+      "text": "事业编改革后不再稳定，很多变成了合同制。",
+      "text_en": "",
+      "context": "事业编变化",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_633",
+      "text": "央企国企也要投简历、笔试、面试，不是躺进去的。",
+      "text_en": "",
+      "context": "国企招聘流程",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_634",
+      "text": "博士毕业进高校当老师，现在非升即走压力也很大。",
+      "text_en": "",
+      "context": "高校教职压力",
+      "tags": [
+        "读博"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "读博"
+      ]
+    },
+    {
+      "id": "q_635",
+      "text": "考研二战三战不值得，一年时间成本太高。",
+      "text_en": "",
+      "context": "考研多次成本",
+      "tags": [
+        "考研"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考研"
+      ]
+    },
+    {
+      "id": "q_636",
+      "text": "专科毕业进工厂，选对专业（数控、焊接）月薪过万不难。",
+      "text_en": "",
+      "context": "专科就业",
+      "tags": [
+        "专科"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "专科"
+      ]
+    },
+    {
+      "id": "q_637",
+      "text": "基层公务员5年服务期，想调动很难，报考前想清楚。",
+      "text_en": "",
+      "context": "公务员服务期",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_638",
+      "text": "铁路系统稳定但地点偏远，适合老家就在铁路沿线的。",
+      "text_en": "",
+      "context": "铁路就业特点",
+      "tags": [
+        "铁路"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "铁路"
+      ]
+    },
+    {
+      "id": "q_639",
+      "text": "互联网行业寒冬还没过去，2026年校招名额继续缩减。",
+      "text_en": "",
+      "context": "互联网校招形势",
+      "tags": [
+        "互联网"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "互联网"
+      ]
+    },
+    {
+      "id": "q_640",
+      "text": "律师行业二八分化严重，80%的收入集中在20%的人手里。",
+      "text_en": "",
+      "context": "律师行业分化",
+      "tags": [
+        "法学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "法学"
+      ]
+    },
+    {
+      "id": "q_641",
+      "text": "考事业编和考公务员是两回事，考试内容和难度都不一样。",
+      "text_en": "",
+      "context": "事业编vs公务员",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_642",
+      "text": "三支一扶是曲线入编的好路子，但要能接受去基层。",
+      "text_en": "",
+      "context": "三支一扶路径",
+      "tags": [
+        "三支一扶"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "三支一扶"
+      ]
+    },
+    {
+      "id": "q_643",
+      "text": "选专业时看三年前的就业数据，而不是当下的热度。",
+      "text_en": "",
+      "context": "就业数据滞后性",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_644",
+      "text": "女性优先考虑师范、护理、财会，这些行业对女性更友好。",
+      "text_en": "",
+      "context": "女性就业友好方向",
+      "tags": [
+        "师范",
+        "护理学",
+        "会计学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "师范",
+        "护理学",
+        "会计学"
+      ]
+    },
+    {
+      "id": "q_645",
+      "text": "退伍军人考公有加分、有专项岗位，当兵也是条路。",
+      "text_en": "",
+      "context": "退伍军人优势",
+      "tags": [
+        "考公",
+        "当兵"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公",
+        "当兵"
+      ]
+    },
+    {
+      "id": "q_646",
+      "text": "工资高不高，看的是行业利润率，互联网和金融利润率高所以工资高。",
+      "text_en": "",
+      "context": "薪资与行业关系",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_647",
+      "text": "外企在撤退，别把进外企当人生目标，民企央企才是主流。",
+      "text_en": "",
+      "context": "外企趋势变化",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_648",
+      "text": "新能源行业现在招人多，但产能过剩已经开始，小心周期。",
+      "text_en": "",
+      "context": "新能源周期风险",
+      "tags": [
+        "新能源"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "新能源"
+      ]
+    },
+    {
+      "id": "q_649",
+      "text": "芯片行业人才缺口30万，但门槛也高，至少得硕士。",
+      "text_en": "",
+      "context": "芯片人才缺口",
+      "tags": [
+        "芯片",
+        "集成电路"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "芯片",
+        "集成电路"
+      ]
+    },
+    {
+      "id": "q_650",
+      "text": "房地产行业不行了，但物业管理、城市更新方向还在招人。",
+      "text_en": "",
+      "context": "房地产转型",
+      "tags": [
+        "房地产"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "房地产"
+      ]
+    },
+    {
+      "id": "q_651",
+      "text": "医学类就业地域性极强，在哪上学基本就在哪工作。",
+      "text_en": "",
+      "context": "医学就业地域",
+      "tags": [
+        "临床医学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "临床医学"
+      ]
+    },
+    {
+      "id": "q_652",
+      "text": "物流行业在升级，智能物流需要的是懂技术的人，不是送快递的。",
+      "text_en": "",
+      "context": "物流行业升级",
+      "tags": [
+        "物流"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "物流"
+      ]
+    },
+    {
+      "id": "q_653",
+      "text": "教育行业在缩水，出生人口下降，教师岗位会越来越少。",
+      "text_en": "",
+      "context": "教师岗位趋势",
+      "tags": [
+        "师范"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "师范"
+      ]
+    },
+    {
+      "id": "q_654",
+      "text": "考公要看岗位表再选专业，别反过来先选专业再看能报什么。",
+      "text_en": "",
+      "context": "考公选专业逻辑",
+      "tags": [
+        "考公"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公"
+      ]
+    },
+    {
+      "id": "q_655",
+      "text": "留学回来考公，学历认证要提前做，别等报名了才发现不认。",
+      "text_en": "",
+      "context": "留学学历认证",
+      "tags": [
+        "考公",
+        "留学"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考公",
+        "留学"
+      ]
+    },
+    {
+      "id": "q_656",
+      "text": "医美行业暴利但门槛在提高，本科护理都进不了大医美机构。",
+      "text_en": "",
+      "context": "医美行业门槛",
+      "tags": [
+        "医美"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "医美"
+      ]
+    },
+    {
+      "id": "q_657",
+      "text": "灵活就业不是就业，是找不到工作的遮羞布。",
+      "text_en": "",
+      "context": "灵活就业现实",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_658",
+      "text": "越是经济下行，越要选有技术壁垒的专业，文科管理类最危险。",
+      "text_en": "",
+      "context": "经济下行选专业",
+      "tags": [],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": []
+    },
+    {
+      "id": "q_659",
+      "text": "考编和考公不一样，教师编、医生编、事业编各有各的考试。",
+      "text_en": "",
+      "context": "考编分类",
+      "tags": [
+        "考编"
+      ],
+      "target_audience": [
+        "高考生",
+        "家长"
+      ],
+      "source": {
+        "platform": "讲座",
+        "type": "v3_expansion"
+      },
+      "sentiment": "neutral",
+      "confidence": "compiled",
+      "related_majors": [
+        "考编"
+      ]
     }
   ]
 }

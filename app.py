@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-锐评 AI 高考志愿顾问 — Streamlit Web 前端
+高报Agent · AI 高考志愿顾问 — Streamlit Web 前端
 复用 agent.py 的核心逻辑，提供移动端友好的聊天界面。
 Usage:
   streamlit run app.py
@@ -10,8 +10,20 @@ import os
 import sys
 import time
 import uuid
+import hmac
+import re as _re
+import logging
 import html
+import json as _json
 import streamlit as st
+
+# ── 页面配置（必须是第一个 st 命令）────────────────────
+st.set_page_config(
+    page_title="高报Agent · AI 高考志愿顾问",
+    page_icon="🎓",
+    layout="centered",
+    initial_sidebar_state="expanded",
+)
 
 # ── Streamlit Cloud Secrets 支持 ─────────────────────
 # 如果在 Streamlit Cloud 上运行，从 st.secrets 加载环境变量
@@ -33,8 +45,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from agent import (
     GaokaoAdvisor,
     slots_summary,
+    PROVINCES,
 )
 from ratelimit import RateLimiter
+
+# 进程级限流器单例（解决多 tab 绕过限流的竞态问题）
+_GLOBAL_RATE_LIMITER = RateLimiter(
+    hourly_limit=20,
+    daily_limit=40,
+    max_input_len=500,
+)
 
 # ── 常量 ─────────────────────────────────────────────
 
@@ -42,14 +62,13 @@ from ratelimit import RateLimiter
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
 WELCOME_MSG = (
-    "你好！我是 **锐评 AI 高考志愿顾问**，说话直、不绕弯，专门帮你解决志愿填报难题。\n\n"
-    "我会根据你的 **省份、分数/位次、选科、兴趣方向** 等信息，"
-    "结合 **就业、考研、考公、城市** 等目标，给出 **冲、稳、保** 的学校推荐。\n\n"
-    "📌 **3 步开启咨询**：\n"
-    "1️⃣ 点击下方【快速开始】，告诉我你的省份和分数\n"
-    "2️⃣ 根据提示补充选科、兴趣方向、家庭情况\n"
-    "3️⃣ 拿到专属的冲稳保推荐 + 志愿表建议\n\n"
-    "👇 也可以直接输入自己的问题："
+    "你好！我是 **高报Agent AI 高考志愿顾问**，说话直、不绕弯，专门帮你解决志愿填报难题。\n\n"
+    "**先告诉我你是哪个省的？考了多少分？** 我马上帮你分析能上什么学校。\n\n"
+    "📌 **简单 3 步**：\n"
+    "1️⃣ 说清楚省份和分数（位次也行）\n"
+    "2️⃣ 告诉我你想学什么 / 想去哪 / 最在意什么\n"
+    "3️⃣ 拿到专属的冲稳保推荐\n\n"
+    "👇 直接打字或点下方快速提问："
 )
 
 # 场景化快速提问（按用户类型分组，不限定具体省份）
@@ -58,7 +77,7 @@ QUICK_QUESTIONS = [
     "🎯 我是高分考生，想冲 985/211",
     "💼 我想找好就业的专业，怎么选？",
     "📝 我想考公/考研，应该报什么？",
-    "👨‍👩‍👧 家里有行业资源，怎么利用？",
+    "😰 孩子考得不理想，帮我看看有什么选择",
     "❓ 我对志愿填报一无所知，从哪开始？",
 ]
 
@@ -89,17 +108,46 @@ _RE_ID_CARD = _re.compile(
 )
 # 中国大陆手机号（11位，1开头，3-9 第二位）
 _RE_MOBILE = _re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)')
-# 银行卡号（16-19位连续数字，宽松匹配）
+# 银行卡号（16-19位连续数字，宽松匹配，但需排除已命中的身份证号）
 _RE_BANK = _re.compile(r'(?<!\d)\d{16,19}(?!\d)')
-# 真实姓名启发式关键词 + 高考常用词黑名单（避免误判"我是山东考生"）
+# 真实姓名启发式关键词 + 高考常用词黑名单
+# 策略：捕获 2-3 个汉字（最多3字），后跟非汉字字符（如"580分"的"5"）
+# 这样"我是山东考生"里"我是"后紧跟"山东"（2字后跟"考"）→ 捕获"山东"
+#        而"我是李明，"里"我是"后跟"李明"（2字后跟"，"）→ 捕获"李明"
 _REAL_NAME_BLOCKLIST = frozenset({
     "山东", "考生", "学生", "同学", "老师", "家长",
     "父母", "父亲", "母亲", "姐妹", "兄弟", "高三", "今年",
+    "湖北", "河南", "河北", "湖南", "广东", "广西", "四川",
+    "浙江", "江苏", "安徽", "福建", "山西", "陕西", "江西",
+    "甘肃", "贵州", "云南", "海南", "吉林", "辽宁", "北京",
+    "上海", "天津", "重庆", "西藏", "宁夏", "新疆", "内蒙",
+    "黑龙江", "内蒙古", "青海",
 })
 _RE_REAL_NAME = _re.compile(
     r'(?:我叫|我是|我儿子叫|我女儿叫|我同学叫|我朋友叫|考生姓名|姓名)'
-    r'\s*([一-龥]{2,4})',
+    r'\s*([一-龥]{2,3}?)(?=[^一-龥]|$)',
     _re.UNICODE
+)
+
+# QQ号（5-11位纯数字，一般以1开头；需排除已匹配的手机号和身份证号）
+# 先用宽泛模式匹配，再在检测函数中做排除
+_RE_QQ = _re.compile(r'(?<!\d)[1-9]\d{4,10}(?!\d)')
+# 微信号（6-20位，字母开头，可含字母、数字、减号、下划线）
+_RE_WECHAT = _re.compile(r'(?<![a-zA-Z0-9_-])[a-zA-Z][a-zA-Z0-9_-]{5,19}(?![a-zA-Z0-9_-])')
+# 微信号常见误判单词黑名单（小写比较）
+_WECHAT_BLOCKLIST = frozenset({
+    "student", "teacher", "python", "select", "system", "public",
+    "import", "export", "return", "string", "number", "default",
+    "update", "delete", "create", "insert", "global", "module",
+    "config", "output", "input", "error", "result", "object",
+    "thread", "server", "client", "master", "status", "format",
+    "button", "submit", "cancel", "search", "common", "normal",
+    "active", "public", "static", "double", "simple", "single",
+})
+# 家庭住址（含路/街/小区/栋/单元/号/弄/巷/村等关键词 + 数字组合）
+_RE_ADDRESS = _re.compile(
+    r'(?:省|市|区|县|镇|乡|村|路|街|大道|小区|弄|巷|号|栋|单元|室|楼)'
+    r'\s*\d+'
 )
 
 
@@ -114,14 +162,47 @@ def detect_sensitive_info(text: str) -> list:
     if _RE_MOBILE.search(text):
         hits.append("手机号")
     if _RE_BANK.search(text):
-        hits.append("银行卡号")
+        # 银行卡误判去重：排除已经命中身份证号的那串数字
+        # 如果这串 16-19 位数字也同时符合身份证号结构，不算银行卡
+        id_match = _RE_ID_CARD.search(text)
+        bank_match = _RE_BANK.search(text)
+        if bank_match and (not id_match or bank_match.group() != id_match.group()):
+            hits.append("银行卡号")
     if _RE_REAL_NAME.search(text):
-        # 二次过滤：排除高考场景常用词
+        # 二次过滤：排除高考场景常用词（前缀匹配，覆盖"湖北人""山东人"等）
         for m in _RE_REAL_NAME.finditer(text):
             name = m.group(1).strip()
-            if name not in _REAL_NAME_BLOCKLIST:
-                hits.append("真实姓名")
+            if any(name.startswith(bl) for bl in _REAL_NAME_BLOCKLIST):
+                continue
+            hits.append("真实姓名")
+            break
+    # QQ号检测：排除已命中的手机号和身份证号覆盖的数字
+    if _RE_QQ.search(text):
+        id_match = _RE_ID_CARD.search(text)
+        mobile_match = _RE_MOBILE.search(text)
+        for m in _RE_QQ.finditer(text):
+            val = m.group()
+            # 排除手机号（11位，1[3-9]开头）
+            if mobile_match and val == mobile_match.group():
+                continue
+            # 排除身份证号子串
+            if id_match and val == id_match.group():
+                continue
+            # 排除银行卡号子串（16-19位 QQ号不可能这么长，但以防万一）
+            if len(val) == 11 and val.startswith('1') and val[1] in '3456789':
+                continue
+            hits.append("QQ号")
+            break
+    # 微信号检测：排除常见英文单词
+    if _RE_WECHAT.search(text):
+        for m in _RE_WECHAT.finditer(text):
+            val = m.group()
+            if val.lower() not in _WECHAT_BLOCKLIST:
+                hits.append("微信号")
                 break
+    # 家庭住址检测
+    if _RE_ADDRESS.search(text):
+        hits.append("家庭住址")
     return hits
 
 
@@ -129,8 +210,8 @@ SENSITIVE_WARNING = (
     "🔒 **检测到敏感信息**\n\n"
     "你刚才的输入中包含 {kinds}。请不要在对话里输入任何真实个人信息。\n\n"
     "**为什么重要**：\n"
-    "- 本服务不存储对话历史，但安全起见请勿输入\n"
-    "- 涉及身份证/姓名/手机号属于《个人信息保护法》规制范围\n\n"
+    "- 本服务会存储对话记录以便恢复会话，但安全起见请勿输入\n"
+    "- 涉及身份证/姓名/手机号/QQ号/微信号/家庭住址属于《个人信息保护法》规制范围\n\n"
     "**建议**：\n"
     "- 改用「某同学」「考生A」等匿名代称\n"
     "- 分数、位次、选科、兴趣方向等都是非敏感信息，可以正常输入\n\n"
@@ -141,8 +222,6 @@ SENSITIVE_WARNING = (
 # ── 学校卡片渲染 ──
 # 解析 agent 输出中的结构化数据标记 `<!--SCHOOL_DATA:...-->`
 # 渲染为可视化的冲/稳/保卡片
-import json as _json
-import re as _re
 import html as _html
 
 
@@ -199,6 +278,39 @@ _SCHOOL_CARD_CSS = """
 .school-group-chong { color: #991b1b; background: #fee2e2; }
 .school-group-wen { color: #1e40af; background: #dbeafe; }
 .school-group-bao { color: #166534; background: #dcfce7; }
+
+/* 专业百科卡片 (P2-6) */
+.major-card {
+    background: linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%);
+    border: 1px solid #c4b5fd;
+    border-left: 4px solid #8b5cf6;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    margin: 0.5rem 0;
+    box-shadow: 0 2px 4px rgba(139, 92, 246, 0.08);
+}
+.major-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #5b21b6;
+    margin-bottom: 0.3rem;
+}
+.major-card-body {
+    font-size: 0.85rem;
+    color: #374151;
+    line-height: 1.6;
+}
+.major-card-body b { color: #1f2937; }
+.major-card-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-weight: 500;
+    margin-right: 0.3rem;
+}
 """
 
 
@@ -276,23 +388,65 @@ def _render_school_card(school: dict) -> str:
 """
 
 
+# ── 专业百科卡片渲染（P2-6）──
+_MAJOR_ENCYCLOPEDIA_RE = _re.compile(r'【专业百科】(.+?)(?=\n【|\n---|\Z)', _re.DOTALL)
+
+
+def _render_major_card(text: str) -> str:
+    """将 【专业百科】XX专业 | key:value | ... 格式化为 HTML 卡片。"""
+    parts = [p.strip() for p in text.split("|")]
+    if not parts:
+        return _html.escape(text)
+
+    title = parts[0]
+    fields_html = []
+    for p in parts[1:]:
+        if ":" in p:
+            key, _, val = p.partition(":")
+            fields_html.append(f"<b>{_html.escape(key.strip())}</b>: {_html.escape(val.strip())}")
+        else:
+            fields_html.append(_html.escape(p))
+
+    body = " &middot; ".join(fields_html)
+    return f"""
+<div class="major-card">
+    <div class="major-card-title">📘 {_html.escape(title)}</div>
+    <div class="major-card-body">{body}</div>
+</div>
+"""
+
+
 def _render_school_cards(reply_text: str) -> str:
     """
-    解析回复中的学校数据标记，渲染为卡片，剩余文本原样保留。
+    解析回复中的学校数据标记，渲染为卡片。
+    非 SCHOOL_DATA 部分做 HTML 转义（防止 LLM 输出的恶意 HTML 被执行）。
     支持两种格式：
     1. <!--SCHOOL_DATA:[{...},{...}]-->
     2. <!--SCHOOL_DATA:{...}-->  (单个学校)
     """
-    def _replace(match):
+    # 先提取所有 SCHOOL_DATA 标记的位置
+    parts = []
+    last_end = 0
+    for match in _SCHOOL_DATA_PATTERN.finditer(reply_text):
+        # 非 SCHOOL_DATA 部分：HTML 转义后保留
+        before = reply_text[last_end:match.start()]
+        if before:
+            parts.append(_html.escape(before))
+
+        # SCHOOL_DATA 部分：解析并渲染卡片
         raw = match.group(1).strip()
         try:
             data = _json.loads(raw)
         except Exception:
-            return match.group(0)
+            parts.append(_html.escape(match.group(0)))
+            last_end = match.end()
+            continue
         if isinstance(data, dict):
             data = [data]
         if not isinstance(data, list) or not data:
-            return match.group(0)
+            parts.append(_html.escape(match.group(0)))
+            last_end = match.end()
+            continue
 
         # 按 group 分组
         groups = {"chong": [], "wen": [], "bao": []}
@@ -302,7 +456,6 @@ def _render_school_cards(reply_text: str) -> str:
                 g = "wen"
             groups[g].append(s)
 
-        parts = []
         for g_key, g_label, g_class in [
             ("chong", "🚀 冲一冲", "school-group-chong"),
             ("wen", "🎯 稳一稳", "school-group-wen"),
@@ -317,19 +470,22 @@ def _render_school_cards(reply_text: str) -> str:
             )
             for s in items[:5]:  # 每组最多 5 张卡片
                 parts.append(_render_school_card(s))
-        return "".join(parts)
+        last_end = match.end()
 
-    return _SCHOOL_DATA_PATTERN.sub(_replace, reply_text)
+    # 尾部剩余文本
+    tail = reply_text[last_end:]
+    if tail:
+        parts.append(_html.escape(tail))
+
+    # P2-6: 在最终 HTML 中，将 【专业百科】... 替换为卡片样式
+    result = "".join(parts)
+    result = _MAJOR_ENCYCLOPEDIA_RE.sub(
+        lambda m: _render_major_card(m.group(1)),
+        result,
+    )
+    return result
 
 
-
-# ── 页面配置 ──────────────────────────────────────────
-st.set_page_config(
-    page_title="锐评 AI 高考志愿顾问",
-    page_icon="🎓",
-    layout="centered",
-    initial_sidebar_state="expanded",
-)
 
 # ── 自定义样式：移动端优化 + 暖色教育风格 ─────────────
 st.markdown(
@@ -502,13 +658,6 @@ def init_session():
         st.session_state.messages = []
     if "limit_reached" not in st.session_state:
         st.session_state.limit_reached = False
-    # 进程级限流器（共享同一 RateLimiter 实例以保证 LRU 淘汰对所有 session 一致）
-    if "_rate_limiter" not in st.session_state:
-        st.session_state._rate_limiter = RateLimiter(
-            hourly_limit=20,
-            daily_limit=40,
-            max_input_len=500,
-        )
     # #10: 频率限制状态
     if "last_request_time" not in st.session_state:
         st.session_state.last_request_time = 0.0
@@ -520,10 +669,10 @@ def init_session():
         # 优先从 URL 参数恢复
         params = st.query_params
         url_sid = params.get("sid")
-        if url_sid:
+        if url_sid and len(url_sid) >= 12:
             st.session_state.session_id = url_sid
         else:
-            st.session_state.session_id = uuid.uuid4().hex[:12]
+            st.session_state.session_id = uuid.uuid4().hex  # 128 位完整 UUID
             st.query_params["sid"] = st.session_state.session_id
     # P3: 首次加载时，尝试从数据库恢复历史对话
     if "history_restored" not in st.session_state:
@@ -557,8 +706,8 @@ def _try_restore_history():
                         st.session_state.slots[k] = v
         finally:
             db.close()
-    except Exception:
-        pass  # 数据库不可用时静默失败
+    except Exception as e:
+        logging.debug("恢复历史对话失败（数据库不可用时正常）: %s", e)
 
 
 def _save_message_to_db(role: str, content: str):
@@ -574,20 +723,19 @@ def _save_message_to_db(role: str, content: str):
                 save_slots(db, st.session_state.session_id, st.session_state.slots)
         finally:
             db.close()
-    except Exception:
-        pass  # 持久化失败不影响聊天体验
+    except Exception as e:
+        logging.debug("消息持久化失败（不影响聊天体验）: %s", e)
 
 
 init_session()
 
 # ── #19: 密码认证门控 ─────────────────────────────────
 if APP_PASSWORD and not st.session_state.authenticated:
-    st.set_page_config(page_title="锐评 AI 高考志愿顾问 — 登录", page_icon="🔒", layout="centered")
     st.markdown("### 🔒 访问验证")
     st.markdown("请输入访问密码后使用本服务。")
     pw_input = st.text_input("访问密码", type="password", key="app_pw_input")
     if st.button("进入", use_container_width=True, disabled=not pw_input):
-        if pw_input == APP_PASSWORD:
+        if hmac.compare_digest(pw_input.encode(), APP_PASSWORD.encode()):
             st.session_state.authenticated = True
             st.rerun()
         else:
@@ -612,7 +760,13 @@ def get_or_create_advisor():
             st.session_state._advisor_key_hash = _key_hash
     elif _has_env_key:
         if "advisor" not in st.session_state:
-            st.session_state.advisor = GaokaoAdvisor(slots=st.session_state.slots)
+            # 显式传入 API 配置，确保 secrets.toml / .env 生效
+            st.session_state.advisor = GaokaoAdvisor(
+                api_key=_env_api_key,
+                base_url=os.environ.get("LLM_BASE_URL", ""),
+                model=os.environ.get("LLM_MODEL", ""),
+                slots=st.session_state.slots,
+            )
     else:
         return None
     return st.session_state.advisor
@@ -624,27 +778,24 @@ msg_count = st.session_state.msg_count
 # ── 顶部标题 ──────────────────────────────────────────
 st.markdown(
     '<div class="main-title">'
-    "<h1>🎓 锐评 AI 高考志愿顾问</h1>"
+    "<h1>🎓 高报Agent AI 高考志愿顾问</h1>"
     "<p>说话直、不绕弯 — 帮你科学填报志愿</p>"
     "</div>",
     unsafe_allow_html=True,
 )
 
-# ── 免责声明三件套之二：入口 banner（醒目黄色提示框） ──
-st.markdown(
-    '<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;'
-    'padding:0.6rem 0.9rem;margin:0.4rem 0 0.8rem 0;font-size:0.82rem;color:#92400e;">'
-    '⚠️ <b>免责声明</b>：本服务基于公开数据与 AI 推理生成，<b>仅供参考，不构成升学建议</b>。'
-    '最终志愿以高校官方招生章程、省考试院公布数据为准。'
-    '请勿输入身份证号、真实姓名等敏感信息。'
-    '</div>',
-    unsafe_allow_html=True,
-)
+# ── 免责声明三件套之二：入口 banner（简洁一行，可展开） ──
+with st.expander("⚠️ 免责声明（点击展开）", expanded=False):
+    st.caption(
+        "本服务基于公开数据与 AI 推理生成，仅供参考，不构成升学建议。"
+        "最终志愿以高校官方招生章程、省考试院公布数据为准。"
+        "请勿输入身份证号、真实姓名等敏感信息。"
+    )
 
 
 # ── 侧边栏 ────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🎓 锐评 AI 高考志愿顾问")
+    st.markdown("### 🎓 高报Agent AI 高考志愿顾问")
     st.markdown("---")
 
     # API Key 输入（仅当环境变量中没有 key 时显示，正常部署不会出现）
@@ -695,21 +846,16 @@ with st.sidebar:
     for k, v in _slots.items():
         status = "✅" if v["filled"] else "⬜"
         val = v["value"] if v["filled"] else "未填"
-        st.markdown(f"{status} {v['label']}: {val}")
+        st.markdown(f"{status} {v['label']}: {html.escape(val)}")
 
     st.markdown("---")
 
     # 🎯 快速开始面板：分步引导新用户填写基础信息
-    with st.expander("🚀 快速开始（3步填基础信息）", expanded=False):
+    with st.expander("🚀 快速开始（3步填基础信息）", expanded=True):
         st.markdown("**填一次，下次不用再写**")
 
         # 步骤 1：选择省份
-        provinces_list = [
-            "北京", "天津", "上海", "重庆", "河北", "山西", "辽宁", "吉林",
-            "黑龙江", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南",
-            "湖北", "湖南", "广东", "海南", "四川", "贵州", "云南", "陕西",
-            "甘肃", "青海", "内蒙古", "广西", "西藏", "宁夏", "新疆"
-        ]
+        provinces_list = PROVINCES
         current_province = st.session_state.slots["province"]["value"] if st.session_state.slots["province"]["filled"] else ""
         province_idx = provinces_list.index(current_province) + 1 if current_province in provinces_list else 0
         selected_province = st.selectbox(
@@ -725,10 +871,7 @@ with st.sidebar:
             current_score = st.session_state.slots["score_rank"]["value"]
             score_default = ""
             if "分" in current_score:
-                try:
-                    score_default = current_score.replace("分", "").strip()
-                except:
-                    pass
+                score_default = current_score.replace("分", "").strip()
             input_score = st.text_input(
                 "2️⃣ 分数（选填）",
                 value=score_default,
@@ -739,10 +882,7 @@ with st.sidebar:
             current_rank = st.session_state.slots["score_rank"]["value"]
             rank_default = ""
             if "位次" in current_rank:
-                try:
-                    rank_default = current_rank.replace("位次", "").strip()
-                except:
-                    pass
+                rank_default = current_rank.replace("位次", "").strip()
             input_rank = st.text_input(
                 "或位次",
                 value=rank_default,
@@ -769,9 +909,10 @@ with st.sidebar:
                 st.session_state.slots["province"]["value"] = selected_province
                 st.session_state.slots["province"]["filled"] = True
                 updated.append(f"省份={selected_province}")
-            # 更新分数
+            # 更新分数/位次（优先分数，如果有位次也一并记录）
             if input_score and input_score.strip().isdigit():
-                st.session_state.slots["score_rank"]["value"] = f"{input_score.strip()}分"
+                rank_suffix = f"/位次{input_rank.strip()}" if (input_rank and input_rank.strip().isdigit()) else ""
+                st.session_state.slots["score_rank"]["value"] = f"{input_score.strip()}分{rank_suffix}"
                 st.session_state.slots["score_rank"]["filled"] = True
                 updated.append(f"分数={input_score.strip()}")
             elif input_rank and input_rank.strip().isdigit():
@@ -806,8 +947,6 @@ with st.sidebar:
     # 📤 导出 & 分享
     with st.expander("📤 导出 & 分享", expanded=False):
         _sid = st.session_state.session_id
-        # 分享链接
-        _base_url = st.query_params.get("sid", _sid)
         st.markdown(
             f"**会话 ID**：`{_sid}`\n\n"
             f"关闭页面后，通过此链接可恢复对话：\n\n"
@@ -832,8 +971,7 @@ with st.sidebar:
                 role_label = "👤 用户" if msg["role"] == "user" else "🤖 顾问"
                 content = msg["content"]
                 # 清理 HTML 标签
-                import re as _re3
-                content = _re3.sub(r'<[^>]+>', '', content)
+                content = re.sub(r'<[^>]+>', '', content)
                 export_lines.append(f"### {role_label}\n{content}\n")
             export_text = "\n".join(export_lines)
             st.download_button(
@@ -843,6 +981,157 @@ with st.sidebar:
                 mime="text/markdown",
                 use_container_width=True,
             )
+
+        # P2-8: 导出志愿表 PDF
+        _vt = st.session_state.get("_volunteer_table")
+        if _vt and _vt.get("chong") or _vt and _vt.get("wen") or _vt and _vt.get("bao"):
+            st.markdown("---")
+            st.markdown("**📄 导出志愿表 PDF**")
+            if st.button("📄 生成 PDF 志愿表", use_container_width=True, key="gen_pdf_btn"):
+                try:
+                    from reportlab.lib.pagesizes import A4
+                    from reportlab.lib import colors
+                    from reportlab.lib.units import cm
+                    from reportlab.platypus import (
+                        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+                    )
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.pdfbase import pdfmetrics
+                    from reportlab.pdfbase.ttfonts import TTFont
+
+                    # 注册中文字体（尝试常见路径）
+                    _font_paths = [
+                        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+                        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+                        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+                        "C:/Windows/Fonts/msyh.ttc",
+                        "C:/Windows/Fonts/simsun.ttc",
+                    ]
+                    _font_name = "Helvetica"
+                    for fp in _font_paths:
+                        if os.path.exists(fp):
+                            try:
+                                pdfmetrics.registerFont(TTFont("ChineseFont", fp))
+                                _font_name = "ChineseFont"
+                                break
+                            except Exception:
+                                continue
+
+                    import io
+                    buffer = io.BytesIO()
+                    doc = SimpleDocTemplate(
+                        buffer, pagesize=A4,
+                        topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+                        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+                    )
+                    styles = getSampleStyleSheet()
+                    # 自定义样式
+                    title_style = ParagraphStyle(
+                        "PdfTitle", parent=styles["Title"],
+                        fontName=_font_name, fontSize=16, spaceAfter=12,
+                    )
+                    normal_style = ParagraphStyle(
+                        "PdfNormal", parent=styles["Normal"],
+                        fontName=_font_name, fontSize=9, leading=13,
+                    )
+                    section_style = ParagraphStyle(
+                        "PdfSection", parent=styles["Heading2"],
+                        fontName=_font_name, fontSize=12, spaceBefore=10, spaceAfter=6,
+                    )
+
+                    elements = []
+
+                    # 标题
+                    elements.append(Paragraph("AI 高考志愿顾问 — 志愿表草案", title_style))
+                    elements.append(Spacer(1, 6))
+
+                    # 考生信息摘要
+                    _slots = st.session_state.slots
+                    info_parts = []
+                    if _slots["province"]["filled"]:
+                        info_parts.append(f"省份: {_slots['province']['value']}")
+                    if _slots["score_rank"]["filled"]:
+                        info_parts.append(f"分数/位次: {_slots['score_rank']['value']}")
+                    if _slots["subject"]["filled"]:
+                        info_parts.append(f"选科: {_slots['subject']['value']}")
+                    if info_parts:
+                        elements.append(Paragraph("考生信息：" + "  |  ".join(info_parts), normal_style))
+                    if _vt.get("rank"):
+                        elements.append(Paragraph(f"预估位次: {_vt['rank']:,}", normal_style))
+                    elements.append(Spacer(1, 10))
+
+                    # 冲/稳/保表格
+                    for group_key, group_label in [
+                        ("chong", "冲一冲（有风险但值得尝试）"),
+                        ("wen", "稳一稳（主攻区，重点填报）"),
+                        ("bao", "保一保（兜底，确保不掉档）"),
+                    ]:
+                        schools = _vt.get(group_key, [])
+                        if not schools:
+                            continue
+                        elements.append(Paragraph(f"◆ {group_label}", section_style))
+                        table_data = [["序号", "院校", "批次", "选科", "最低分", "最低位次"]]
+                        for i, s in enumerate(schools, 1):
+                            table_data.append([
+                                str(i),
+                                s.get("school_name", "?"),
+                                s.get("batch", ""),
+                                s.get("subject_type", ""),
+                                str(s.get("min_score", "")),
+                                str(s.get("min_rank", "")),
+                            ])
+                        t = Table(table_data, colWidths=[1.2*cm, 5*cm, 3*cm, 2.5*cm, 2.5*cm, 3*cm])
+                        t.setStyle(TableStyle([
+                            ("FONTNAME", (0, 0), (-1, -1), _font_name),
+                            ("FONTSIZE", (0, 0), (-1, -1), 9),
+                            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e0e7ff")),
+                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+                            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+                            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
+                            ("TOPPADDING", (0, 0), (-1, -1), 4),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ]))
+                        elements.append(t)
+                        elements.append(Spacer(1, 8))
+
+                    # 数据来源说明
+                    elements.append(Spacer(1, 12))
+                    elements.append(Paragraph("数据来源说明", section_style))
+                    elements.append(Paragraph(
+                        "本志愿表数据来自教育部官方名单、各省教育考试院公开数据、"
+                        "百度高考 API 等渠道。录取分数线为往年数据，仅供参考。",
+                        normal_style,
+                    ))
+
+                    # 免责声明
+                    elements.append(Spacer(1, 8))
+                    elements.append(Paragraph("免责声明", section_style))
+                    elements.append(Paragraph(
+                        "本志愿表基于 AI 推理与往年数据生成，不构成升学建议。"
+                        "最终填报请以各高校当年招生章程及省考试院公布的官方数据为准。"
+                        "生成日期: 2026 年",
+                        normal_style,
+                    ))
+
+                    doc.build(elements)
+                    buffer.seek(0)
+                    st.session_state["_pdf_bytes"] = buffer.getvalue()
+                except ImportError:
+                    st.error("PDF 生成需要 reportlab 库，请运行: pip install reportlab>=4.0")
+                except Exception as e:
+                    st.error(f"PDF 生成失败: {e}")
+
+            # 如果已生成 PDF，提供下载按钮
+            if st.session_state.get("_pdf_bytes"):
+                st.download_button(
+                    "💾 下载志愿表 PDF",
+                    data=st.session_state["_pdf_bytes"],
+                    file_name="志愿表草案.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
 
     st.markdown("---")
 
@@ -876,8 +1165,7 @@ with st.sidebar:
                     )
                     # 解析分数
                     _score_text = _slots_now["score_rank"]["value"]
-                    import re as _re2
-                    _score_match = _re2.search(r'(\d{3})', _score_text)
+                    _score_match = re.search(r'(\d{3})', _score_text)
                     if _score_match:
                         _score = int(_score_match.group(1))
                         _table = generate_volunteer_table(
@@ -890,8 +1178,8 @@ with st.sidebar:
                         st.success("志愿表已生成！请查看下方。")
                     else:
                         st.error("分数解析失败，请重新填写。")
-                except Exception as e:
-                    st.error(f"生成失败：{e}")
+                except Exception:
+                    st.error("生成失败，请检查省份和分数是否正确。")
 
     st.markdown("---")
 
@@ -909,6 +1197,48 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+
+    # 💬 微信引流区块
+    st.markdown("#### 💬 加入高考家长社区")
+
+    st.markdown(
+        '<div style="text-align:center; padding:0.6rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; margin:0.4rem 0;">'
+        '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">📱 高考家长交流群</p>'
+        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">500+ 家长在线交流志愿填报经验</p>'
+        '<p style="font-size:0.7rem; color:#9ca3af; margin:0;">（群二维码请关注公众号获取）</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div style="text-align:center; padding:0.6rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; margin:0.4rem 0;">'
+        '<p style="font-size:0.9rem; color:#1e40af; margin:0; font-weight:600;">💬 关注公众号</p>'
+        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">最新高考政策解读 + 专业就业数据</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div style="text-align:center; padding:0.6rem; background:#fef3c7; border:1px solid #fde68a; border-radius:10px; margin:0.4rem 0;">'
+        '<p style="font-size:0.9rem; color:#92400e; margin:0; font-weight:600;">📖 免费领取</p>'
+        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">《2026 志愿填报避坑指南》PDF</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+
+    # ⭐ 品牌署名
+    st.markdown(
+        '<div style="text-align:center; padding:0.4rem; font-size:0.78rem; color:#9ca3af;">'
+        '⭐ Powered by <b>雪峰Agent</b> · '
+        '<a href="https://github.com" target="_blank" '
+        'style="color:#3b82f6; text-decoration:none;">GitHub 开源</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
     st.markdown(
         "**⚠️ 免责声明**\n\n"
         "本工具基于 AI 生成，**仅供参考**。\n\n"
@@ -918,12 +1248,46 @@ with st.sidebar:
 
 
 # ── 渲染历史消息 ───────────────────────────────────────
-for msg in st.session_state.messages:
+for msg_idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
             # 解析并渲染学校卡片
             rendered = _render_school_cards(msg["content"])
             st.markdown(rendered, unsafe_allow_html=True)
+            # 反馈按钮（P2-4）
+            _fb_key = f"fb_{msg_idx}"
+            _fb_val = st.session_state.get(f"_feedback_{msg_idx}")
+            fb_cols = st.columns([1, 1, 8])
+            with fb_cols[0]:
+                _helpful_label = "👍 已赞" if _fb_val == "helpful" else "👍 有帮助"
+                if st.button(_helpful_label, key=f"helpful_{_fb_key}", disabled=(_fb_val == "helpful")):
+                    try:
+                        from db.database import get_session as _gs
+                        from db.crud import save_feedback as _sf
+                        _db = _gs()
+                        try:
+                            _sf(_db, st.session_state.session_id, msg_idx, "helpful")
+                        finally:
+                            _db.close()
+                    except Exception:
+                        pass
+                    st.session_state[f"_feedback_{msg_idx}"] = "helpful"
+                    st.rerun()
+            with fb_cols[1]:
+                _unhelpful_label = "👎 已踩" if _fb_val == "not_helpful" else "👎 没帮助"
+                if st.button(_unhelpful_label, key=f"not_helpful_{_fb_key}", disabled=(_fb_val == "not_helpful")):
+                    try:
+                        from db.database import get_session as _gs
+                        from db.crud import save_feedback as _sf
+                        _db = _gs()
+                        try:
+                            _sf(_db, st.session_state.session_id, msg_idx, "not_helpful")
+                        finally:
+                            _db.close()
+                    except Exception:
+                        pass
+                    st.session_state[f"_feedback_{msg_idx}"] = "not_helpful"
+                    st.rerun()
         else:
             st.markdown(msg["content"])
 
@@ -970,33 +1334,60 @@ if st.session_state.get("_volunteer_table"):
 
 
 # ── 欢迎消息（仅首屏） ────────────────────────────────
-if not st.session_state.messages:
+_welcome_added = any("AI 高考志愿顾问" in m.get("content", "") for m in st.session_state.messages if m["role"] == "assistant")
+if not _welcome_added:
     with st.chat_message("assistant"):
         # 免责声明三件套之三：对话首条消息末尾附简短提示
         st.markdown(WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF)
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
-        })
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
+    })
 
-    # 快速提问按钮
+# 快速提问按钮（始终显示，直到有用户消息）
+_has_user_msg = any(m["role"] == "user" for m in st.session_state.messages)
+if not _has_user_msg:
     cols = st.columns(2)
     for i, q in enumerate(QUICK_QUESTIONS):
         col = cols[i % 2]
         with col:
             if st.button(q, key=f"quick_{i}", use_container_width=True):
-                # 将快速提问作为用户输入处理
-                st.session_state["_quick_question"] = q
+                st.session_state["_pending_question"] = q
                 st.rerun()
 
-# 处理快速提问
-if "_quick_question" in st.session_state:
-    user_input = st.session_state.pop("_quick_question")
+# 快速提问 → 进入可编辑输入框（用户修改后再发送）
+if "_pending_question" in st.session_state:
+    _pending_q = st.session_state["_pending_question"]
+    st.markdown(
+        '<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;'
+        'padding:0.5rem 0.8rem;margin:0.4rem 0;font-size:0.85rem;color:#1e40af;">'
+        '✏️ 以下问题已自动填入，你可以<b>修改补充</b>后再发送：</div>',
+        unsafe_allow_html=True,
+    )
+    _edited = st.text_input(
+        "编辑你的问题",
+        value=_pending_q,
+        key="_pending_question_input",
+        label_visibility="collapsed",
+    )
+    c1, c2, _ = st.columns([1, 1, 5])
+    with c1:
+        _send_clicked = st.button("✅ 发送", use_container_width=True, type="primary")
+    with c2:
+        _cancel_clicked = st.button("❌ 取消", use_container_width=True)
+    if _send_clicked and _edited.strip():
+        user_input = _edited.strip()
+        del st.session_state["_pending_question"]
+    elif _cancel_clicked:
+        del st.session_state["_pending_question"]
+        st.rerun()
+    else:
+        user_input = None
 else:
     user_input = None
 
-# 聊天输入（快速提问优先，否则用 chat_input）
-if not user_input:
+# 聊天输入（无快速提问时显示）
+if not user_input and "_pending_question" not in st.session_state:
     user_input = st.chat_input("输入你的情况，例如：我是山东考生，580分...")
 
 if user_input:
@@ -1007,9 +1398,9 @@ if user_input:
         client_ip = ctx.get("X-Forwarded-For", "").split(",")[0].strip() or \
                     ctx.get("X-Real-IP", "unknown")
     except Exception:
-        pass
+        client_ip = "unknown"  # IP 获取失败时降级
 
-    _limiter = st.session_state._rate_limiter
+    _limiter = _GLOBAL_RATE_LIMITER
     allowed, reason = _limiter.check(client_ip, msg_length=len(user_input))
 
     if not allowed and reason == "input_too_long":
@@ -1089,6 +1480,9 @@ if user_input:
             ("身份证号", _RE_ID_CARD),
             ("手机号", _RE_MOBILE),
             ("银行卡号", _RE_BANK),
+            ("QQ号", _RE_QQ),
+            ("微信号", _RE_WECHAT),
+            ("家庭住址", _RE_ADDRESS),
         ]:
             _sanitized_display = _pat.sub(f"**[**{_kind}已屏蔽**]**", _sanitized_display)
         # 真实姓名用"**"占位替换
@@ -1105,58 +1499,102 @@ if user_input:
         # 阻断：不再调用 advisor.chat()
         st.stop()
 
-    # 调用 agent 核心逻辑
+    # 调用 agent 核心逻辑（流式输出）
     with st.chat_message("assistant"):
-        # 分阶段加载提示：根据耗时显示不同文案
+        # 初始加载提示
         loading_placeholder = st.empty()
         loading_placeholder.markdown(
             '<div class="loading-step">🔍 正在分析你的信息...</div>',
             unsafe_allow_html=True,
         )
-        import threading
-        _stop_loading = threading.Event()
 
-        def _show_loading_stages():
-            """后台线程：分阶段切换提示文案。"""
-            _stages = [
-                (1.5, '🔍 正在匹配院校数据...'),
-                (4.0, '🤖 AI 顾问正在分析，马上就好...'),
-                (8.0, '💡 还在思考中... 复杂问题需要更长时间'),
-            ]
-            elapsed = 0.0
-            for delay, text in _stages:
-                wait_for = delay - elapsed
-                if _stop_loading.wait(wait_for):
-                    return
-                elapsed = delay
-                loading_placeholder.markdown(
-                    f'<div class="loading-step">{text}</div>',
-                    unsafe_allow_html=True,
-                )
-
-        _loader = threading.Thread(target=_show_loading_stages, daemon=True)
-        _loader.start()
+        reply = ""
+        collected_chunks = []
+        _stream_placeholder = None
         try:
-            reply = advisor.chat(user_input)
+            # 流式渲染：逐 chunk 输出到页面
+            for chunk in advisor.chat_stream(user_input):
+                if chunk.startswith("|||FINAL|||"):
+                    # 最终标记：取出完整回复（后处理已在 chat_stream 内完成）
+                    reply = chunk[len("|||FINAL|||"):]
+                else:
+                    # 首个 chunk 到达时清除加载提示
+                    if not collected_chunks:
+                        loading_placeholder.empty()
+                    collected_chunks.append(chunk)
+                    # 逐块刷新：第一个 chunk 时创建输出容器，后续追加
+                    if len(collected_chunks) == 1:
+                        _stream_placeholder = st.empty()
+                    _stream_placeholder.markdown("".join(collected_chunks))
+
+            # 如果流式过程中没收到任何 chunk（异常情况），用完整 reply 兜底
+            if not reply and collected_chunks:
+                reply = "".join(collected_chunks)
+
         except Exception as e:
+            import traceback, logging
+            logging.error("advisor.chat_stream failed: %s: %s", type(e).__name__, e, exc_info=True)
             reply = (
-                "抱歉，AI 服务暂时不可用，请稍后重试。\n\n"
-                "如问题持续，请检查 API 配置是否正确。"
+                "抱歉，AI 服务暂时遇到了问题，请稍后再试。\n\n"
+                "如果持续出现这个问题，请检查 API 配置是否正确。"
             )
-        finally:
-            _stop_loading.set()
             loading_placeholder.empty()
+
         # ── 报告结尾免责声明（每轮 AI 回复后追加，确保用户始终看到合规提示）──
         # 检测是否包含「冲稳保」「推荐」「志愿表」等关键词，属于"报告"性质
         report_keywords = ("冲稳保", "推荐", "志愿表", "建议填报", "院校推荐", "专业推荐", "方案")
+        disclaimer_appended = False
         if any(kw in reply for kw in report_keywords):
             reply = reply + "\n\n---\n" + DISCLAIMER_BRIEF
-        # 解析并渲染学校卡片
+            disclaimer_appended = True
+
+        # 流式渲染的是纯文本；完整回复拿到后，重新渲染一次（含学校卡片 + 免责声明）
+        # 清除流式占位，用最终渲染替换
+        if collected_chunks and _stream_placeholder is not None:
+            _stream_placeholder.empty()
+        # 解析并渲染学校卡片（需要完整文本才能解析 JSON）
         rendered = _render_school_cards(reply)
         st.markdown(rendered, unsafe_allow_html=True)
+
+        # 反馈按钮（P2-4）— 新回复
+        _new_fb_idx = len(st.session_state.messages)  # 即将追加的 assistant 消息的 index
+        _fb_val_new = st.session_state.get(f"_feedback_{_new_fb_idx}")
+        fb_cols_new = st.columns([1, 1, 8])
+        with fb_cols_new[0]:
+            _helpful_new = "👍 已赞" if _fb_val_new == "helpful" else "👍 有帮助"
+            if st.button(_helpful_new, key=f"helpful_new_{_new_fb_idx}", disabled=(_fb_val_new == "helpful")):
+                try:
+                    from db.database import get_session as _gs
+                    from db.crud import save_feedback as _sf
+                    _db = _gs()
+                    try:
+                        _sf(_db, st.session_state.session_id, _new_fb_idx, "helpful")
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
+                st.session_state[f"_feedback_{_new_fb_idx}"] = "helpful"
+                st.rerun()
+        with fb_cols_new[1]:
+            _unhelpful_new = "👎 已踩" if _fb_val_new == "not_helpful" else "👎 没帮助"
+            if st.button(_unhelpful_new, key=f"not_helpful_new_{_new_fb_idx}", disabled=(_fb_val_new == "not_helpful")):
+                try:
+                    from db.database import get_session as _gs
+                    from db.crud import save_feedback as _sf
+                    _db = _gs()
+                    try:
+                        _sf(_db, st.session_state.session_id, _new_fb_idx, "not_helpful")
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
+                st.session_state[f"_feedback_{_new_fb_idx}"] = "not_helpful"
+                st.rerun()
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
     _save_message_to_db("assistant", reply)  # P3: 持久化
 
     # 更新计数器
     st.session_state.msg_count += 1
+    # 清理快速提问编辑状态
+    st.session_state.pop("_pending_question", None)

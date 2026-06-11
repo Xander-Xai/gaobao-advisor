@@ -4,7 +4,13 @@ CRUD 操作 — 数据库查询层
 import json
 from typing import Optional
 from sqlalchemy.orm import Session
-from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking
+from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, Conversation, ConversationMessage, Feedback, Feedback
+
+
+def _escape_like(value: str) -> str:
+    """转义 SQL LIKE 通配符（%, _），防注入（#13）。"""
+    return value.replace('%', '\\%').replace('_', '\\_')
+
 
 # ── 院校查询 ──
 
@@ -13,7 +19,9 @@ def get_school_by_name(db: Session, name: str) -> Optional[School]:
     school = db.query(School).filter(School.name == name).first()
     if school:
         return school
-    return db.query(School).filter(School.name.contains(name)).first()
+    # #13: 转义 LIKE 通配符
+    safe_name = _escape_like(name)
+    return db.query(School).filter(School.name.contains(safe_name, escape='\\')).first()
 
 
 def get_schools_by_province(db: Session, province: str) -> list:
@@ -30,7 +38,8 @@ def get_major_by_name(db: Session, name: str) -> Optional[Major]:
     major = db.query(Major).filter(Major.name == name).first()
     if major:
         return major
-    return db.query(Major).filter(Major.name.contains(name)).first()
+    safe_name = _escape_like(name)
+    return db.query(Major).filter(Major.name.contains(safe_name, escape='\\')).first()
 
 
 def get_hot_majors(db: Session, limit: int = 20) -> list:
@@ -198,6 +207,138 @@ def query_match_schools(db: Session, score: int, province: str,
     return results[:15]
 
 
+# ── 选科适配查询 ──
+
+# 常见专业类别的选科要求（新高考 3+1+2 模式）
+# key: 专业类别关键词, value: 必须包含的选科
+_MAJOR_SUBJECT_REQUIREMENTS = {
+    # 理工类
+    "计算机": ["物理"],
+    "软件工程": ["物理"],
+    "人工智能": ["物理"],
+    "电子信息": ["物理"],
+    "电气": ["物理"],
+    "自动化": ["物理"],
+    "机械": ["物理"],
+    "土木": ["物理"],
+    "建筑": ["物理"],
+    "化学": ["化学"],
+    "材料": ["化学"],
+    "生物": ["生物", "化学"],
+    "医学": ["物理", "化学", "生物"],
+    "临床医学": ["物理", "化学", "生物"],
+    "口腔": ["物理", "化学", "生物"],
+    "药学": ["物理", "化学"],
+    "护理": ["化学", "生物"],
+    "心理学": ["物理", "化学", "生物"],  # 部分院校要求
+    "数学": ["物理"],
+    "物理学": ["物理"],
+    "金融学": [],  # 大部分无选科限制
+    "经济学": [],
+    "会计": [],
+    "法学": [],
+    "文学": [],
+    "历史": ["历史"],
+    "哲学": [],
+    "教育学": [],
+    "管理": [],
+    "市场营销": [],
+    "外语": [],
+    "新闻": [],
+    "传媒": [],
+    "艺术": [],
+    "体育": [],
+}
+
+
+def get_subject_requirements_for_major(major_name: str) -> list[str]:
+    """
+    根据专业名称返回选科要求列表。
+    返回的是「至少需要包含的选科」之一。
+    例如：医学类 → 物化生三选一（实际是必须都选）
+    """
+    if not major_name:
+        return []
+    for keyword, reqs in _MAJOR_SUBJECT_REQUIREMENTS.items():
+        if keyword in major_name:
+            return reqs
+    return []
+
+
+def check_subject_compatibility(
+    major_name: str,
+    user_subjects: list[str],
+) -> dict:
+    """
+    检查用户的选科是否符合专业要求。
+
+    Args:
+        major_name: 专业名称
+        user_subjects: 用户已选科目列表，如 ["物理", "化学", "生物"]
+
+    Returns:
+        dict: {
+            "compatible": bool,
+            "required": list[str],  # 该专业要求的选科
+            "missing": list[str],   # 用户缺少的选科
+            "note": str,            # 解释
+        }
+    """
+    required = get_subject_requirements_for_major(major_name)
+    if not required:
+        return {
+            "compatible": True,
+            "required": [],
+            "missing": [],
+            "note": "该专业无明确选科限制",
+        }
+
+    user_set = set(user_subjects)
+    required_set = set(required)
+    missing = list(required_set - user_set)
+
+    return {
+        "compatible": len(missing) == 0,
+        "required": required,
+        "missing": missing,
+        "note": f"需要选考 {'+'.join(required)}"
+            if not missing
+            else f"需选考 {'+'.join(required)}，你未选 {'+'.join(missing)}",
+    }
+
+
+def get_majors_by_subject_compatibility(
+    db: Session,
+    user_subjects: list[str],
+    category: Optional[str] = None,
+) -> list[dict]:
+    """
+    查询符合用户选科的所有专业。
+    返回每个专业及其选科要求、是否匹配。
+    """
+    q = db.query(Major)
+    if category:
+        q = q.filter(Major.category == category)
+    majors = q.all()
+
+    results = []
+    for m in majors:
+        compat = check_subject_compatibility(m.name, user_subjects)
+        results.append({
+            "id": m.id,
+            "name": m.name,
+            "category": m.category,
+            "sub_category": m.sub_category,
+            "is_hot": m.is_hot,
+            "avg_salary": m.avg_salary,
+            "employment_rate": m.employment_rate,
+            "compatible": compat["compatible"],
+            "required_subjects": compat["required"],
+            "note": compat["note"],
+        })
+    return results
+
+
 def format_admission_info_db(results: list[dict]) -> str:
     """将数据库查询结果格式化为 Agent 可用文本（带来源标注）"""
     if not results:
@@ -215,3 +356,100 @@ def format_admission_info_db(results: list[dict]) -> str:
             f"{score_info} {rank_info} | 来源：{source}"
         )
     return "\n".join(lines)
+
+
+# ── 对话持久化（基于 session_id） ──
+
+def get_or_create_conversation(db: Session, session_id: str) -> Conversation:
+    """根据 session_id 查找或创建对话会话。"""
+    conv = db.query(Conversation).filter(Conversation.session_id == session_id).first()
+    if conv:
+        return conv
+    conv = Conversation(session_id=session_id)
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return conv
+
+
+def save_message(db: Session, session_id: str, role: str, content: str) -> None:
+    """保存一条对话消息。"""
+    conv = get_or_create_conversation(db, session_id)
+    msg = ConversationMessage(
+        conversation_id=conv.id,
+        role=role,
+        content=content,
+    )
+    db.add(msg)
+    db.commit()
+
+
+def save_slots(db: Session, session_id: str, slots: dict) -> None:
+    """更新对话的槽位信息。"""
+    conv = get_or_create_conversation(db, session_id)
+    conv.slots_json = json.dumps(slots, ensure_ascii=False)
+    # 同步核心字段，方便查询
+    conv.province = slots.get("province", {}).get("value", "") or None
+    conv.score_rank = slots.get("score_rank", {}).get("value", "") or None
+    conv.subject = slots.get("subject", {}).get("value", "") or None
+    db.commit()
+
+
+def load_conversation_history(db: Session, session_id: str) -> list[dict]:
+    """加载对话历史消息（按时间顺序）。"""
+    conv = db.query(Conversation).filter(Conversation.session_id == session_id).first()
+    if not conv:
+        return []
+    return [{"role": m.role, "content": m.content} for m in conv.messages]
+
+
+def load_conversation_slots(db: Session, session_id: str) -> Optional[dict]:
+    """加载对话槽位。"""
+    conv = db.query(Conversation).filter(Conversation.session_id == session_id).first()
+    if not conv or not conv.slots_json:
+        return None
+    try:
+        return json.loads(conv.slots_json)
+    except Exception:
+        return None
+
+
+def list_user_conversations(db: Session, limit: int = 10) -> list[Conversation]:
+    """列出最近的对话（按更新时间倒序）。"""
+    return db.query(Conversation).order_by(Conversation.updated_at.desc()).limit(limit).all()
+
+
+# ── 用户反馈 ──
+
+def save_feedback(db: Session, session_id: str, message_index: int, rating: str) -> bool:
+    """保存一条用户反馈。同一 session + message_index 只保留最新一条。"""
+    existing = db.query(Feedback).filter(
+        Feedback.session_id == session_id,
+        Feedback.message_index == message_index,
+    ).first()
+    if existing:
+        existing.rating = rating
+    else:
+        fb = Feedback(
+            session_id=session_id,
+            message_index=message_index,
+            rating=rating,
+        )
+        db.add(fb)
+    db.commit()
+    return True
+
+
+def get_feedback_stats(db: Session) -> dict:
+    """获取反馈统计：好评率、总反馈数。"""
+    from sqlalchemy import func
+    total = db.query(func.count(Feedback.id)).scalar() or 0
+    helpful = db.query(func.count(Feedback.id)).filter(Feedback.rating == "helpful").scalar() or 0
+    not_helpful = db.query(func.count(Feedback.id)).filter(Feedback.rating == "not_helpful").scalar() or 0
+    return {
+        "total": total,
+        "helpful": helpful,
+        "not_helpful": not_helpful,
+        "helpful_rate": f"{helpful / total * 100:.1f}%" if total > 0 else "N/A",
+    }
+
