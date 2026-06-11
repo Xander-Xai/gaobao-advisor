@@ -4,6 +4,46 @@
 
 ---
 
+## 🚀 Streamlit Cloud 一键部署（推荐，免费）
+
+### 部署步骤
+
+**1. 准备 GitHub 仓库**
+```bash
+cd xuefeng-advisor
+git init  # 如果尚未初始化
+git add .
+git commit -m "ready for deploy"
+gh repo create xuefeng-advisor --public --source=. --push
+```
+
+**2. 关联 Streamlit Cloud**
+- 访问 https://share.streamlit.io
+- 用 GitHub 账号登录
+- 点击 "New app" → 选择 `xuefeng-advisor` 仓库
+- Main file: `app.py`
+
+**3. 配置 Secrets（在 Advanced settings → Secrets）**
+```toml
+LLM_API_KEY = "sk-你的真实key"
+LLM_BASE_URL = "https://api.deepseek.com"
+LLM_MODEL = "deepseek-chat"
+```
+
+**4. 点击 Deploy，等待 2-3 分钟即可访问**
+
+### 限流配置（已在代码内置）
+
+- 单 IP 每小时最多 20 次对话
+- 每天最多 40 次对话
+- 超出后展示友好提示
+
+### 监控日志
+
+Streamlit Cloud 的 "Logs" 标签页可实时查看 `[INFO]`/`[ERROR]` 日志。
+
+---
+
 ## 方式一：本地运行（最快，5分钟）
 
 ### 前置条件
@@ -175,3 +215,14 @@ LLM_MODEL=glm-4
 ---
 
 *雪峰Agent · Web版部署指南 V1.0*
+
+## 💰 运营成本估算
+
+| 指标 | 数值 |
+|------|------|
+| 单次对话成本 | ~¥0.002 (DeepSeek) |
+| 单用户单日上限 | 40 次 |
+| 单用户单日成本 | ~¥0.08 |
+| 1000 用户/日成本 | ~¥80 |
+
+限流器是成本控制的核心，请勿关闭。
