@@ -428,12 +428,24 @@ def main():
     if ok:
         print("[OK] 连接成功")
     else:
-        print(f"[X] 连接失败: {msg[:120]}")
-        print("\n   请检查 .env 中的 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL 是否正确。")
-        print("   常见问题：")
-        print("   · API Key 是否有效？")
-        print("   · Base URL 是否需要加 /v1？")
-        print("   · 模型名是否与 API 提供商匹配？")
+        print(f"[X] 连接失败: {msg[:200]}")
+        print()
+        # 智能诊断
+        if "401" in msg or "Authentication" in msg:
+            print("   → Key 无效或格式错误。检查：")
+            print("   1. Key 是不是 sk- 完整开头？前后有没有空格？")
+            print("   2. 去 API 平台确认 Key 状态是'有效'")
+            print("   3. 试试只留两行：LLM_PROVIDER=deepseek + LLM_API_KEY=你的key")
+        elif "402" in msg or "Insufficient" in msg or "Balance" in msg:
+            print("   → 账户余额不足！去 API 平台充值，或换通义千问（有免费额度）")
+        elif "403" in msg or "Forbidden" in msg:
+            print("   → Key 没有权限。检查 Key 是否开通了 chat/completions 接口")
+        elif "404" in msg or "Not Found" in msg:
+            print("   → 接口地址不对。试试 BASE_URL 末尾加 /v1")
+        elif "timeout" in msg.lower() or "connect" in msg.lower():
+            print("   → 网络连不上 API 服务器。检查网络/代理")
+        else:
+            print("   检查 .env 中 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL")
         input("\n   按回车退出...")
         return
 
