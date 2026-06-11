@@ -337,6 +337,29 @@ python agent.py
 
 Windows 用户直接双击 **`启动.bat`**。
 
+### 🌐 Web 版（推荐）
+
+> 不想装 Python？Web 版直接在浏览器里用，还能在微信中分享！
+
+```bash
+# 安装依赖（比命令行版多一个 streamlit）
+pip install openai pywin32 streamlit
+
+# 启动 Web 版
+streamlit run app.py
+```
+
+浏览器自动打开 `http://localhost:8501`，支持：
+- 📱 移动端友好的聊天界面
+- 🔄 实时显示信息采集进度
+- 🆓 免费3次体验 + 付费升级提示
+- ⚡ 快速提问按钮，一键开始对话
+
+Windows 用户也可以双击 **`启动Web版.bat`**。
+
+**部署到公网**：推送到 GitHub 后，用 [Streamlit Cloud](https://share.streamlit.io) 免费部署，获得可分享的链接。
+详见 [Web版部署指南](docs/web-deployment-guide.md)。
+
 ### 模型选择
 
 任何 OpenAI 兼容协议的模型都能用。但不同模型效果差异很大：
@@ -403,15 +426,25 @@ LLM_PROVIDER=ollama     # 本地模型
 ## 项目结构
 
 ```
-├── agent.py              # 主程序
+├── agent.py              # 主程序（命令行版）
+├── app.py                # Web 前端（Streamlit 版）
 ├── knowledge_base.md     # 知识库（17模块，850+行）
 ├── system_prompt.md      # Agent 行为规则
+├── gaokao_data.py        # 录取数据查询模块
+├── requirements.txt      # Python 依赖
 ├── README.md             # 本文件
 ├── TUTORIAL.md           # 零基础安装使用教程
 ├── LICENSE               # MIT 协议
 ├── .env.example          # 配置模板
 ├── .gitignore
-├── 启动.bat              # Windows 一键启动
+├── 启动.bat              # Windows 命令行版启动
+├── 启动Web版.bat          # Windows Web版启动
+├── .streamlit/           # Streamlit 配置
+├── docs/                 # 文档
+│   ├── 2026-06-11-xuefeng-agent-opc-strategy.md  # OPC 商业战略
+│   └── web-deployment-guide.md                     # Web版部署指南
+├── content_scripts/      # 抖音内容脚本
+│   └── 抖音内容脚本库.md  # 55条短视频脚本
 └── examples/
     └── demo_conversation.md  # 案例对话
 ```
