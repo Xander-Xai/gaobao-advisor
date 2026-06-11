@@ -7,8 +7,9 @@ Usage:
   python agent.py --no-search        # 禁用搜索
 """
 
-import os, sys, json, re, urllib.request, urllib.parse, urllib.error
+import os, sys, json, re, urllib.request, urllib.parse, urllib.error, time
 from openai import OpenAI
+from logger import log
 
 # 高考数据模块（数据库优先 + 百度搜索兜底）
 try:
@@ -22,14 +23,38 @@ try:
 except ImportError:
     HAS_DATA_MODULE = False
 
+# 质量控制模块：情绪检测
+try:
+    from quality.emotion_detector import detect_emotion, CRISIS_HOTLINES
+    HAS_EMOTION_DETECTOR = True
+except ImportError:
+    HAS_EMOTION_DETECTOR = False
+
+# 质量控制模块：交叉验证
+try:
+    from quality.cross_validator import cross_validate_admission
+    HAS_CROSS_VALIDATOR = True
+except ImportError:
+    HAS_CROSS_VALIDATOR = False
+
+# 质量控制模块：AI时代专业风险评估
+try:
+    from quality.ai_era_risk import get_risk_summary
+    HAS_AI_RISK = True
+except ImportError:
+    HAS_AI_RISK = False
+
 def read_clipboard():
-    """读取 Windows 剪贴板文本。"""
+    """读取 Windows 剪贴板文本（安全版本，限制长度）。"""
+    MAX_CLIPBOARD_LEN = 2000
     try:
         import win32clipboard
         win32clipboard.OpenClipboard()
         if win32clipboard.IsClipboardFormatAvailable(13):  # CF_UNICODETEXT
             data = win32clipboard.GetClipboardData(13)
             win32clipboard.CloseClipboard()
+            if data and len(data) > MAX_CLIPBOARD_LEN:
+                data = data[:MAX_CLIPBOARD_LEN] + f"...(截断，原文{len(data)}字)"
             return data
         win32clipboard.CloseClipboard()
     except:
@@ -38,16 +63,34 @@ def read_clipboard():
 
 # ── 加载 .env 文件 ──────────────────────────────────
 def load_dotenv(path):
-    """简单的 .env 加载器，不依赖第三方库。"""
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, val = line.partition("=")
-                    key, val = key.strip(), val.strip()
-                    if key not in os.environ:
-                        os.environ[key] = val
+    """简单的 .env 加载器，不依赖第三方库（安全加固版）。"""
+    if not os.path.exists(path):
+        return
+    MAX_LINE_LEN = 512
+    MAX_KEY_LEN = 128
+    MAX_VAL_LEN = 256
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if len(line) > MAX_LINE_LEN:
+                continue
+            # 去掉 export 前缀
+            if line.startswith("export "):
+                line = line[7:].strip()
+            key, _, val = line.partition("=")
+            key, val = key.strip(), val.strip()
+            if not key or len(key) > MAX_KEY_LEN or len(val) > MAX_VAL_LEN:
+                continue
+            # 去掉引号
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+                val = val[1:-1]
+            # 校验 key 格式（只允许大写字母、数字、下划线）
+            if not re.match(r'^[A-Z][A-Z0-9_]*$', key):
+                continue
+            if key not in os.environ:
+                os.environ[key] = val
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(HERE, ".env"))
@@ -256,12 +299,66 @@ def is_consultation_intent(msg):
     return any(kw in msg for kw in keywords)
 
 # ── 搜索功能 ─────────────────────────────────────────
+# SSRF 防御: 禁止访问的内网/危险IP段
+_BLOCKED_HOSTS = {
+    "localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254",
+    "metadata.google.internal", "100.100.100.200",
+}
+
+def _is_safe_url(url: str) -> bool:
+    """检查URL是否安全（防SSRF）：拒绝内网地址和非HTTP协议。"""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = (parsed.hostname or "").lower()
+        if hostname in _BLOCKED_HOSTS:
+            return False
+        # 拒绝内网IP段
+        import ipaddress
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return False
+        except ValueError:
+            # hostname 不是IP（正常域名），继续检查
+            pass
+        # 拒绝常见内网域名后缀
+        for suffix in (".local", ".internal", ".localhost", ".lan"):
+            if hostname.endswith(suffix):
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def _sanitize_html(text: str) -> str:
+    """强化HTML清理，防止XSS残留（#6）。"""
+    if not text:
+        return ""
+    # 移除所有 script/style 标签及内容
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # 移除 on* 事件属性（onclick, onerror, onload 等）
+    text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bon\w+\s*=\s*\S+', '', text, flags=re.IGNORECASE)
+    # 移除 javascript: 协议
+    text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
+    # 移除危险标签（img, svg, iframe, object, embed, form, input, meta, link）
+    text = re.sub(r'<\s*/?\s*(?:img|svg|iframe|object|embed|form|input|meta|link|base|applet)\b[^>]*>', '', text, flags=re.IGNORECASE)
+    # 移除所有剩余 HTML 标签
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # 清理空白
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
 def web_search(query, max_results=3):
-    """搜索并获取网页内容。先用百度搜索找URL，再抓取页面文字。"""
+    """搜索并获取网页内容。先用百度搜索找URL，再抓取页面文字。（安全加固版）"""
     results = []
     try:
         # Step 1: 百度搜索获取结果链接
-        url = SEARCH_ENGINE + urllib.parse.quote(query)
+        url = SEARCH_ENGINE + urllib.parse.quote(query[:200])  # 限制查询长度
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
@@ -273,19 +370,21 @@ def web_search(query, max_results=3):
         # 过滤掉百度自己的链接，保留真实网站
         valid_urls = [u for u in urls if 'baidu.com' not in u and len(u) > 30][:max_results]
 
-        # Step 3: 抓取每个结果页面的文字内容
+        # Step 3: 抓取每个结果页面的文字内容（SSRF 防御）
         for target_url in valid_urls:
+            # SSRF 防御: 校验 URL 安全性
+            if not _is_safe_url(target_url):
+                continue
             try:
                 page_req = urllib.request.Request(target_url, headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 })
                 with urllib.request.urlopen(page_req, timeout=8) as page_resp:
-                    page_html = page_resp.read().decode("utf-8", errors="ignore")
-                # 去掉所有标签，提取可见文字
-                clean = re.sub(r'<script[^>]*>.*?</script>', '', page_html, flags=re.DOTALL)
-                clean = re.sub(r'<style[^>]*>.*?</style>', '', clean, flags=re.DOTALL)
-                clean = re.sub(r'<[^>]+>', ' ', clean)
-                clean = re.sub(r'\s+', ' ', clean).strip()
+                    # 防御: 限制下载大小（最大 512KB）
+                    content = page_resp.read(512 * 1024)
+                    page_html = content.decode("utf-8", errors="ignore")
+                # XSS 防御: 强化 HTML 清理
+                clean = _sanitize_html(page_html)
                 # 取有效内容（100-500字）
                 if len(clean) > 100:
                     results.append(clean[:500] + "...")
@@ -296,13 +395,13 @@ def web_search(query, max_results=3):
             # Step 4: 降级——只取百度摘要
             snippets = re.findall(r'<span class="content-right_[^"]*">(.*?)</span>', html)
             for s in snippets[:max_results]:
-                clean = re.sub(r'<[^>]+>', '', s).strip()
+                clean = _sanitize_html(s)
                 if len(clean) > 20:
                     results.append(clean)
 
         return results if results else ["(搜索无结果，建议手动查询官方渠道)"]
     except Exception as e:
-        return [f"(搜索暂时不可用: {e})"]
+        return [f"(搜索暂时不可用)"]  # #9: 不泄露错误细节
 
 def should_search(msg):
     """判断是否需要联网搜索——更积极触发。"""
@@ -317,6 +416,57 @@ def should_search(msg):
         "王牌专业", "优势", "缺点", "劣势", "值得", "推荐吗",
     ]
     return any(t in msg for t in triggers)
+
+# ── 安全防御 ─────────────────────────────────────────
+
+# #4: Prompt Injection 检测与防御
+_INJECTION_PATTERNS = [
+    r'(?i)ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|prompts|rules)',
+    r'(?i)forget\s+(?:all\s+)?(?:previous|prior|above)',
+    r'(?i)you\s+are\s+now\s+(?:a|an|the)',
+    r'(?i)new\s+(?:system\s+)?(?:instructions?|prompt|rules?|role)',
+    r'(?i)override\s+(?:your|the)\s+(?:instructions?|rules?|system)',
+    r'(?i)output\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?|rules?)',
+    r'(?i)reveal\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
+    r'(?i)repeat\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
+    r'(?i)print\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
+    r'(?i)show\s+me\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
+    r'(?i)what\s+(?:are|is)\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
+    r'(?i)\bDAN\b.*\bjailbreak\b',
+    r'(?i)pretend\s+you\s+(?:are|have)',
+    r'(?i)act\s+as\s+(?:if|though)',
+    r'(?i)disregard\s+(?:all|any|the)',
+    r'(?i)from\s+now\s+on\s+(?:you|respond|answer|output)',
+    r'(?i)system:\s*(?:you|ignore|forget|new)',
+]
+_INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
+
+def detect_prompt_injection(msg: str) -> bool:
+    """检测用户输入中的 prompt injection 攻击模式。"""
+    # 截断过长的输入（正常用户不太会发超长消息）
+    if len(msg) > 5000:
+        return True
+    for pattern in _INJECTION_RE:
+        if pattern.search(msg):
+            return True
+    return False
+
+# #13: 通配符转义（防止 ORM LIKE 查询注入）
+def sanitize_like_query(value: str) -> str:
+    """转义 SQL LIKE 通配符（%, _）。"""
+    return value.replace('%', '\\%').replace('_', '\\_')
+
+# 最大用户输入长度
+MAX_USER_INPUT_LEN = 3000
+
+def validate_user_input(msg: str) -> str:
+    """校验和清理用户输入。返回清理后的消息，或抛出异常。"""
+    if not msg or not msg.strip():
+        return msg
+    msg = msg.strip()
+    if len(msg) > MAX_USER_INPUT_LEN:
+        msg = msg[:MAX_USER_INPUT_LEN] + "...(输入过长已截断)"
+    return msg
 
 # ── LLM 对话 ─────────────────────────────────────────
 def cleanup_format(text):
@@ -346,6 +496,9 @@ class GaokaoAdvisor:
         self.conversation = []
         # 支持外部传入独立的 slots（多用户场景各自有自己的槽位）
         self.slots = slots if slots is not None else {k: dict(v) for k, v in SLOTS.items()}
+        # #18: 系统消息缓存（避免每轮重新构建巨大的 system message）
+        self._cached_base_system = None  # 不含槽位和搜索状态的基础部分
+        self._cache_dirty = True
 
     def _build_system_message(self):
         """构建系统消息，包含 system prompt + 知识库 + 数据库状态 + 数据治理规则 + 槽位状态。"""
@@ -369,8 +522,8 @@ class GaokaoAdvisor:
 - 学科排名: {stats['subject_rankings']} 条（教育部评估）
 - 招生政策: {stats['policies']} 条
 
-数据来源分级：T1-官方数据（教育部/省考试院）> T2-权威平台（掌上高考/麦可思）> T4-百度搜索（仅供参考）
-引用录取分数/就业数据时必须标注数据来源和年份。"""
+数据来源：官方数据（教育部/省考试院）> 权威平台（掌上高考/麦可思）> 百度搜索（仅供参考）
+**引用录取分数/就业数据时必须标注数据来源和具体年份**（如「2024年数据显示...」）。"""
             except Exception:
                 db_info = "\n【本地数据库加载中...】"
 
@@ -401,6 +554,19 @@ class GaokaoAdvisor:
 
     def chat(self, user_msg):
         """处理一轮对话。返回 assistant 的回复。"""
+        # #4: Prompt Injection 防御
+        if detect_prompt_injection(user_msg):
+            return ("不好意思，你的输入包含一些我不太能处理的内容。"
+                    "请直接告诉我你的高考情况，我帮你分析志愿。")
+
+        # #13: 输入校验
+        user_msg = validate_user_input(user_msg)
+
+        # 情绪检测（质量控制节点1）
+        emotion_result = None
+        if HAS_EMOTION_DETECTOR:
+            emotion_result = detect_emotion(user_msg)
+
         # 检查意图
         if is_consultation_intent(user_msg):
             # 提取槽位（使用实例自己的 slots）
@@ -410,6 +576,12 @@ class GaokaoAdvisor:
 
         # 构建消息
         system_msg = self._build_system_message()
+        # 注入情绪策略（质量控制）
+        if emotion_result and emotion_result.get("hint"):
+            system_msg += f"\n\n【情绪检测】{emotion_result['hint']}"
+            if emotion_result["strategy"] == "crisis":
+                hotlines = "\n".join(CRISIS_HOTLINES)
+                system_msg += f"\n\n【心理援助热线（仅在用户有自伤信号时提供）】\n{hotlines}"
         messages = [{"role": "system", "content": system_msg}]
         # 添加历史（最近10轮=20条消息）
         for h in self.conversation[-20:]:
@@ -420,6 +592,24 @@ class GaokaoAdvisor:
         if updates:
             hint = f"(系统自动识别到: {', '.join(updates)}。请在回复中确认并追问缺失信息。)"
             messages.append({"role": "system", "content": hint})
+
+        # 选科匹配检查：如果用户提供了选科，注入选科对专业的匹配情况
+        if HAS_DATA_MODULE and self.slots.get("subject", {}).get("filled"):
+            try:
+                from gaokao_data import (
+                    check_user_subject_compatibility,
+                    format_subject_compatibility,
+                )
+                user_subj_text = self.slots["subject"]["value"]
+                # 解析选科列表
+                _known_subjects = ["物理", "历史", "化学", "生物", "政治", "地理"]
+                user_subj_list = [s for s in _known_subjects if s in user_subj_text]
+                if user_subj_list:
+                    compat_result = check_user_subject_compatibility(user_subj_list)
+                    subj_hint = format_subject_compatibility(compat_result)
+                    messages.append({"role": "system", "content": subj_hint})
+            except Exception:
+                pass
 
         # 语录库注入：根据用户提到的专业，注入相关语录作为参考
         if QUOTES_INDEX:
@@ -452,13 +642,31 @@ class GaokaoAdvisor:
             )
 
             if HAS_DATA_MODULE:
-                # 1. 查录取分数线（学校+省份）
+                # 1. 查录取分数线（学校+省份）+ 交叉验证
                 if school_match and prov_match:
                     try:
                         raw = query_admission(school_match[0], prov_match[0])
-                        admission_text = format_admission_info(raw)
-                        if admission_text and "暂无" not in admission_text:
-                            data_hints.append(f"【录取数据查询结果】\n{admission_text}")
+                        if raw:
+                            # 交叉验证：多源数据比对
+                            conf_tag = ""
+                            if HAS_CROSS_VALIDATOR and len(raw) >= 2:
+                                validation_sources = []
+                                for r in raw:
+                                    if r.get("min_score") is not None:
+                                        validation_sources.append({
+                                            "source": r.get("data_source", "未知")[:15],
+                                            "min_score": r["min_score"],
+                                            "min_rank": r.get("min_rank"),
+                                        })
+                                if len(validation_sources) >= 2:
+                                    cv = cross_validate_admission(validation_sources)
+                                    if cv:
+                                        conf_tag = f" [置信度:{cv['confidence']}]"
+                                        if cv["note"]:
+                                            conf_tag += f" {cv['note']}"
+                            admission_text = format_admission_info(raw)
+                            if admission_text and "暂无" not in admission_text:
+                                data_hints.append(f"【录取数据查询结果】{conf_tag}\n{admission_text}")
                     except Exception:
                         pass
 
@@ -498,6 +706,14 @@ class GaokaoAdvisor:
                             )
                     except Exception:
                         pass
+
+                    # 附加 AI 时代专业风险评估
+                    if HAS_AI_RISK:
+                        for mj in major_match[:2]:
+                            risk_summary = get_risk_summary(mj)
+                            if risk_summary:
+                                data_hints.append(f"【AI时代风险评估】{risk_summary}")
+                                break  # 只注入一个专业的风险
 
                 # 4. 如果有分数+省份+选科信息，做位次法匹配推荐
                 score_match = re.search(r'(\d{3})\s*分', user_msg)
@@ -550,12 +766,13 @@ class GaokaoAdvisor:
                 except Exception:
                     baidu_results = []
                 if baidu_results:
-                    search_hint = "【百度搜索结果（T4级，仅供参考，请核实官方数据）】\n" + "\n".join(
+                    search_hint = "【百度搜索结果（仅供参考，请核实官方数据）】\n" + "\n".join(
                         f"· {r}" for r in baidu_results[:3]
                     )
                     messages.append({"role": "system", "content": search_hint})
 
         # 调用 LLM
+        start_ts = time.time()
         try:
             kwargs = dict(
                 model=CONFIG["model"],
@@ -566,8 +783,12 @@ class GaokaoAdvisor:
                 kwargs["max_tokens"] = CONFIG["max_tokens"]
             resp = self.client.chat.completions.create(**kwargs)
             reply = resp.choices[0].message.content
+            elapsed = time.time() - start_ts
+            log.info(f"llm_ok model={CONFIG['model']} elapsed={elapsed:.2f}s")
         except Exception as e:
-            reply = f"出错了：{e}\n请检查 API 配置（base_url, api_key, model 是否正确）。"
+            elapsed = time.time() - start_ts
+            log.error(f"llm_fail model={CONFIG['model']} elapsed={elapsed:.2f}s err={type(e).__name__}")
+            reply = "抱歉，AI 服务暂时不可用，请稍后重试。"
 
         # 清理格式：去掉模型不听 prompt 时残留的 markdown
         reply = cleanup_format(reply)
