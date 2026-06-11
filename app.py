@@ -908,6 +908,14 @@ with st.sidebar:
             st.session_state.slots[k]["value"] = ""
         st.rerun()
 
+    st.markdown("---")
+    st.markdown(
+        "**⚠️ 免责声明**\n\n"
+        "本工具基于 AI 生成，**仅供参考**。\n\n"
+        "志愿填报请以各省教育考试院、"
+        "教育部阳光高考平台官方数据为准。"
+    )
+
 
 # ── 渲染历史消息 ───────────────────────────────────────
 for msg in st.session_state.messages:
