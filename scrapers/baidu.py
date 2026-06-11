@@ -13,33 +13,39 @@ HEADERS = {
 }
 
 
+def _sanitize_html(text: str) -> str:
+    """强化 HTML 清理，防止 XSS 残留。委托给 utils.sanitize_html。"""
+    from utils import sanitize_html
+    return sanitize_html(text)
+
+
 def search_baidu_snippets(query, max_results=5):
     """百度搜索，提取摘要片段"""
     try:
-        url = "https://www.baidu.com/s?wd=" + urllib.parse.quote(query)
+        url = "https://www.baidu.com/s?wd=" + urllib.parse.quote(query[:200])  # 限制查询长度
         req = urllib.request.Request(url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=10) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
 
-        # 提取摘要
+        # 提取摘要（使用强化清理）
         snippets = re.findall(
             r'<span class="content-right_[^"]*">(.*?)</span>', html
         )
         results = []
         for s in snippets[:max_results]:
-            clean = re.sub(r'<[^>]+>', '', s).strip()
+            clean = _sanitize_html(s)
             if len(clean) > 20:
                 results.append(clean)
 
         # 降级：提取任意包含数字的段落
         if not results:
-            text = re.sub(r'<[^>]+>', ' ', html)
+            text = _sanitize_html(html)
             paras = [p.strip() for p in text.split('。') if any(c.isdigit() for c in p) and len(p) > 20]
             results = paras[:max_results]
 
         return results if results else []
-    except Exception as e:
-        return [f"(搜索出错: {e})"]
+    except Exception:
+        return []
 
 
 def search_admission_snippets(school, province, year=2024):

@@ -2,6 +2,7 @@
 SQLite 数据库连接 — 零依赖外部服务，开箱即用
 """
 import os
+import stat
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
@@ -9,7 +10,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(HERE)
 
 DB_PATH = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+
+# #15: DATABASE_URL 白名单校验（防止注入指向外部数据库）
+_RAW_DB_URL = os.getenv("DATABASE_URL", "")
+_ALLOWED_SCHEMES = ("sqlite",)
+_allowed = False
+
+if _RAW_DB_URL:
+    for scheme in _ALLOWED_SCHEMES:
+        if _RAW_DB_URL.startswith(f"{scheme}://"):
+            _allowed = True
+            break
+    if not _allowed:
+        _RAW_DB_URL = ""  # 拒绝不安全的 scheme
+
+DATABASE_URL = _RAW_DB_URL if _RAW_DB_URL else f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -31,6 +46,12 @@ def get_session():
 
 def init_db():
     """创建所有表"""
-    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking  # noqa
+    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight  # noqa
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    # #12: 收紧 SQLite 文件权限（仅 owner 可读写）
+    if os.path.exists(DB_PATH):
+        try:
+            os.chmod(DB_PATH, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+        except OSError:
+            pass

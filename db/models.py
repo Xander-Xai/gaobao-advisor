@@ -1,9 +1,10 @@
 """
 ORM 模型 — 5 张核心表（移植自 zhangxuefeng-agent-repo2）
 """
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint, Index, DateTime
 from sqlalchemy.orm import relationship
 from db.database import Base
+import datetime
 
 
 class School(Base):
@@ -55,6 +56,7 @@ class Major(Base):
     description = Column(Text, nullable=True)
     job_directions = Column(Text, nullable=True)          # JSON 数组
     is_hot = Column(Integer, default=0)
+    education_level = Column(String(10), nullable=True, default="本科")  # 本科/专科
 
     admission_scores = relationship("AdmissionScore", back_populates="major")
     enrollment_plans = relationship("EnrollmentPlan", back_populates="major")
@@ -138,3 +140,94 @@ class SubjectRanking(Base):
         UniqueConstraint("school_id", "major_category", "ranking_source", "ranking_year",
                          name="uq_subject_ranking"),
     )
+
+
+# ── 对话持久化（P3） ──
+
+class Conversation(Base):
+    """对话会话表 — 支持关闭页面后恢复"""
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String(64), nullable=False, unique=True, index=True)
+    user_label = Column(String(50), nullable=True)  # 用户标签（可选）
+    province = Column(String(20), nullable=True)
+    score_rank = Column(String(30), nullable=True)
+    subject = Column(String(50), nullable=True)
+    slots_json = Column(Text, nullable=True)         # 完整 slots JSON
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc),
+                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    messages = relationship(
+        "ConversationMessage",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ConversationMessage.id",
+    )
+
+
+class ConversationMessage(Base):
+    """对话消息表"""
+    __tablename__ = "conversation_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # user / assistant
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    conversation = relationship("Conversation", back_populates="messages")
+
+
+class YiFenYiDuan(Base):
+    """一分一段表 — 真实位次映射"""
+    __tablename__ = "yi_fen_yi_duan"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    province = Column(String(20), nullable=False)
+    year = Column(Integer, nullable=False)
+    subject_type = Column(String(10), nullable=False, default="综合")
+    score = Column(Integer, nullable=False)
+    cumulative_count = Column(Integer, nullable=False)  # 累计人数（位次）
+
+    __table_args__ = (
+        UniqueConstraint("province", "year", "subject_type", "score", name="uq_yi_fen_yi_duan"),
+        Index("ix_yfdd_province_year", "province", "year"),
+    )
+
+    def __repr__(self):
+        return f"<YiFenYiDuan({self.province}, {self.year}, {self.score}分, 位次{self.cumulative_count})>"
+
+
+class Highlight(Base):
+    """金句表 — 高传播力的优质回复片段"""
+    __tablename__ = "highlights"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    content = Column(Text, nullable=False)       # 金句内容
+    score = Column(Integer, default=0)            # 自评分数（0-100）
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    def __repr__(self):
+        return f"<Highlight({self.session_id}, score={self.score}, {self.content[:20]}...)>"
+
+
+class Feedback(Base):
+    """用户反馈表 — 每条AI回复的有帮助/没帮助评分"""
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    message_index = Column(Integer, nullable=False)  # 消息在会话中的序号
+    rating = Column(String(10), nullable=False)       # "helpful" / "not_helpful"
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    __table_args__ = (
+        Index("ix_feedback_session_msg", "session_id", "message_index"),
+    )
+
+    def __repr__(self):
+        return f"<Feedback({self.session_id}, #{self.message_index}, {self.rating})>"
+

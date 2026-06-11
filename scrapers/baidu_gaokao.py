@@ -23,6 +23,8 @@ from typing import Optional, Iterator
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
+from utils import safe_int
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -178,16 +180,6 @@ def parse_school_tags(tags: list) -> tuple:
             is_dfc = 1
             level = "双一流"
     return level, is_985, is_211, is_dfc
-
-
-def safe_int(value, default=None):
-    """安全转 int"""
-    if value in (None, "", "-", "暂无"):
-        return default
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
 
 
 # ══════════════════════════════════════════════════════════

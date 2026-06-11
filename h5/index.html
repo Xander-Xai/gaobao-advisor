@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>高报Agent · AI 高考志愿顾问</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --primary: #1a56db;
+  --primary-light: #eff6ff;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-400: #9ca3af;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
+  --radius: 16px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-800);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 顶部导航栏 ── */
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, #2563eb 100%);
+  color: white;
+  padding: 12px 16px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(26,86,219,0.3);
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-title .icon { font-size: 24px; }
+.header-title h1 { font-size: 17px; font-weight: 600; }
+.header-subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.header-actions { display: flex; gap: 8px; }
+.header-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.header-btn:active { background: rgba(255,255,255,0.35); }
+
+/* ── 槽位进度条 ── */
+.slot-bar {
+  background: white;
+  padding: 8px 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.slot-bar::-webkit-scrollbar { display: none; }
+.slot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+.slot-chip.filled {
+  background: #dcfce7;
+  color: #166534;
+}
+.slot-chip.empty {
+  background: var(--gray-100);
+  color: var(--gray-400);
+}
+.slot-chip .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.slot-chip.filled .dot { background: var(--success); }
+.slot-chip.empty .dot { background: var(--gray-400); }
+
+/* ── 聊天区域 ── */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ── 消息气泡 ── */
+.msg {
+  display: flex;
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.msg.user { justify-content: flex-end; }
+.msg.assistant { justify-content: flex-start; }
+
+.msg-bubble {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 15px;
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+}
+.msg.user .msg-bubble {
+  background: var(--primary);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.msg.assistant .msg-bubble {
+  background: white;
+  color: var(--gray-800);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.msg-bubble strong { font-weight: 600; }
+.msg-bubble p { margin: 8px 0; }
+.msg-bubble p:first-child { margin-top: 0; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-time {
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+.msg.user .msg-time { text-align: right; }
+
+/* ── 快速提问 ── */
+.quick-questions {
+  padding: 8px 16px 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.quick-btn {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.quick-btn:active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── 输入区域 ── */
+.input-area {
+  background: white;
+  border-top: 1px solid var(--gray-200);
+  padding: 8px 12px;
+  padding-bottom: calc(8px + var(--safe-bottom));
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.input-wrap {
+  flex: 1;
+  background: var(--gray-100);
+  border-radius: 22px;
+  padding: 4px;
+  display: flex;
+  align-items: flex-end;
+}
+.input-wrap textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  max-height: 120px;
+  min-height: 20px;
+  font-family: inherit;
+  color: var(--gray-800);
+}
+.input-wrap textarea::placeholder { color: var(--gray-400); }
+.send-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.send-btn:disabled {
+  background: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+.send-btn:not(:disabled):active {
+  transform: scale(0.92);
+}
+
+/* ── 加载动画 ── */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+.typing-indicator span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gray-400);
+  animation: bounce 1.4s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+
+/* ── 欢迎卡片 ── */
+.welcome-card {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.welcome-card h2 {
+  font-size: 18px;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.welcome-card p {
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+.welcome-steps {
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.welcome-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-600);
+}
+.welcome-step .num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── 免责声明 ── */
+.disclaimer {
+  text-align: center;
+  padding: 12px 16px;
+  font-size: 11px;
+  color: var(--gray-400);
+  flex-shrink: 0;
+}
+
+/* ── 错误提示 ── */
+.error-toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  z-index: 100;
+  animation: fadeIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ── 响应式 ── */
+@media (min-width: 768px) {
+  body {
+    max-width: 480px;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="header">
+  <div class="header-title">
+    <span class="icon">🎓</span>
+    <div>
+      <h1>高报AI顾问</h1>
+      <div class="header-subtitle">说话直 · 不绕弯 · 帮你选对路</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="header-btn" onclick="resetChat()">🔄 重置</button>
+  </div>
+</div>
+
+<!-- 槽位进度 -->
+<div class="slot-bar" id="slotBar"></div>
+
+<!-- 聊天区域 -->
+<div class="chat-area" id="chatArea">
+  <!-- 欢迎卡片 -->
+  <div class="welcome-card" id="welcomeCard">
+    <h2>👋 你好！</h2>
+    <p>我是AI高考志愿顾问，专门帮你解决志愿填报难题。</p>
+    <div class="welcome-steps">
+      <div class="welcome-step"><span class="num">1</span> 告诉我你的省份和分数</div>
+      <div class="welcome-step"><span class="num">2</span> 说说你想学什么 / 在意什么</div>
+      <div class="welcome-step"><span class="num">3</span> 拿到专属的冲稳保推荐</div>
+    </div>
+    <p style="font-size:12px;color:#9ca3af;margin-top:8px;">👇 点击下方快速提问，或直接打字</p>
+  </div>
+</div>
+
+<!-- 快速提问 -->
+<div class="quick-questions" id="quickQuestions">
+  <button class="quick-btn" onclick="sendQuick(this)">📍 我是[XX省]考生</button>
+  <button class="quick-btn" onclick="sendQuick(this)">🎯 想冲985/211</button>
+  <button class="quick-btn" onclick="sendQuick(this)">💼 想找好就业的专业</button>
+  <button class="quick-btn" onclick="sendQuick(this)">📝 我想考公/考研</button>
+  <button class="quick-btn" onclick="sendQuick(this)">😰 孩子考得不理想</button>
+  <button class="quick-btn" onclick="sendQuick(this)">❓ 不知道从哪开始</button>
+</div>
+
+<!-- 输入区域 -->
+<div class="input-area">
+  <div class="input-wrap">
+    <textarea id="msgInput" rows="1" placeholder="输入你的情况，如：山东600分..."
+              oninput="autoGrow(this)" onkeydown="handleKey(event)"></textarea>
+  </div>
+  <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+  </button>
+</div>
+
+<!-- 免责声明 -->
+<div class="disclaimer">
+  ⚠️ 本服务基于公开数据与AI推理，仅供参考，不构成升学建议。<br>
+  最终志愿以省考试院官方数据为准。
+</div>
+
+<script>
+// ── 配置 ──
+const API_BASE = window.location.origin.includes('localhost')
+  ? 'http://localhost:8000'
+  : window.location.origin.replace(':8501', ':8000');
+
+// ── 状态 ──
+let sessionId = localStorage.getItem('gaokao_sid') || '';
+let isStreaming = false;
+let currentSlots = {};
+
+// ── DOM ──
+const chatArea = document.getElementById('chatArea');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const slotBar = document.getElementById('slotBar');
+const quickQ = document.getElementById('quickQuestions');
+const welcomeCard = document.getElementById('welcomeCard');
+
+// ── 初始化 ──
+msgInput.addEventListener('input', () => {
+  sendBtn.disabled = !msgInput.value.trim() || isStreaming;
+});
+
+// ── 自动增长 textarea ──
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ── 键盘处理 ──
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendBtn.disabled) sendMessage();
+  }
+}
+
+// ── 发送快速提问 ──
+function sendQuick(btn) {
+  const text = btn.textContent.replace(/^[^\s]+\s/, '');
+  msgInput.value = text;
+  autoGrow(msgInput);
+  sendMessage();
+}
+
+// ── 发送消息 ──
+async function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || isStreaming) return;
+
+  // 隐藏欢迎卡片和快速提问
+  if (welcomeCard) welcomeCard.style.display = 'none';
+  quickQ.style.display = 'none';
+
+  // 显示用户消息
+  appendMessage('user', text);
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+  sendBtn.disabled = true;
+  isStreaming = true;
+
+  // 显示 AI 输入中
+  const aiBubble = appendTyping();
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, session_id: sessionId || undefined }),
+    });
+
+    if (!resp.ok) {
+      throw new Error(`服务响应异常 (${resp.status})`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let fullReply = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.chunk) {
+            fullReply += parsed.chunk;
+            updateAiBubble(aiBubble, fullReply);
+          }
+          if (parsed.done) {
+            sessionId = parsed.session_id;
+            localStorage.setItem('gaokao_sid', sessionId);
+            if (parsed.slots) updateSlots(parsed.slots);
+          }
+        } catch (e) { /* skip malformed */ }
+      }
+    }
+
+    // 最终渲染
+    if (fullReply) {
+      finalizeAiBubble(aiBubble, fullReply);
+    } else {
+      removeTyping(aiBubble);
+      appendMessage('assistant', '抱歉，我没有收到有效回复，请重试。');
+    }
+
+  } catch (err) {
+    removeTyping(aiBubble);
+    appendMessage('assistant', `⚠️ ${err.message || '网络异常，请稍后重试'}`);
+  } finally {
+    isStreaming = false;
+    sendBtn.disabled = !msgInput.value.trim();
+    scrollToBottom();
+  }
+}
+
+// ── 消息渲染 ──
+function appendMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  div.innerHTML = `
+    <div>
+      <div class="msg-bubble">${formatText(content)}</div>
+      <div class="msg-time">${time}</div>
+    </div>
+  `;
+  chatArea.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function appendTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = `
+    <div>
+      <div class="msg-bubble">
+        <div class="typing-indicator"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  `;
+  chatArea.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function updateAiBubble(bubble, text) {
+  const b = bubble.querySelector('.msg-bubble');
+  if (b) b.innerHTML = formatText(text);
+  scrollToBottom();
+}
+
+function finalizeAiBubble(bubble, text) {
+  const b = bubble.querySelector('.msg-bubble');
+  if (b) b.innerHTML = formatText(text);
+  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const container = bubble.querySelector('div');
+  if (container) {
+    const t = document.createElement('div');
+    t.className = 'msg-time';
+    t.textContent = time;
+    container.appendChild(t);
+  }
+  scrollToBottom();
+}
+
+function removeTyping(bubble) {
+  if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+}
+
+// ── 文本格式化（简易 Markdown） ──
+function formatText(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── 滚动到底部 ──
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  });
+}
+
+// ── 更新槽位进度 ──
+function updateSlots(slots) {
+  currentSlots = slots;
+  const labels = {
+    province: '省份', score_rank: '分数', subject: '选科',
+    interest: '兴趣', region: '地域', family: '家庭', goal: '诉求',
+  };
+  let html = '';
+  for (const [key, info] of Object.entries(slots)) {
+    const filled = info.filled;
+    const label = labels[key] || info.label || key;
+    const cls = filled ? 'filled' : 'empty';
+    const icon = filled ? '✅' : '○';
+    html += `<span class="slot-chip ${cls}"><span class="dot"></span>${label}</span>`;
+  }
+  slotBar.innerHTML = html;
+}
+
+// ── 重置对话 ──
+async function resetChat() {
+  if (!confirm('确定要重置对话吗？所有聊天记录将清除。')) return;
+
+  if (sessionId) {
+    try {
+      await fetch(`${API_BASE}/api/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  sessionId = '';
+  localStorage.removeItem('gaokao_sid');
+  chatArea.innerHTML = '';
+  if (welcomeCard) chatArea.appendChild(welcomeCard);
+  welcomeCard.style.display = '';
+  quickQ.style.display = '';
+  slotBar.innerHTML = '';
+  msgInput.value = '';
+}
+
+// ── 显示错误 ──
+function showError(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'error-toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ── 恢复会话 ──
+(async function restoreSession() {
+  if (!sessionId) return;
+  try {
+    const resp = await fetch(`${API_BASE}/api/slots/${sessionId}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.slots) updateSlots(data.slots);
+    }
+  } catch (e) { /* API 未启动时静默 */ }
+})();
+</script>
+</body>
+</html>
