@@ -854,6 +854,86 @@ _env_api_key = os.environ.get("LLM_API_KEY", "")
 _has_env_key = bool(_env_api_key) and _env_api_key != "sk-your-api-key-here"
 
 
+# ── API Key 维护页面 ──────────────────────────────────
+def render_maintenance_page() -> None:
+    """渲染全屏维护页面，替代 API Key 输入暴露。"""
+    st.markdown(
+        """
+        <style>
+        .maintenance-container {
+            max-width: 520px;
+            margin: 10vh auto 0 auto;
+            padding: 2.5rem 2rem;
+            background: #f8f9fa;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .maintenance-container h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a2e;
+        }
+        .maintenance-container .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .maintenance-container p {
+            font-size: 1rem;
+            color: #555;
+            line-height: 1.6;
+            margin: 0.5rem 0;
+        }
+        .maintenance-container .contact {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e0e0e0;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="maintenance-container">'
+        '<div class="icon">🎓</div>'
+        "<h1>高报Agent · AI 高考志愿顾问</h1>"
+        "<p><strong>系统维护中</strong></p>"
+        "<p>顾问服务正在升级维护，暂时无法使用。<br>"
+        "请稍后再试，或联系管理员获取帮助。</p>"
+        '<div class="contact">'
+        "如需紧急帮助，请联系管理员。<br>"
+        "感谢您的理解与耐心等待。"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+
+def _check_api_key_available() -> None:
+    """检查 API Key 是否可用，不可用时显示维护页面并终止渲染。
+
+    Admin 用户可通过 ?admin=true 查询参数绕过此检查，
+    以便在维护期间进行调试。
+    """
+    # Admin 绕过：URL 带 ?admin=true 时不拦截
+    try:
+        if st.query_params.get("admin") == "true":
+            return
+    except Exception:
+        pass
+
+    if not _has_env_key:
+        render_maintenance_page()
+
+
+# 执行维护检查（在任何 UI 渲染之前）
+_check_api_key_available()
+
+
 def get_or_create_advisor():
     """获取或创建 advisor 实例（根据 API Key 是否可用）。"""
     if st.session_state.api_key_confirmed and st.session_state.user_api_key:
