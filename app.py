@@ -1649,27 +1649,33 @@ with st.sidebar:
     # 💬 微信引流区块
     st.markdown("#### 💬 加入高考家长社区")
 
-    st.markdown(
-        '<div style="text-align:center; padding:0.6rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; margin:0.4rem 0;">'
-        '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">📱 高考家长交流群</p>'
-        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">500+ 家长在线交流志愿填报经验</p>'
-        '<p style="font-size:0.7rem; color:#9ca3af; margin:0;">（群二维码请关注公众号获取）</p>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    # 检查二维码图片是否存在，存在则显示
+    import os as _os
+    _qr_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static", "wechat_group_qr.png")
+    if _os.path.exists(_qr_path):
+        st.image(_qr_path, width=180, caption="家长群二维码（微信扫一扫）")
+    else:
+        st.markdown(
+            '<div style="text-align:center; padding:1.2rem; background:#f0fdf4; border:2px dashed #22c55e; border-radius:12px; margin:0.4rem 0;">'
+            '<p style="font-size:0.8rem; color:#166534; margin:0 0 0.2rem;">📱 家长群二维码</p>'
+            '<p style="font-size:0.7rem; color:#9ca3af; margin:0;">（管理员请将图片放置于 static/wechat_group_qr.png）</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown(
-        '<div style="text-align:center; padding:0.6rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; margin:0.4rem 0;">'
-        '<p style="font-size:0.9rem; color:#1e40af; margin:0; font-weight:600;">💬 关注公众号</p>'
-        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">最新高考政策解读 + 专业就业数据</p>'
+        '<div style="text-align:center; padding:0.6rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; margin:0.4rem 0;">'
+        '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">500+ 家长在线交流</p>'
+        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">实时政策解读 · 1对1咨询答疑 · 过来人经验分享</p>'
         '</div>',
         unsafe_allow_html=True,
     )
 
     st.markdown(
         '<div style="text-align:center; padding:0.6rem; background:#fef3c7; border:1px solid #fde68a; border-radius:10px; margin:0.4rem 0;">'
-        '<p style="font-size:0.9rem; color:#92400e; margin:0; font-weight:600;">📖 免费领取</p>'
-        '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">《2026 志愿填报避坑指南》PDF</p>'
+        '<p style="font-size:0.9rem; color:#92400e; margin:0; font-weight:600;">📖 免费领取《志愿填报避坑指南》</p>'
+        '<p style="font-size:0.75rem; color:#92400e; margin:0.2rem 0;">历年考生踩坑案例汇总 PDF</p>'
+        '<p style="font-size:0.7rem; color:#d97706; margin:0;">添加微信 <b>gaobao_ai</b> 领取</p>'
         '</div>',
         unsafe_allow_html=True,
     )
