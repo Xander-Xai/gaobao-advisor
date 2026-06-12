@@ -1321,6 +1321,49 @@ with st.sidebar:
                 use_container_width=True,
             )
 
+        # 📄 导出纯对话 Markdown（简洁版，仅包含对话内容）
+        if st.session_state.messages:
+            if st.button("📄 导出对话 Markdown", use_container_width=True):
+                from datetime import datetime as _dt_md
+                _now_md = _dt_md.now().strftime("%Y-%m-%d %H:%M")
+                _md_lines = []
+                _md_lines.append(f"# 高考志愿咨询对话记录")
+                _md_lines.append(f"**导出时间**: {_now_md}\n")
+
+                # 基本信息
+                _slots_md = st.session_state.slots
+                _info_parts = []
+                if _slots_md.get("province", {}).get("filled"):
+                    _info_parts.append(f"省份：{_slots_md['province']['value']}")
+                if _slots_md.get("score_rank", {}).get("filled"):
+                    _info_parts.append(f"分数/位次：{_slots_md['score_rank']['value']}")
+                if _slots_md.get("subject", {}).get("filled"):
+                    _info_parts.append(f"选科：{_slots_md['subject']['value']}")
+                if _info_parts:
+                    _md_lines.append(f"**考生信息**: {' | '.join(_info_parts)}\n")
+
+                _md_lines.append("---\n")
+                for _msg in st.session_state.messages:
+                    _role_label = "考生" if _msg["role"] == "user" else "AI 顾问"
+                    _content = _re.sub(r'<[^>]+>', '', _msg.get("content", "")).strip()
+                    if _content:
+                        _md_lines.append(f"### {_role_label}\n")
+                        _md_lines.append(f"{_content}\n")
+                _md_lines.append("---\n")
+                _md_lines.append(
+                    "*本对话由 AI 高考志愿顾问自动生成，仅供参考，"
+                    "不构成升学决策依据。*"
+                )
+                _md_text = "\n".join(_md_lines)
+                st.download_button(
+                    "💾 下载对话 Markdown",
+                    data=_md_text,
+                    file_name=f"高考咨询对话_{_now_md[:10]}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                    key="download_md_conv",
+                )
+
         # P2-8: 导出志愿表 PDF
         _vt = st.session_state.get("_volunteer_table")
         if _vt and _vt.get("chong") or _vt and _vt.get("wen") or _vt and _vt.get("bao"):
@@ -1526,35 +1569,75 @@ with st.sidebar:
     with st.expander("💬 历史对话", expanded=False):
         try:
             from db.database import get_session as _hist_db
-            from db.crud import list_user_conversations
+            from db.crud import (
+                list_user_conversations,
+                load_conversation_history,
+                load_conversation_slots,
+            )
             _db_h = _hist_db()
             try:
-                _histories = list_user_conversations(_db_h, limit=5)
+                _histories = list_user_conversations(_db_h, limit=20)
                 if _histories:
                     st.markdown("**最近对话**")
                     for _h in _histories:
                         _date = _h.updated_at.strftime("%m-%d %H:%M") if _h.updated_at else ""
                         _prov = _h.province or "未知省份"
                         _score = _h.score_rank or ""
-                        _label = f"{_date} · {_prov}" + (f" · {_score}" if _score else "")
+                        _msg_count = len(_h.messages) if _h.messages else 0
+                        _label = (
+                            f"{_date} · {_prov}"
+                            + (f" · {_score}" if _score else "")
+                            + f" · {_msg_count}条消息"
+                        )
                         # 当前会话高亮
                         _is_current = _h.session_id == st.session_state.session_id
                         if _is_current:
                             st.markdown(f"📌 **{_label}** *(当前)*")
                         else:
-                            _link = f"?sid={_h.session_id}"
-                            st.markdown(f"📋 [{_label}]({_link})")
+                            _btn_key = f"hist_restore_{_h.session_id}"
+                            if st.button(
+                                f"📋 {_label}",
+                                key=_btn_key,
+                                use_container_width=True,
+                            ):
+                                # 从数据库恢复该会话的消息和槽位
+                                _restored_msgs = load_conversation_history(
+                                    _db_h, _h.session_id
+                                )
+                                _restored_slots = load_conversation_slots(
+                                    _db_h, _h.session_id
+                                )
+                                if _restored_msgs:
+                                    st.session_state.messages = _restored_msgs
+                                    st.session_state.msg_count = len(_restored_msgs)
+                                    st.session_state.session_id = _h.session_id
+                                if _restored_slots:
+                                    for _sk, _sv in _restored_slots.items():
+                                        if _sk in st.session_state.slots:
+                                            if isinstance(_sv, dict):
+                                                st.session_state.slots[_sk].update(_sv)
+                                            else:
+                                                st.session_state.slots[_sk]["value"] = _sv
+                                                st.session_state.slots[_sk]["filled"] = True
+                                st.session_state.limit_reached = False
+                                if advisor:
+                                    advisor.reset()
+                                st.rerun()
                 else:
                     st.caption("暂无历史对话")
             finally:
                 _db_h.close()
         except Exception:
             st.caption("无法加载历史对话")
+
+    # 新建对话按钮
+    if st.button("➕ 新建对话", use_container_width=True):
         if advisor:
             advisor.reset()
         st.session_state.messages = []
         st.session_state.msg_count = 0
         st.session_state.limit_reached = False
+        st.session_state.session_id = uuid.uuid4().hex
         # 重置 slots
         for k in st.session_state.slots:
             st.session_state.slots[k]["filled"] = False
