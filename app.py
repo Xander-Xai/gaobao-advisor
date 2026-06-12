@@ -320,6 +320,11 @@ _SCHOOL_CARD_CSS = """
 .school-card-tag-985 { background: #fee2e2; color: #991b1b; }
 .school-card-tag-211 { background: #fef3c7; color: #92400e; }
 .school-card-tag-dfc { background: #ddd6fe; color: #5b21b6; }
+/* 趋势标签 */
+.school-card-trend { background: #f3f4f6; color: #374151; font-size: 0.68rem; }
+/* 警告 note（选科不符等） */
+.school-card-note-warn { color: #dc2626; font-size: 0.78rem; margin-top: 0.2rem; font-weight: 500; }
+.school-card-note { color: #6b7280; font-size: 0.78rem; margin-top: 0.2rem; }
 .school-card-meta {
     font-size: 0.82rem;
     color: #4b5563;
@@ -379,7 +384,7 @@ _SCHOOL_DATA_PATTERN = _re.compile(
 
 
 def _render_school_card(school: dict) -> str:
-    """渲染单个学校卡片。"""
+    """渲染单个学校卡片（含趋势指示器 + 选科/年份标注）。"""
     name = _html.escape(str(school.get("name", "未知院校")))
     city = _html.escape(str(school.get("city", "")))
     province = _html.escape(str(school.get("province", "")))
@@ -392,6 +397,12 @@ def _render_school_card(school: dict) -> str:
     major = _html.escape(str(school.get("major", "院校线")))
     note = _html.escape(str(school.get("note", "")))
     group = str(school.get("group", "wen")).strip()  # chong/wen/bao
+    trend = str(school.get("trend", "")).strip()     # 上升/下降/稳定/波动
+
+    # 趋势指示器映射
+    trend_icons = {"上升": "📈", "逐年上升": "📈", "下降": "📉", "逐年下降": "📉",
+                   "稳定": "➡️", "波动": "〰️"}
+    trend_icon = trend_icons.get(trend, "")
 
     # 标签
     tags = []
@@ -403,6 +414,8 @@ def _render_school_card(school: dict) -> str:
         tags.append('<span class="school-card-tag school-card-tag-dfc">双一流</span>')
     if level and level not in ("985", "211", "双一流"):
         tags.append(f'<span class="school-card-tag">{_html.escape(level)}</span>')
+    if trend_icon:
+        tags.append(f'<span class="school-card-tag school-card-trend">{trend_icon} {trend}</span>')
 
     # 元信息
     meta_parts = []
@@ -434,7 +447,12 @@ def _render_school_card(school: dict) -> str:
         f'<div class="school-card-meta">{" | ".join(score_parts)}</div>'
         if score_parts else ""
     )
-    note_html = f'<div class="school-card-meta">{note}</div>' if note else ""
+    # note 样式：选科警告用红色，其他用灰色
+    note_html = ""
+    if note:
+        is_warning = "选科" in note or "不符" in note or "⚠️" in note
+        note_class = "school-card-note school-card-note-warn" if is_warning else "school-card-note"
+        note_html = f'<div class="{note_class}">{note}</div>'
 
     return f"""
 <div class="{card_class}">
@@ -657,10 +675,39 @@ st.markdown(
     .slot-filled { background: #22c55e; }
     .slot-empty { background: #e5e7eb; }
 
-    /* 移动端适配 */
+    /* 移动端适配（增强版） */
     @media (max-width: 768px) {
-        .main-title h1 { font-size: 1.2rem; }
-        .stChatMessage { font-size: 0.9rem; }
+        .main-title h1 { font-size: 1.1rem; }
+        .main-title p { font-size: 0.75rem; }
+        .stChatMessage { font-size: 0.85rem; }
+        /* 学校卡片在手机上全宽展示 */
+        .school-card { padding: 0.6rem; }
+        .school-card-title { font-size: 0.95rem; }
+        .school-card-tag { font-size: 0.65rem; padding: 0.08rem 0.35rem; }
+        .school-card-meta { font-size: 0.75rem; }
+        /* 引导卡片紧凑 */
+        .welcome-card { padding: 0.7rem 0.9rem; }
+        /* 侧边栏默认折叠优化 */
+        [data-testid="stSidebar"] { min-width: 280px; max-width: 320px; }
+        /* 聊天输入框适配 */
+        .stTextInput input, .stTextArea textarea { font-size: 0.9rem; }
+        /* 按钮全宽优化 */
+        [data-testid="stFormSubmitButton"] button,
+        [data-testid="stButton"] button { font-size: 0.85rem; padding: 0.4rem; }
+        /* 加载提示适应手机 */
+        .loading-step { font-size: 0.8rem; padding: 0.4rem 0.6rem; }
+        /* 隐藏部分 Streamlit 默认元素以节省空间 */
+        [data-testid="stExpander"] { font-size: 0.85rem; }
+        /* 槽位进度条在手机上显示更小 */
+        .slot-dot { width: 8px; height: 8px; }
+    }
+    /* 超窄屏（< 480px）进一步优化 */
+    @media (max-width: 480px) {
+        .main-title h1 { font-size: 1rem; }
+        .stChatMessage { font-size: 0.8rem; }
+        .school-group-title { font-size: 0.82rem; }
+        /* 快速提问按钮在超窄屏单列显示 */
+        [data-testid="stHorizontalBlock"] { flex-direction: column; }
     }
 
     /* 分阶段加载提示 */
@@ -999,7 +1046,17 @@ with st.sidebar:
             else:
                 st.warning("请至少填写省份或分数中的一项。")
 
-    st.markdown("---")
+    # 重置按钮
+    if st.button("🔄 重新开始对话", use_container_width=True):
+        if advisor:
+            advisor.reset()
+        st.session_state.messages = []
+        st.session_state.msg_count = 0
+        st.session_state.limit_reached = False
+        for k in st.session_state.slots:
+            st.session_state.slots[k]["filled"] = False
+            st.session_state.slots[k]["value"] = ""
+        st.rerun()
 
     # 📤 导出 & 分享
     with st.expander("📤 导出 & 分享", expanded=False):
@@ -1010,31 +1067,73 @@ with st.sidebar:
             f"页面地址栏中已包含 `?sid={_sid}`"
         )
         st.caption("💡 复制浏览器地址栏链接，发给家人或自己保存即可。")
-        # 导出对话为 Markdown
-        if st.button("📥 导出对话记录（Markdown）", use_container_width=True):
+        # 增强版：导出完整咨询报告（包含推荐摘要）
+        if st.button("📊 生成完整咨询报告", use_container_width=True):
             export_lines = []
-            export_lines.append(f"# AI 高考志愿顾问 — 对话记录")
-            export_lines.append(f"**会话 ID**: {_sid}\n")
-            # 槽位信息
+            from datetime import datetime as _dt
+            _now = _dt.now().strftime("%Y-%m-%d %H:%M")
+            export_lines.append(f"# 🎓 AI 高考志愿咨询报告")
+            export_lines.append(f"**生成时间**: {_now}")
+            export_lines.append(f"**会话 ID**: `{_sid}`\n")
+            export_lines.append("---\n")
+
+            # ── 基本信息摘要 ──
             _slots = st.session_state.slots
-            filled_slots = {k: v for k, v in _slots.items() if v["filled"]}
-            if filled_slots:
-                export_lines.append("## 已采集信息\n")
-                for k, v in filled_slots.items():
-                    export_lines.append(f"- **{v['label']}**: {v['value']}")
-                export_lines.append("")
-            export_lines.append("## 对话内容\n")
+            export_lines.append("## 📋 考生基本信息\n")
+            slot_labels = {
+                "province": "省份", "score_rank": "分数/位次", "subject": "选科",
+                "interest": "专业兴趣", "region": "地域偏好",
+                "family": "家庭资源", "goal": "核心诉求",
+            }
+            for k, v in _slots.items():
+                if v.get("filled"):
+                    label = slot_labels.get(k, v.get("label", k))
+                    export_lines.append(f"- **{label}**: {v['value']}")
+            export_lines.append("")
+
+            # ── 推荐摘要（从 AI 回复中提取学校名） ──
+            _school_mentions = set()
+            _re_school = _re.compile(r'([一-龥]{2,}(?:大学|学院|学校))')
             for msg in st.session_state.messages:
-                role_label = "👤 用户" if msg["role"] == "user" else "🤖 顾问"
+                if msg["role"] == "assistant":
+                    for m in _re_school.finditer(msg.get("content", "")):
+                        name = m.group(1)
+                        if len(name) >= 4 and name not in _school_mentions:
+                            _school_mentions.add(name)
+            if _school_mentions:
+                export_lines.append("## 🏫 本次咨询涉及的院校\n")
+                for s in sorted(_school_mentions)[:20]:
+                    export_lines.append(f"- {s}")
+                export_lines.append("")
+
+            # ── 完整对话记录 ──
+            export_lines.append("## 💬 完整对话记录\n")
+            for msg in st.session_state.messages:
+                role_label = "👤 考生" if msg["role"] == "user" else "🤖 AI 顾问"
                 content = msg["content"]
-                # 清理 HTML 标签
                 content = _re.sub(r'<[^>]+>', '', content)
-                export_lines.append(f"### {role_label}\n{content}\n")
+                content = content.strip()
+                if content:
+                    export_lines.append(f"### {role_label}\n{content}\n")
+
+            # ── 免责声明 ──
+            export_lines.append("---\n")
+            export_lines.append("## ⚠️ 免责声明\n")
+            export_lines.append(
+                "本报告由 AI 高考志愿顾问自动生成，基于公开数据与 AI 推理，"
+                "**仅供参考，不构成升学决策依据**。\n\n"
+                "最终志愿填报请以：\n"
+                "1. 各高校官方招生章程\n"
+                "2. 各省教育考试院公布的官方数据\n"
+                "3. 教育部阳光高考信息平台 (gaokao.chsi.com.cn)\n"
+                "为准。\n\n"
+                "建议考生和家长结合自身情况，综合多方信息后做出决策。"
+            )
             export_text = "\n".join(export_lines)
             st.download_button(
-                "💾 下载 Markdown 文件",
+                "💾 下载完整报告",
                 data=export_text,
-                file_name=f"高考志愿咨询记录_{_sid}.md",
+                file_name=f"高考志愿咨询报告_{_now[:10]}.md",
                 mime="text/markdown",
                 use_container_width=True,
             )
@@ -1240,8 +1339,34 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 重置按钮
-    if st.button("🔄 重新开始对话", use_container_width=True):
+    # 💬 历史对话列表（可切换会话）
+    with st.expander("💬 历史对话", expanded=False):
+        try:
+            from db.database import get_session as _hist_db
+            from db.crud import list_user_conversations
+            _db_h = _hist_db()
+            try:
+                _histories = list_user_conversations(_db_h, limit=5)
+                if _histories:
+                    st.markdown("**最近对话**")
+                    for _h in _histories:
+                        _date = _h.updated_at.strftime("%m-%d %H:%M") if _h.updated_at else ""
+                        _prov = _h.province or "未知省份"
+                        _score = _h.score_rank or ""
+                        _label = f"{_date} · {_prov}" + (f" · {_score}" if _score else "")
+                        # 当前会话高亮
+                        _is_current = _h.session_id == st.session_state.session_id
+                        if _is_current:
+                            st.markdown(f"📌 **{_label}** *(当前)*")
+                        else:
+                            _link = f"?sid={_h.session_id}"
+                            st.markdown(f"📋 [{_label}]({_link})")
+                else:
+                    st.caption("暂无历史对话")
+            finally:
+                _db_h.close()
+        except Exception:
+            st.caption("无法加载历史对话")
         if advisor:
             advisor.reset()
         st.session_state.messages = []
