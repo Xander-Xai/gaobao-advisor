@@ -104,6 +104,104 @@ def _get_session():
     return _SessionFactory()
 
 
+def query_enrollment_plan(school_name, province=None, year=None):
+    """
+    查询招生计划 — 数据库优先，百度高考 API 兜底。
+    返回: list of dicts（每条包含 school, major, plan_count, province, year 等）
+    异常时返回空列表 []（优雅降级，绝不抛错）。
+    """
+    if year is None:
+        year = DATA_YEAR
+    results = []
+
+    # ── 优先查数据库 ──
+    db = _get_session()
+    if db:
+        try:
+            school = _crud.get_school_by_name(db, school_name)
+            if school:
+                plans = _crud.get_enrollment_plans(
+                    db, school_id=school.id, province=province, year=year
+                )
+                for p in plans:
+                    from db.models import Major
+                    major = db.query(Major).filter_by(id=p.major_id).first()
+                    results.append({
+                        "school": school.name,
+                        "major": major.name if major else "未知专业",
+                        "province": p.province,
+                        "year": p.year,
+                        "plan_count": p.plan_count,
+                        "subject_requirement": p.subject_requirement,
+                        "batch": p.batch,
+                        "duration": p.duration,
+                        "tuition": p.tuition,
+                        "data_source": f"数据库招生计划（{school.name} · {p.year}年）",
+                    })
+        except Exception as e:
+            log.warning("数据库查询招生计划失败: %s", e)
+        finally:
+            db.close()
+
+    # ── 数据库没有 → 百度高考 API ──
+    if not results and province:
+        try:
+            from scrapers.baidu_gaokao import fetch_enrollment_plan
+            api_plans = fetch_enrollment_plan(school_name, province, year)
+            if api_plans:
+                for item in api_plans:
+                    results.append({
+                        "school": school_name,
+                        "major": item.get("majorName", ""),
+                        "province": province,
+                        "year": year,
+                        "plan_count": _safe_int(item.get("planCount")),
+                        "subject_requirement": item.get("subjectRequirement", ""),
+                        "batch": item.get("batchName", ""),
+                        "duration": _safe_int(item.get("duration")),
+                        "tuition": _safe_int(item.get("tuition")),
+                        "data_source": f"百度高考 API 招生计划 · {year}年数据",
+                    })
+        except Exception as e:
+            log.warning("百度高考 API 招生计划查询失败: %s", e)
+
+    return results
+
+
+def format_enrollment_info(plans):
+    """格式化招生计划为 Agent 可用文本（带数据来源标注，优雅处理空数据）。"""
+    if not plans:
+        return "暂无招生计划数据。建议访问各高校招生网或各省教育考试院查询最新招生计划。"
+
+    lines = []
+    for i, p in enumerate(plans[:10], 1):
+        school = p.get("school", "")
+        major = p.get("major", "")
+        province = p.get("province", "")
+        year = p.get("year", "")
+        batch = p.get("batch", "")
+        plan_count = p.get("plan_count", "")
+        subject_req = p.get("subject_requirement", "")
+        duration = p.get("duration", "")
+        tuition = p.get("tuition", "")
+        source = p.get("data_source", "")
+
+        line = f"{i}. {school} · {major} | {province} {year}年 {batch}"
+        if plan_count:
+            line += f" | 招生人数：{plan_count}"
+        if subject_req:
+            line += f" | {subject_req}"
+        if duration:
+            line += f" | {duration}年制"
+        if tuition:
+            line += f" | 学费 {tuition}元/年"
+        if source:
+            line += f" | 来源：{source}"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
 def query_admission(school, province, year=None, major=None):
     """
     查询录取数据 — 数据库优先，百度API 兜底
