@@ -8,9 +8,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -378,8 +381,16 @@ class KbRetriever:
         selected_groups = self._select_top_groups(group_scores)
         selected_chunks = self._select_top_chunks(selected_groups, query_emb)
         selected_quotes = self._select_top_quotes(user_msg, query_emb)
-        return RetrievalResult(
+        result = RetrievalResult(
             groups=selected_groups,
             group_chunks=selected_chunks,
             quotes=selected_quotes,
         )
+        logger.info(
+            "RAG retrieval: query=%s, groups=%d, chunks=%d, quotes=%d",
+            user_msg[:50],
+            len(result.groups),
+            len(result.group_chunks),
+            len(result.quotes),
+        )
+        return result
