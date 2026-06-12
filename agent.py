@@ -823,6 +823,42 @@ def cleanup_format(text, cli_mode=True):
         text = re.sub(r'^\s*\d+[\.\、]\s*', '', text, flags=re.MULTILINE)
     return text.strip()
 
+
+# ── 数据年份标注 + 免责声明 ──────────────────────────
+_ERROR_PREFIXES = ("AI 服务", "抱歉", "异常", "不可用")
+
+def ensure_disclaimer(text: str | None) -> str | None:
+    """如果回复缺少免责声明则在末尾追加。
+
+    错误消息、空回复、以及已包含免责声明的回复不做处理。
+    """
+    if not text:
+        return text
+    # 错误/异常回复不加免责
+    if any(text.startswith(p) for p in _ERROR_PREFIXES):
+        return text
+    if "仅供参考" in text:
+        return text
+    return text + "。以上数据仅供参考。"
+
+
+def ensure_year_label(text: str | None) -> str | None:
+    """推荐类回复自动标注数据年份。
+
+    检测关键词：冲/稳/保/志愿表/录取线/推荐。
+    已含当年年份或空回复不处理。
+    """
+    if not text:
+        return text
+    # 已含年份标注
+    if str(DATA_YEAR) in text:
+        return text
+    _RECOMMEND_KEYWORDS = ("冲", "稳", "保", "志愿表", "录取线", "推荐")
+    if any(kw in text for kw in _RECOMMEND_KEYWORDS):
+        return text + f"\n（以上数据为 {DATA_YEAR} 年）"
+    return text
+
+
 class GaokaoAdvisor:
     """高考志愿 AI 顾问核心类。
 
@@ -1538,6 +1574,10 @@ class GaokaoAdvisor:
         # 清理格式：CLI 模式去全部 Markdown，Web 模式保留加粗/列表
         reply = cleanup_format(reply, cli_mode=self.cli_mode)
 
+        # 数据年份标注 + 免责声明注入
+        reply = ensure_year_label(reply)
+        reply = ensure_disclaimer(reply)
+
         # ── P2-2: 决策反模式检测（在自评前运行）──
         if HAS_ANTI_PATTERN_CHECKER:
             try:
@@ -1836,6 +1876,10 @@ class GaokaoAdvisor:
 
         # 清理格式：Web 模式保留加粗/列表
         full_reply = cleanup_format(full_reply, cli_mode=self.cli_mode)
+
+        # 数据年份标注 + 免责声明注入
+        full_reply = ensure_year_label(full_reply)
+        full_reply = ensure_disclaimer(full_reply)
 
         # P1-7: 对话质量自评
         eval_score, eval_highlights = self._self_evaluate(full_reply)
