@@ -188,7 +188,9 @@ def parse_school_tags(tags: list) -> tuple:
 
 def import_schools_to_db(db_session, School, max_schools: int = None,
                          skip_existing: bool = True) -> dict:
-    """导入院校列表到数据库。返回统计信息。"""
+    """导入院校列表到数据库。返回统计信息。
+    skip_existing=True 时，只填充空字段（city, ranking, description），不覆盖已有数据。
+    """
     stats = {"fetched": 0, "new": 0, "updated": 0, "skipped": 0}
     print(f"\n[院校列表] 开始采集（最多 {max_schools or '全部'} 所）...")
 
@@ -207,13 +209,21 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
         existing = db_session.query(School).filter(School.name == name).first()
         if existing:
             if skip_existing:
-                # 仍更新省份/城市等基础信息
-                existing.province = item.get("province", existing.province)
-                existing.city = item.get("city", existing.city) or existing.city
-                existing.school_type = item.get("school_type", existing.school_type)
-                rank = safe_int(item.get("rank"))
-                if rank:
-                    existing.ranking = rank
+                # 增量更新：只填充空字段，不覆盖已有数据
+                api_city = item.get("city", "") or item.get("location", "")
+                if not existing.city and api_city:
+                    existing.city = api_city
+                api_rank = safe_int(item.get("rank"))
+                if not existing.ranking and api_rank:
+                    existing.ranking = api_rank
+                api_desc = item.get("tag_text", "")
+                if not existing.description and api_desc:
+                    existing.description = api_desc
+                # province 和 school_type 始终同步（API 是权威来源）
+                if item.get("province"):
+                    existing.province = item["province"]
+                if item.get("school_type"):
+                    existing.school_type = item["school_type"]
                 stats["updated"] += 1
             else:
                 stats["skipped"] += 1
