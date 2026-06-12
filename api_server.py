@@ -49,10 +49,13 @@ async def rate_limit_middleware(request, call_next):
     return await call_next(request)
 
 # CORS 支持（H5 页面跨域调用）
+# 允许来源由 ALLOWED_ORIGINS 环境变量控制，默认为空（仅同源）
+# 生产环境应设置为: http://your-h5-domain.com 或 https://your-domain.com
+_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").split(",") or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allowed_origins,
+    allow_credentials=bool(_allowed_origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -196,13 +196,13 @@ _RE_QQ = _re.compile(r'(?<!\d)[1-9]\d{4,10}(?!\d)')
 _RE_WECHAT = _re.compile(r'(?<![a-zA-Z0-9_-])[a-zA-Z][a-zA-Z0-9_-]{5,19}(?![a-zA-Z0-9_-])')
 # 微信号常见误判单词黑名单（小写比较）
 _WECHAT_BLOCKLIST = frozenset({
-    "student", "teacher", "python", "select", "system", "public",
+    "student", "teacher", "python", "select", "system",
     "import", "export", "return", "string", "number", "default",
     "update", "delete", "create", "insert", "global", "module",
     "config", "output", "input", "error", "result", "object",
     "thread", "server", "client", "master", "status", "format",
     "button", "submit", "cancel", "search", "common", "normal",
-    "active", "public", "static", "double", "simple", "single",
+    "active", "static", "double", "simple", "single",
 })
 # 家庭住址（含路/街/小区/栋/单元/号/弄/巷/村等关键词 + 数字组合）
 _RE_ADDRESS = _re.compile(
@@ -1665,7 +1665,7 @@ with st.sidebar:
 
     st.markdown(
         '<div style="text-align:center; padding:0.6rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; margin:0.4rem 0;">'
-        '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">500+ 家长在线交流</p>'
+        '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">家长交流群</p>'
         '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">实时政策解读 · 1对1咨询答疑 · 过来人经验分享</p>'
         '</div>',
         unsafe_allow_html=True,

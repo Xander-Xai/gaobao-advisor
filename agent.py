@@ -8,7 +8,7 @@ Usage:
 """
 from __future__ import annotations
 
-import os, sys, json, re, urllib.request, urllib.parse, urllib.error, time, logging
+import os, json, re, urllib.request, urllib.parse, urllib.error, time, logging
 from datetime import datetime
 from typing import Any
 from openai import OpenAI
@@ -18,8 +18,8 @@ from logger import log
 try:
     from gaokao_data import (
         query_admission, format_admission_info,
-        query_school_info, query_major_info, query_match_schools,
-        query_subject_ranking, search_policy, get_db_stats,
+        query_school_info, query_major_info,
+        get_db_stats,
         query_yi_fen_yi_duan, query_match_schools_v2,
         query_admission_trend,
         query_schools_by_major, format_schools_by_major,
@@ -184,13 +184,8 @@ SEARCH_ENGINE = "https://www.baidu.com/s?wd="
 # 默认数据年份：取最近一个完整年份（高考数据通常在当年9月后更新）
 DATA_YEAR = datetime.now().year - 1
 
-# 全国省级行政区（含台湾，共 32 个；单一数据源，消除重复）
-PROVINCES = [
-    "北京", "天津", "上海", "重庆", "河北", "山西", "辽宁", "吉林",
-    "黑龙江", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南",
-    "湖北", "湖南", "广东", "海南", "四川", "贵州", "云南", "陕西",
-    "甘肃", "青海", "台湾", "内蒙古", "广西", "西藏", "宁夏", "新疆",
-]
+# 全国省级行政区（单一数据源，from constants）
+from constants import PROVINCES
 # 省份提取正则（编译一次，复用多次）
 _PROVINCE_RE = re.compile(r'(' + '|'.join(PROVINCES) + r')')
 

@@ -12,17 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# ── Province data ────────────────────────────────────────
+from constants import PROVINCES, PROVINCE_MODES, SUBJECT_TYPES, INTERESTS
 
-PROVINCES: list[str] = [
-    "北京", "天津", "上海", "重庆",
-    "河北", "山西", "辽宁", "吉林", "黑龙江",
-    "江苏", "浙江", "安徽", "福建", "江西", "山东",
-    "河南", "湖北", "湖南", "广东", "海南",
-    "四川", "贵州", "云南", "陕西", "甘肃",
-    "青海", "内蒙古", "广西", "西藏", "宁夏",
-]
-
+# ── Province modes (UI display — extended with traditional mode) ──
 PROVINCE_MODES: dict[str, str] = {
     # 3+3 provinces
     "北京": "3+3", "天津": "3+3", "上海": "3+3",
