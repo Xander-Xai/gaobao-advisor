@@ -11,13 +11,13 @@ API 端点（实测可用）：
 
 数据来源: 百度高考 (gaokao.baidu.com)，底层数据由中国教育在线提供
 """
+import json
 import os
 import sys
-import json
 import time
-import urllib.request
 import urllib.parse
-from typing import Optional, Iterator
+import urllib.request
+from collections.abc import Iterator
 
 # 确保项目根目录在 path 中
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -35,10 +35,10 @@ HEADERS = {
 
 BASE_URL = "https://gaokao.baidu.com"
 PAGE_SIZE = 20
-DELAY = 0.4  # 秒，请求间隔
+DELAY = 0.2  # 秒，请求间隔（从 0.4 降至 0.2，平衡速度与限频）
 
 
-def _fetch_json(url: str, retries: int = 3) -> Optional[dict]:
+def _fetch_json(url: str, retries: int = 3) -> dict | None:
     """通用 JSON 请求，带重试"""
     for attempt in range(retries):
         try:
@@ -58,7 +58,7 @@ def _fetch_json(url: str, retries: int = 3) -> Optional[dict]:
 # 1. 院校列表采集
 # ══════════════════════════════════════════════════════════
 
-def fetch_school_list(page: int = 1, rn: int = PAGE_SIZE) -> Optional[dict]:
+def fetch_school_list(page: int = 1, rn: int = PAGE_SIZE) -> dict | None:
     """获取院校列表（分页）"""
     url = f"{BASE_URL}/gk/gkschool/list?rn={rn}&pn={page}"
     return _fetch_json(url)
@@ -292,6 +292,17 @@ def import_scores_to_db(db_session, School, AdmissionScore,
             for year in years:
                 curriculums = PROVINCE_CURRICULUMS.get(province, ["物理类", "历史类"])
                 for curriculum in curriculums:
+                    # 快速跳过：如果该校在此省份+年份+curriculum已有数据，跳过API调用
+                    existing_count = db_session.query(AdmissionScore).filter(
+                        AdmissionScore.school_id == school.id,
+                        AdmissionScore.province == province,
+                        AdmissionScore.year == year,
+                        AdmissionScore.subject_type == curriculum,
+                    ).count()
+                    if existing_count > 0:
+                        stats["requests"] += 0  # 不计入请求统计
+                        continue
+
                     try:
                         scores = fetch_school_score(
                             school.name, province, year, curriculum
@@ -336,7 +347,14 @@ def import_scores_to_db(db_session, School, AdmissionScore,
 
                     except Exception as e:
                         stats["errors"] += 1
-                        print(f"  [ERROR] {school.name} {province} {year}: {e}")
+                        # 安全获取学校名（session 可能已损坏）
+                        school_name = getattr(school, "name", "unknown")
+                        print(f"  [ERROR] {school_name} {province} {year}: {e}")
+                        # WSL2 transient OperationalError 后尝试安全回滚
+                        try:
+                            db_session.rollback()
+                        except Exception:
+                            pass
                         continue
 
         # 定期保存断点
@@ -375,10 +393,9 @@ def import_scores_to_db(db_session, School, AdmissionScore,
 # ══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    from db.database import init_db, get_session
+    from db.database import get_session, init_db
     init_db()
     db = get_session()
-    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking
 
     print("=" * 60)
     print("  百度高考 API 数据采集器")
