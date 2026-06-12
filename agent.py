@@ -86,6 +86,13 @@ except Exception:
     _tracker = None
     HAS_TRACKER = False
 
+# ── 知识检索引擎（可选） ──
+try:
+    from kb_retriever import KbRetriever, RetrievalResult, KeywordOnlyEmbedding, create_embedding_provider
+    HAS_KB_RETRIEVER = True
+except ImportError:
+    HAS_KB_RETRIEVER = False
+
 def read_clipboard():
     """读取 Windows 剪贴板文本（安全版本，限制长度）。"""
     MAX_CLIPBOARD_LEN = 2000
@@ -216,6 +223,15 @@ _SUBJECT_COMBO_33_RE = re.compile(
 KNOWLEDGE_BASE_PATH = os.path.join(HERE, "knowledge_base.md")
 SYSTEM_PROMPT_PATH = os.path.join(HERE, "system_prompt.md")
 QUOTES_INDEX_PATH = os.path.join(HERE, "knowledge", "quotes", "_by_major.json")
+
+# ── RAG 配置 ──
+ENABLE_RAG_KB = os.getenv("ENABLE_RAG_KB", "false").lower() in ("true", "1", "yes")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_FALLBACK = os.getenv("EMBEDDING_FALLBACK", "keyword")
+EMBEDDING_CACHE_SIZE = int(os.getenv("EMBEDDING_CACHE_SIZE", "100"))
+GROUPS_DIR = os.path.join(HERE, "knowledge", "groups")
+QUOTES_DIR = os.path.join(HERE, "knowledge", "quotes")
 
 # 加载语录索引（用于按专业查询张雪峰语录）
 def load_quotes_index():
@@ -841,10 +857,41 @@ class GaokaoAdvisor:
         # #18: 系统消息缓存（避免每轮重新构建巨大的 system message）
         self._cached_base_system = None  # 不含槽位和搜索状态的基础部分
         self._cache_dirty = True
+        self._last_user_msg = ""  # 供 RAG 检索使用
+
+        # ── RAG 知识检索引擎 ──
+        self.kb_retriever = None
+        if ENABLE_RAG_KB and HAS_KB_RETRIEVER:
+            try:
+                self.kb_retriever = KbRetriever(
+                    groups_dir=GROUPS_DIR,
+                    quotes_path=QUOTES_DIR,
+                    embedding_provider=create_embedding_provider(
+                        provider=EMBEDDING_PROVIDER,
+                        model=EMBEDDING_MODEL,
+                    ),
+                    embedding_model=EMBEDDING_MODEL,
+                )
+                log.info(f"kb_retriever 初始化完成 groups={len(self.kb_retriever._groups)} quotes={len(self.kb_retriever._quotes)}")
+            except Exception as e:
+                log.warning(f"kb_retriever 初始化失败，降级为旧系统: {e}")
+                self.kb_retriever = None
 
     def _build_system_message(self):
         """构建系统消息，包含 system prompt + 知识库 + 数据库状态 + 数据治理规则 + 槽位状态。"""
-        kb = self.knowledge_base if self.knowledge_base else ""
+        # ── 知识库内容：RAG 模式 vs 全量模式 ──
+        if self.kb_retriever and hasattr(self, '_last_user_msg') and self._last_user_msg:
+            try:
+                rag_result = self.kb_retriever.search(self._last_user_msg, self.slots)
+                kb_parts: list[str] = []
+                for chunk in rag_result.group_chunks:
+                    kb_parts.append(chunk.text)
+                kb = "\n\n".join(kb_parts) if kb_parts else (self.knowledge_base or "")
+            except Exception as e:
+                log.warning(f"RAG 检索失败，降级为全量知识库: {e}")
+                kb = self.knowledge_base if self.knowledge_base else ""
+        else:
+            kb = self.knowledge_base if self.knowledge_base else ""
         slots_status = slots_summary(self.slots)
         search_note = ""
         if CONFIG["enable_search"]:
@@ -931,6 +978,23 @@ class GaokaoAdvisor:
     # ── 子方法：注入张雪峰语录 ──
     def _inject_quotes(self, messages: list, user_msg: str) -> None:
         """根据用户提到的专业，注入相关语录作为参考。"""
+        # ── RAG 模式：混合检索 ──
+        if self.kb_retriever:
+            try:
+                result = self.kb_retriever.search(user_msg, self.slots)
+                if result.quotes:
+                    quote_text = "\n".join(
+                        [f"· {q.text}" for q in result.quotes[:3]]
+                    )
+                    messages.append({
+                        "role": "system",
+                        "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）"
+                    })
+                return
+            except Exception as e:
+                log.warning(f"RAG 语录检索失败，降级为旧匹配: {e}")
+
+        # ── 旧模式：关键词精确匹配（完全保留） ──
         if not QUOTES_INDEX:
             return
         quote_keywords = [mk for mk in QUOTES_INDEX if mk in user_msg]
@@ -1343,6 +1407,7 @@ class GaokaoAdvisor:
 
         # #13: 输入校验
         user_msg = validate_user_input(user_msg)
+        self._last_user_msg = user_msg  # 供 RAG 检索使用
 
         # 埋点：会话追踪
         if HAS_TRACKER:
@@ -1644,6 +1709,7 @@ class GaokaoAdvisor:
 
         # #13: 输入校验
         user_msg = validate_user_input(user_msg)
+        self._last_user_msg = user_msg  # 供 RAG 检索使用
 
         # 埋点：会话追踪
         if HAS_TRACKER:
