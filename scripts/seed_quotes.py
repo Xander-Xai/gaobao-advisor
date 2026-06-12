@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-张雪峰结构化语录库 — 105 条经典语录
+行业专家结构化语录库 — 105 条经典语录
 来源: dongsheng123132/gaokao-mentor-wisdom 项目
 等级: T3（语录内容，归属基本准确）
 
@@ -37,7 +37,7 @@ CATEGORY_FILES = [
 
 def main():
     print("=" * 60)
-    print("  张雪峰语录库导入与验证")
+    print("  行业语录库导入与验证")
     print("=" * 60)
 
     total = 0

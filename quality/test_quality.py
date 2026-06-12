@@ -1,7 +1,7 @@
 """
 quality.emotion_detector 单元测试
 
-运行: cd /path/to/gaobao-advisor && python quality/test_quality.py
+运行: cd /home/dev/projects/gaobao/gaobao-advisor && python quality/test_quality.py
 """
 
 import sys

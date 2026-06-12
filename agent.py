@@ -233,7 +233,7 @@ EMBEDDING_CACHE_SIZE = int(os.getenv("EMBEDDING_CACHE_SIZE", "100"))
 GROUPS_DIR = os.path.join(HERE, "knowledge", "groups")
 QUOTES_DIR = os.path.join(HERE, "knowledge", "quotes")
 
-# 加载语录索引（用于按专业查询张雪峰语录）
+# 加载语录索引（用于按专业查询行业专家语录）
 def load_quotes_index():
     """加载语录的反向索引（专业→语录列表）"""
     if os.path.exists(QUOTES_INDEX_PATH):
@@ -975,7 +975,7 @@ class GaokaoAdvisor:
         except Exception as e:
             logging.warning("选科匹配注入失败: %s", e)
 
-    # ── 子方法：注入张雪峰语录 ──
+    # ── 子方法：注入行业专家语录 ──
     def _inject_quotes(self, messages: list, user_msg: str) -> None:
         """根据用户提到的专业，注入相关语录作为参考。"""
         # ── RAG 模式：复用 _build_system_message 的检索结果 ──

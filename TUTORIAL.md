@@ -42,8 +42,8 @@ python --version
 ### 方式B：git clone
 
 ```bash
-git clone https://github.com/你的用户名/xuefeng-agent.git
-cd xuefeng-agent
+git clone https://github.com/你的用户名/gaobao-advisor.git
+cd gaobao-advisor
 ```
 
 ---
