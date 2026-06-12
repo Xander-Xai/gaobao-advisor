@@ -8,21 +8,35 @@ Usage:
 """
 from __future__ import annotations
 
-import os, json, re, urllib.request, urllib.parse, urllib.error, time, logging
+import json
+import logging
+import os
+import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from typing import Any
+
 from openai import OpenAI
+
+from constants import PROVINCES
 from logger import log
 
 # 高考数据模块（数据库优先 + 百度搜索兜底）
 try:
     from gaokao_data import (
-        query_admission, format_admission_info,
-        query_school_info, query_major_info,
+        format_admission_info,
+        format_schools_by_major,
         get_db_stats,
-        query_yi_fen_yi_duan, query_match_schools_v2,
+        query_admission,
         query_admission_trend,
-        query_schools_by_major, format_schools_by_major,
+        query_major_info,
+        query_match_schools_v2,
+        query_school_info,
+        query_schools_by_major,
+        query_yi_fen_yi_duan,
     )
     HAS_DATA_MODULE = True
 except ImportError:
@@ -30,7 +44,7 @@ except ImportError:
 
 # 质量控制模块：情绪检测
 try:
-    from quality.emotion_detector import detect_emotion, CRISIS_HOTLINES
+    from quality.emotion_detector import CRISIS_HOTLINES, detect_emotion
     HAS_EMOTION_DETECTOR = True
 except ImportError:
     HAS_EMOTION_DETECTOR = False
@@ -58,14 +72,14 @@ except ImportError:
 
 # 质量控制模块：决策反模式检测
 try:
-    from quality.anti_pattern_checker import check_anti_patterns, should_rewrite as ap_should_rewrite
+    from quality.anti_pattern_checker import check_anti_patterns
     HAS_ANTI_PATTERN_CHECKER = True
 except ImportError:
     HAS_ANTI_PATTERN_CHECKER = False
 
 # 质量控制模块：模型选择矩阵
 try:
-    from quality.model_selector import select_models, format_model_hint
+    from quality.model_selector import format_model_hint, select_models
     HAS_MODEL_SELECTOR = True
 except ImportError:
     HAS_MODEL_SELECTOR = False
@@ -88,7 +102,7 @@ except Exception:
 
 # ── 知识检索引擎（可选） ──
 try:
-    from kb_retriever import KbRetriever, RetrievalResult, KeywordOnlyEmbedding, create_embedding_provider
+    from kb_retriever import KbRetriever, create_embedding_provider
     HAS_KB_RETRIEVER = True
 except ImportError:
     HAS_KB_RETRIEVER = False
@@ -118,7 +132,7 @@ def load_dotenv(path):
     MAX_LINE_LEN = 512
     MAX_KEY_LEN = 128
     MAX_VAL_LEN = 256
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -186,6 +200,7 @@ DATA_YEAR = datetime.now().year - 1
 
 # 全国省级行政区（单一数据源，from constants）
 from constants import PROVINCES
+
 # 省份提取正则（编译一次，复用多次）
 _PROVINCE_RE = re.compile(r'(' + '|'.join(PROVINCES) + r')')
 
@@ -232,7 +247,7 @@ QUOTES_DIR = os.path.join(HERE, "knowledge", "quotes")
 def load_quotes_index():
     """加载语录的反向索引（专业→语录列表）"""
     if os.path.exists(QUOTES_INDEX_PATH):
-        with open(QUOTES_INDEX_PATH, "r", encoding="utf-8") as f:
+        with open(QUOTES_INDEX_PATH, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -240,7 +255,7 @@ QUOTES_INDEX = load_quotes_index()
 
 def load_file(path):
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     return ""
 
@@ -266,7 +281,7 @@ def missing_slots(slots=None):
 def slots_summary(slots=None):
     s = slots if slots is not None else SLOTS
     lines = []
-    for k, v in s.items():
+    for _k, v in s.items():
         status = "[OK]" if v["filled"] else "[ ]"
         lines.append(f"  {status} {v['label']}: {v['value'] if v['filled'] else '(未填)'}")
     return "\n".join(lines)
@@ -732,8 +747,8 @@ def web_search(query, max_results=3):
                     results.append(clean)
 
         return results if results else ["(搜索无结果，建议手动查询官方渠道)"]
-    except Exception as e:
-        return [f"(搜索暂时不可用)"]  # #9: 不泄露错误细节
+    except Exception:
+        return ["(搜索暂时不可用)"]  # #9: 不泄露错误细节
 
 def should_search(msg):
     """判断是否需要联网搜索——更积极触发。"""
@@ -1095,7 +1110,10 @@ class GaokaoAdvisor:
                             _user_subj_list = [s for s in _known if s in _user_subj_text]
                             if _user_subj_list:
                                 try:
-                                    from gaokao_data import check_user_subject_compatibility, format_subject_compatibility
+                                    from gaokao_data import (
+                                        check_user_subject_compatibility,
+                                        format_subject_compatibility,
+                                    )
                                     _compat = check_user_subject_compatibility(_user_subj_list)
                                     if _compat:
                                         _compat_note = format_subject_compatibility(_compat)
@@ -2079,7 +2097,6 @@ def test_connection():
         return False, str(e)
 
 def main():
-    import textwrap
 
     print("=" * 60)
     print("  高考志愿顾问 Agent")
@@ -2161,15 +2178,15 @@ def main():
                 print("━" * 30)
                 print(f"会话数: {stats['session_count']}")
                 if stats.get('emotion_distribution'):
-                    print(f"\n😊 情绪分布:")
+                    print("\n😊 情绪分布:")
                     for level, count in stats['emotion_distribution'].items():
                         print(f"  {level}: {count}")
                 if stats.get('top_majors'):
-                    print(f"\n📚 热门专业 TOP 5:")
+                    print("\n📚 热门专业 TOP 5:")
                     for name, count in stats['top_majors'][:5]:
                         print(f"  {name}({count})")
                 if stats.get('top_schools'):
-                    print(f"\n🏫 热门学校 TOP 5:")
+                    print("\n🏫 热门学校 TOP 5:")
                     for name, count in stats['top_schools'][:5]:
                         print(f"  {name}({count})")
             else:

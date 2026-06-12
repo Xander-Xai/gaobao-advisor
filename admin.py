@@ -6,11 +6,11 @@ Usage:
   ADMIN_PASSWORD=your_password streamlit run admin.py
 """
 
+import hmac
 import json
 import os
-import hmac
 from collections import Counter
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 
 import streamlit as st
 
@@ -454,8 +454,8 @@ def main():
             sum(dm.values()) for d, dm in daily_messages.items() if d >= week_start
         )
 
-        user_count = role_counts.get("user", 0)
-        assistant_count = role_counts.get("assistant", 0)
+        _user_count = role_counts.get("user", 0)      # prepared for future role metrics
+        _assistant_count = role_counts.get("assistant", 0)  # prepared for future role metrics
         avg_msgs = round(total_messages / total_sessions, 1) if total_sessions > 0 else 0
 
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -607,7 +607,7 @@ def main():
     elif has_analytics and analytics_data.get("slot_counter"):
         slot_counter = analytics_data["slot_counter"]
         # slot_counter 的 key 是 slot_type（如"家庭""诉求""兴趣"）
-        slot_mapping = {
+        _slot_mapping = {
             "省份": "province", "分数": "score_rank", "位次": "score_rank",
             "选科": "subject", "兴趣": "interest", "专业": "interest",
             "地域": "region", "家庭": "family", "诉求": "goal",
