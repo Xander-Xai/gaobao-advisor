@@ -20,22 +20,22 @@
 - 双一流 147 校 × 30 省 × 3 年: ~90 分钟
 - 全量 3000 校 × 30 省 × 3 年: ~20 小时（建议 --resume 分批运行）
 """
+import argparse
 import os
 import sys
-import argparse
 import time
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import init_db, get_session
-from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking
+from db.database import get_session, init_db
+from db.models import AdmissionScore, Major, School
 from scrapers.baidu_gaokao import (
     import_schools_to_db,
     import_scores_to_db,
 )
+from scrapers.checkpoint import clear_checkpoint, load_checkpoint
 from scrapers.provinces import ALL_PROVINCES
-from scrapers.checkpoint import load_checkpoint, clear_checkpoint
 
 # ── 院校层级筛选参数 ──
 LAYER_FILTERS = {
@@ -188,7 +188,7 @@ def main():
                 schools=target_schools,
                 provinces=provinces,
                 years=args.years,
-                checkpoint_path=args.checkpoint if layers else None,
+                checkpoint_path=args.checkpoint,
                 start_school_index=start_index,
             )
 
