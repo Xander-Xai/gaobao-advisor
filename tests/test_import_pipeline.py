@@ -73,3 +73,52 @@ def test_import_schools_does_not_overwrite_existing_city():
     assert mock_school.description == "已有描述"
     # school_type IS synced from API (it is not a "fill only if empty" field)
     assert mock_school.school_type == "理工", f"school_type should sync from API, got {mock_school.school_type}"
+
+
+def test_import_scores_uses_province_curriculums():
+    """import_scores_to_db should use PROVINCE_CURRICULUMS from provinces module."""
+    from scrapers.baidu_gaokao import import_scores_to_db
+    from scrapers.provinces import ALL_PROVINCES
+
+    mock_session = MagicMock()
+    mock_school = MagicMock()
+    mock_school.id = 1
+    mock_school.name = "测试大学"
+    mock_session.query.return_value.filter.return_value.first.return_value = None  # no existing
+
+    with patch("scrapers.baidu_gaokao.fetch_school_score", return_value=[]) as mock_fetch:
+        import_scores_to_db(
+            mock_session, MagicMock(), MagicMock(),
+            schools=[mock_school],
+            provinces=["北京"],
+            years=[2024],
+        )
+        # Should be called with curriculum "3+3综合" for 北京
+        mock_fetch.assert_called()
+        call_args = mock_fetch.call_args
+        assert call_args[0] == ("测试大学", "北京", 2024, "3+3综合")
+
+
+def test_import_scores_checkpoint_saves_progress(tmp_path):
+    """Checkpoint should be saved during import."""
+    from scrapers.baidu_gaokao import import_scores_to_db
+
+    mock_session = MagicMock()
+    mock_school = MagicMock()
+    mock_school.id = 1
+    mock_school.name = "测试大学"
+    mock_session.query.return_value.filter.return_value.first.return_value = None
+
+    checkpoint_file = str(tmp_path / "test_ckpt.json")
+
+    with patch("scrapers.baidu_gaokao.fetch_school_score", return_value=[]):
+        import_scores_to_db(
+            mock_session, MagicMock(), MagicMock(),
+            schools=[mock_school],
+            provinces=["北京"],
+            years=[2024],
+            checkpoint_path=checkpoint_file,
+        )
+
+    import os
+    assert os.path.exists(checkpoint_file)

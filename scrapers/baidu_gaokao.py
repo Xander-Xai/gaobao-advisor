@@ -255,51 +255,37 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
 
 def import_scores_to_db(db_session, School, AdmissionScore,
                         schools: list = None, provinces: list = None,
-                        years: list = None, max_per_school: int = 50) -> dict:
-    """为指定学校采集录取分数线。默认采集重点学校+主要省份+近3年。"""
-    # 主要高考省份（含新高考和传统高考，覆盖主要考生来源）
-    KEY_PROVINCES_DEFAULT = [
-        "河南", "山东", "广东", "江苏", "河北", "湖南", "湖北", "四川",
-        "安徽", "广西", "江西", "山西", "陕西", "浙江", "福建", "辽宁",
-        "北京", "上海", "天津", "重庆",
-    ]
-    if schools is None:
-        # 优先采集 985 + 头部 211
-        schools = db_session.query(School).filter(
-            (School.is_985 == 1) | (School.level == "211")
-        ).limit(80).all()
+                        years: list = None, max_per_school: int = 50,
+                        checkpoint_path: str = None,
+                        start_school_index: int = 0,
+                        on_progress: callable = None) -> dict:
+    """为指定学校采集录取分数线。
+
+    Args:
+        schools: 目标学校 ORM 对象列表
+        provinces: 省份列表，None 则用 ALL_PROVINCES
+        years: 年份列表，None 则 [2024, 2023, 2022]
+        max_per_school: 每校最多保留的分数线条数
+        checkpoint_path: 断点文件路径，非 None 则每 10 校自动保存
+        start_school_index: 从第几所学校开始（断点续传用）
+        on_progress: 回调函数 (school_index, total, stats) -> None
+
+    返回: 统计信息 dict
+    """
+    from scrapers.provinces import ALL_PROVINCES, PROVINCE_CURRICULUMS
+
     if provinces is None:
-        provinces = KEY_PROVINCES_DEFAULT
+        provinces = ALL_PROVINCES
     if years is None:
         years = [2024, 2023, 2022]
 
-    # 省份 → curriculum 映射（百度高考 API 需要精确匹配，2026.06.11 实测确认）
-    PROVINCE_CURRICULUMS = {
-        # 3+3 综合（新高考六选三）
-        "北京": ["3+3综合"], "天津": ["3+3综合"], "上海": ["3+3综合"],
-        "山东": ["3+3综合"], "海南": ["3+3综合"], "浙江": ["3+3综合"],
-        # 3+1+2（新高考物理/历史）
-        "广东": ["物理类", "历史类"], "江苏": ["物理类", "历史类"],
-        "河北": ["物理类", "历史类"], "辽宁": ["物理类", "历史类"],
-        "重庆": ["物理类", "历史类"], "安徽": ["物理类", "历史类"],
-        "福建": ["物理类", "历史类"], "湖北": ["物理类", "历史类"],
-        "湖南": ["物理类", "历史类"], "广西": ["物理类", "历史类"],
-        "江西": ["物理类", "历史类"], "贵州": ["物理类", "历史类"],
-        "甘肃": ["物理类", "历史类"], "黑龙江": ["物理类", "历史类"],
-        "吉林": ["物理类", "历史类"],
-        # 传统文理分科
-        "四川": ["理科", "文科"], "河南": ["理科", "文科"],
-        "山西": ["理科", "文科"], "陕西": ["理科", "文科"],
-        "云南": ["理科", "文科"], "内蒙古": ["理科", "文科"],
-        "宁夏": ["理科", "文科"], "青海": ["理科", "文科"],
-        "新疆": ["理科", "文科"],
-        # 西藏百度 API 无数据
-    }
-
     stats = {"requests": 0, "new_scores": 0, "errors": 0}
-    print(f"\n[录取分数线] 开始采集: {len(schools)}校 × {len(provinces)}省 × {len(years)}年")
+    total = len(schools)
+    print(f"\n[录取分数线] 开始采集: {total}校 × {len(provinces)}省 × {len(years)}年")
 
-    for school in schools:
+    for idx, school in enumerate(schools):
+        actual_idx = start_school_index + idx
+
         for province in provinces:
             for year in years:
                 curriculums = PROVINCE_CURRICULUMS.get(province, ["物理类", "历史类"])
@@ -319,19 +305,17 @@ def import_scores_to_db(db_session, School, AdmissionScore,
                                 continue
                             min_rank = safe_int(s.get("minScoreOrder"))
 
-                            # 院校线（非专业级），major_id 留空
-                            from db.models import AdmissionScore as AS
-                            existing = db_session.query(AS).filter(
-                                AS.school_id == school.id,
-                                AS.province == province,
-                                AS.year == year,
-                                AS.batch == s.get("batchName", "本科批"),
-                                AS.subject_type == curriculum,
-                                AS.major_id.is_(None),
+                            existing = db_session.query(AdmissionScore).filter(
+                                AdmissionScore.school_id == school.id,
+                                AdmissionScore.province == province,
+                                AdmissionScore.year == year,
+                                AdmissionScore.batch == s.get("batchName", "本科批"),
+                                AdmissionScore.subject_type == curriculum,
+                                AdmissionScore.major_id.is_(None),
                             ).first()
 
                             if not existing:
-                                as_rec = AS(
+                                as_rec = AdmissionScore(
                                     school_id=school.id,
                                     major_id=None,
                                     province=province,
@@ -353,7 +337,32 @@ def import_scores_to_db(db_session, School, AdmissionScore,
                         print(f"  [ERROR] {school.name} {province} {year}: {e}")
                         continue
 
-        print(f"  {school.name}: 已完成（{stats['new_scores']} 条新增）")
+        # 定期保存断点
+        if checkpoint_path and (idx + 1) % 10 == 0:
+            from scrapers.checkpoint import save_checkpoint
+            save_checkpoint(checkpoint_path, {
+                "last_run": __import__("datetime").datetime.now().isoformat(),
+                "school_index": actual_idx + 1,
+                "total_schools": total,
+                "current_school": school.name,
+                "stats": stats,
+            })
+
+        if on_progress:
+            on_progress(actual_idx + 1, total, stats)
+        else:
+            print(f"  [{actual_idx+1}/{total}] {school.name}: {stats['new_scores']} 条新增")
+
+    # 最终保存断点
+    if checkpoint_path:
+        from scrapers.checkpoint import save_checkpoint
+        save_checkpoint(checkpoint_path, {
+            "last_run": __import__("datetime").datetime.now().isoformat(),
+            "school_index": start_school_index + total,
+            "total_schools": total,
+            "current_school": schools[-1].name if schools else "",
+            "stats": stats,
+        })
 
     print(f"[完成] 录取分数线: 新增 {stats['new_scores']} / 请求 {stats['requests']} / 错误 {stats['errors']}")
     return stats
