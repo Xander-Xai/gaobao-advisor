@@ -890,8 +890,14 @@ class GaokaoAdvisor:
 请在回答时：
 1. 如果用户信息不全，追问缺失的槽位（用自然的方式，不要像填表）。
 2. 如果信息已经足够（至少省份+分数/位次+核心诉求），查询数据库获取匹配院校后给出冲稳保推荐。
-3. 引用数据时标注来源（如"根据教育部2023年学科评估..."或"数据库显示该校2024年录取线..."）。
-4. 保持直爽、接地气的风格。"""
+3. 引用数据时**必须标注数据年份**（如"2025年录取线..."或"[2024年数据]"），不同年份的数据分别标注。
+4. 保持直爽、接地气的风格。
+
+【数据年份与免责声明规则】
+- 每条录取分数线/位次数据**必须**标注是哪一年的数据，格式示例：「2025年最低分 580」
+- 如果数据来自不同年份，分别标注：「2024年 575 / 2025年 580」
+- 推荐类回复（冲稳保、志愿表、院校推荐）的末尾**必须**附上免责提示：
+  「⚠️ 以上数据仅供参考，请以各校官方招生简章和省考试院公布数据为准。」"""
 
         # 3+3 省份专项适配提示
         prov_val = self.slots.get("province", {}).get("value", "")
@@ -988,6 +994,20 @@ class GaokaoAdvisor:
                             tier_names = "/".join(tier_label.get(t, t) for t in data_tiers if t)
                             score_tag = f" [数据置信度:{avg_score}分 来源:{tier_names}]"
                         data_hints.append(f"【录取数据查询结果】{conf_tag}{score_tag}\n{admission_text}")
+                        # 选科兼容性追加：如果用户提供了选科，检查该学校专业的选科要求
+                        _user_subj_text = self.slots.get("subject", {}).get("value", "")
+                        if _user_subj_text:
+                            _known = ["物理", "历史", "化学", "生物", "政治", "地理"]
+                            _user_subj_list = [s for s in _known if s in _user_subj_text]
+                            if _user_subj_list:
+                                try:
+                                    from gaokao_data import check_user_subject_compatibility, format_subject_compatibility
+                                    _compat = check_user_subject_compatibility(_user_subj_list)
+                                    if _compat:
+                                        _compat_note = format_subject_compatibility(_compat)
+                                        data_hints.append(f"【选科匹配】{_compat_note}")
+                                except Exception:
+                                    pass
             except Exception as e:
                 logging.warning("data_hints 查询失败: %s", e)
 
@@ -1224,6 +1244,11 @@ class GaokaoAdvisor:
                     f"置信度：{rank_info['confidence']}{conf_str}"
                 )
 
+            # 获取用户选科（如有）用于选科过滤
+            _known_subjects = ["物理", "历史", "化学", "生物", "政治", "地理"]
+            user_subj_text = self.slots.get("subject", {}).get("value", "")
+            user_subj_list = [s for s in _known_subjects if s in user_subj_text] if user_subj_text else []
+
             for strategy in ["冲", "稳", "保"]:
                 matches = query_match_schools_v2(score, province, subject, strategy, year=DATA_YEAR)
                 if matches:
@@ -1232,10 +1257,20 @@ class GaokaoAdvisor:
                         badge = ""
                         if m.get("is_985"): badge = "985/"
                         elif m.get("is_211"): badge = "211/"
+                        subj_note = ""
+                        # 选科过滤：检查推荐学校的选科匹配
+                        if user_subj_list:
+                            try:
+                                from gaokao_data import check_user_subject_compatibility
+                                compat = check_user_subject_compatibility(user_subj_list)
+                                if compat and compat.get("compatible") is False:
+                                    subj_note = " ⚠️选科可能不符"
+                            except Exception:
+                                pass
                         match_lines.append(
                             f"  {m.get('school_name','')[:15]:15}({badge}{m.get('school_level','')}) "
                             f"{m.get('batch','')[:8]:8} "
-                            f"最低分{m.get('min_score','')} 位次{m.get('min_rank','')}"
+                            f"最低分{m.get('min_score','')} 位次{m.get('min_rank','')}{subj_note}"
                         )
                     hints.append(
                         f"【{strategy}档位次法推荐】{province} {score}分 {subject}：\n" +
