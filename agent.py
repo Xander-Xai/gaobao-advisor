@@ -49,6 +49,27 @@ try:
 except ImportError:
     HAS_AI_RISK = False
 
+# 质量控制模块：决策启发式推荐
+try:
+    from quality.decision_framework import recommend_heuristics as df_recommend_heuristics
+    HAS_DECISION_FRAMEWORK = True
+except ImportError:
+    HAS_DECISION_FRAMEWORK = False
+
+# 质量控制模块：决策反模式检测
+try:
+    from quality.anti_pattern_checker import check_anti_patterns, should_rewrite as ap_should_rewrite
+    HAS_ANTI_PATTERN_CHECKER = True
+except ImportError:
+    HAS_ANTI_PATTERN_CHECKER = False
+
+# 质量控制模块：模型选择矩阵
+try:
+    from quality.model_selector import select_models, format_model_hint
+    HAS_MODEL_SELECTOR = True
+except ImportError:
+    HAS_MODEL_SELECTOR = False
+
 # 埋点模块
 try:
     from analytics.tracker import EventTracker
@@ -1349,6 +1370,32 @@ class GaokaoAdvisor:
         # 语录库注入
         self._inject_quotes(messages, user_msg)
 
+        # ── P2-2: 决策启发式提示注入 ──
+        if HAS_DECISION_FRAMEWORK:
+            try:
+                heuristics = df_recommend_heuristics(self.slots)
+                h_descs = "\n".join([f"· {h['name']}：{h['desc']}" for h in heuristics])
+                messages.append({
+                    "role": "system",
+                    "content": f"【决策启发式提示】本回答请优先参考以下启发式：\n{h_descs}"
+                })
+            except Exception:
+                pass  # 静默降级
+
+        # ── P2-2: 模型选择矩阵提示注入 ──
+        if HAS_MODEL_SELECTOR:
+            try:
+                model_result = select_models(self.slots, user_input=user_msg)
+                hint = format_model_hint(model_result)
+                model_hint = f"【思维框架提示】{hint}"
+                if model_result.get("downgrade_triggers"):
+                    model_hint += "\n⚠️ 降级触发：" + "；".join(
+                        [t["action"] for t in model_result["downgrade_triggers"]]
+                    )
+                messages.append({"role": "system", "content": model_hint})
+            except Exception:
+                pass  # 静默降级
+
         # 数据查询（数据库优先 + 百度兜底）
         data_hints = self._query_data_hints(user_msg)
         if data_hints:
@@ -1359,6 +1406,21 @@ class GaokaoAdvisor:
 
         # 清理格式：CLI 模式去全部 Markdown，Web 模式保留加粗/列表
         reply = cleanup_format(reply, cli_mode=self.cli_mode)
+
+        # ── P2-2: 决策反模式检测（在自评前运行）──
+        if HAS_ANTI_PATTERN_CHECKER:
+            try:
+                family_known = bool(self.slots.get("family", {}).get("filled"))
+                ap_matches = check_anti_patterns(reply, family_known=family_known)
+                if ap_matches:
+                    from quality.anti_pattern_checker import format_report
+                    log.warning(f"anti_pattern_hit count={len(ap_matches)} report={format_report(ap_matches)}")
+                    # 如果有 error 级别的反模式，记录但不自动重写（避免影响用户体验）
+                    error_count = sum(1 for m in ap_matches if m.severity == "error")
+                    if error_count > 0:
+                        log.warning(f"anti_pattern_error count={error_count} preview={reply[:80]}")
+            except Exception:
+                pass  # 静默降级
 
         # P1-7: 对话质量自评
         eval_score, eval_highlights = self._self_evaluate(reply)
