@@ -15,6 +15,8 @@ echo "=== 数据更新开始 $(date) ===" >> "$LOG_FILE"
 
 cd "$PROJECT_DIR"
 
+export PYTHONUNBUFFERED=1
+
 # 1. 检查磁盘空间（< 1GB 则停止）
 AVAIL_KB=$(df -k "$PROJECT_DIR" | tail -1 | awk '{print $4}')
 if [ "$AVAIL_KB" -lt 1048576 ]; then
