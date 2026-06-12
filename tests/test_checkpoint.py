@@ -61,3 +61,22 @@ def test_save_creates_parent_dirs():
     finally:
         import shutil
         shutil.rmtree("/tmp/test_ckpt_subdir", ignore_errors=True)
+
+
+def test_all_provinces_has_30():
+    from scrapers.provinces import ALL_PROVINCES, PROVINCE_CURRICULUMS
+    assert len(ALL_PROVINCES) == 30
+    assert "西藏" not in ALL_PROVINCES
+
+
+def test_curriculum_coverage():
+    from scrapers.provinces import ALL_PROVINCES, PROVINCE_CURRICULUMS
+    for province in ALL_PROVINCES:
+        assert province in PROVINCE_CURRICULUMS, f"{province} missing from PROVINCE_CURRICULUMS"
+
+
+def test_new_gaokao_provinces():
+    from scrapers.provinces import PROVINCE_CURRICULUMS
+    assert PROVINCE_CURRICULUMS["北京"] == ["3+3综合"]
+    assert PROVINCE_CURRICULUMS["广东"] == ["物理类", "历史类"]
+    assert PROVINCE_CURRICULUMS["四川"] == ["理科", "文科"]
