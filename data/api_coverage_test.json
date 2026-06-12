@@ -1,0 +1,244 @@
+{
+  "北京": {
+    "records": 5,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "天津": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "河北": {
+    "records": 5,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "山西": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "内蒙古": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "辽宁": {
+    "records": 3,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "吉林": {
+    "records": 5,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "黑龙江": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "上海": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "江苏": {
+    "records": 5,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "浙江": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "安徽": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "福建": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "江西": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "山东": {
+    "records": 1,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "河南": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "湖北": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "湖南": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "广东": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "广西": {
+    "records": 5,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "海南": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "3+3综合"
+    ]
+  },
+  "重庆": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "四川": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "贵州": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "云南": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "西藏": {
+    "records": 0,
+    "has_data": false,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "陕西": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "甘肃": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "物理类",
+      "历史类"
+    ]
+  },
+  "青海": {
+    "records": 2,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "宁夏": {
+    "records": 4,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  },
+  "新疆": {
+    "records": 6,
+    "has_data": true,
+    "curriculums": [
+      "理科",
+      "文科"
+    ]
+  }
+}
