@@ -70,6 +70,13 @@ try:
 except ImportError:
     HAS_MODEL_SELECTOR = False
 
+# 质量控制模块：知识库按需加载
+try:
+    from quality.knowledge_loader import load_contextual_knowledge
+    HAS_KNOWLEDGE_LOADER = True
+except ImportError:
+    HAS_KNOWLEDGE_LOADER = False
+
 # 埋点模块
 try:
     from analytics.tracker import EventTracker
@@ -1400,6 +1407,18 @@ class GaokaoAdvisor:
         data_hints = self._query_data_hints(user_msg)
         if data_hints:
             messages.append({"role": "system", "content": "\n\n".join(data_hints)})
+
+        # ── P2-1: 知识库按需加载 ──
+        if HAS_KNOWLEDGE_LOADER:
+            try:
+                ctx_kb = load_contextual_knowledge(user_msg, self.slots)
+                if ctx_kb:
+                    messages.append({
+                        "role": "system",
+                        "content": f"【补充知识库（按需加载）】\n{ctx_kb}"
+                    })
+            except Exception:
+                pass  # 静默降级
 
         # 调用 LLM
         reply = self._call_llm(messages)
