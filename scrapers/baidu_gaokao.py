@@ -217,7 +217,7 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
                 if not existing.ranking and api_rank:
                     existing.ranking = api_rank
                 api_tags = item.get("tag", [])
-                api_desc = "、".join(api_tags) if api_tags else ""
+                api_desc = item.get("tag_text") or ("、".join(api_tags) if api_tags else "")
                 if not existing.description and api_desc:
                     existing.description = api_desc
                 # province 和 school_type 始终同步（API 是权威来源）
