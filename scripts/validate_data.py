@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""
+数据质量验证脚本 — 导入完成后运行，检查数据完整性。
+用法: python scripts/validate_data.py
+"""
+import os
+import sys
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+
+from db.database import init_db, get_session
+from db.models import School, AdmissionScore
+from scrapers.provinces import ALL_PROVINCES
+from sqlalchemy import func
+
+
+def validate() -> None:
+    init_db()
+    db = get_session()
+
+    print("=" * 60)
+    print("  数据质量验证报告")
+    print("=" * 60)
+
+    # 1. 总体统计
+    total_schools = db.query(School).count()
+    total_scores = db.query(AdmissionScore).count()
+    schools_with_scores = db.query(AdmissionScore.school_id).distinct().count()
+
+    print(f"\n总体统计:")
+    print(f"  院校总数: {total_schools}")
+    print(f"  录取分数记录: {total_scores}")
+    print(f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({schools_with_scores/total_schools*100:.1f}%)")
+
+    # 2. 省份覆盖
+    print(f"\n省份覆盖:")
+    province_stats = db.query(
+        AdmissionScore.province,
+        func.count(AdmissionScore.id)
+    ).group_by(AdmissionScore.province).order_by(
+        func.count(AdmissionScore.id).desc()
+    ).all()
+
+    provinces_with_data = set(p for p, _ in province_stats)
+    missing_provinces = set(ALL_PROVINCES) - provinces_with_data
+
+    for p, c in province_stats:
+        print(f"  {p}: {c:,} 条")
+
+    if missing_provinces:
+        print(f"\n  WARNING: 缺失省份: {', '.join(sorted(missing_provinces))}")
+    else:
+        print(f"\n  OK: 全部 {len(ALL_PROVINCES)} 省覆盖")
+
+    # 3. 年份覆盖
+    print(f"\n年份覆盖:")
+    year_stats = db.query(
+        AdmissionScore.year,
+        func.count(AdmissionScore.id)
+    ).group_by(AdmissionScore.year).order_by(AdmissionScore.year.desc()).all()
+
+    for y, c in year_stats:
+        print(f"  {y}: {c:,} 条")
+
+    # 4. 数据质量检查
+    print(f"\n数据质量:")
+
+    # 分数范围
+    bad_scores = db.query(AdmissionScore).filter(
+        (AdmissionScore.min_score < 100) | (AdmissionScore.min_score > 750)
+    ).count()
+    print(f"  异常分数（<100 或 >750）: {bad_scores}")
+
+    # 位次范围
+    bad_ranks = db.query(AdmissionScore).filter(
+        AdmissionScore.min_rank < 0
+    ).count()
+    print(f"  负数位次: {bad_ranks}")
+
+    # 空分数
+    null_scores = db.query(AdmissionScore).filter(
+        AdmissionScore.min_score.is_(None)
+    ).count()
+    print(f"  空分数记录: {null_scores}")
+
+    # 5. 批次分布
+    print(f"\n批次分布:")
+    batch_stats = db.query(
+        AdmissionScore.batch,
+        func.count(AdmissionScore.id)
+    ).group_by(AdmissionScore.batch).order_by(
+        func.count(AdmissionScore.id).desc()
+    ).limit(10).all()
+
+    for b, c in batch_stats:
+        print(f"  {b}: {c:,} 条")
+
+    # 6. 结论
+    print(f"\n" + "=" * 60)
+    issues = []
+    if missing_provinces:
+        issues.append(f"缺失 {len(missing_provinces)} 个省份")
+    if bad_scores > 0:
+        issues.append(f"{bad_scores} 条异常分数")
+    if bad_ranks > 0:
+        issues.append(f"{bad_ranks} 条负数位次")
+
+    if issues:
+        print(f"  WARNING: 发现问题: {'; '.join(issues)}")
+    else:
+        print(f"  OK: 数据质量验证通过")
+
+    print("=" * 60)
+    db.close()
+
+
+if __name__ == "__main__":
+    validate()
