@@ -185,12 +185,63 @@ def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: st
     return imported
 
 
+def populate_from_admission_scores(db_path: str = None) -> int:
+    """从 admission_scores 表反推并写入 yi_fen_yi_duan 表。
+
+    策略：
+    - 查询 admission_scores 中 min_score > 0 AND min_rank > 0 的记录
+    - 按 (province, year, subject_type, min_score) 去重，同分取最小 rank（最优位次）
+    - 使用 INSERT OR IGNORE 跳过已存在的记录
+    - 返回本次新插入的记录数
+    """
+    if db_path is None:
+        db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
+
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # 1. 从 admission_scores 提取去重后的 (province, year, subject_type, score, rank)
+    #    同一分取最优位次（最小 rank）
+    cur.execute("""
+        SELECT province, year, subject_type, min_score AS score, MIN(min_rank) AS rank
+        FROM admission_scores
+        WHERE min_score > 0 AND min_rank > 0
+        GROUP BY province, year, subject_type, min_score
+    """)
+    rows = cur.fetchall()
+    print(f"  从 admission_scores 提取到 {len(rows)} 个去重 (省份,年份,科类,分数) 组合")
+
+    if not rows:
+        conn.close()
+        return 0
+
+    # 2. 批量插入 yi_fen_yi_duan，跳过重复
+    inserted = 0
+    for province, year, subject_type, score, rank in rows:
+        cur.execute("""
+            INSERT OR IGNORE INTO yi_fen_yi_duan (province, year, subject_type, score, cumulative_count)
+            VALUES (?, ?, ?, ?, ?)
+        """, (province, year, subject_type, score, rank))
+        if cur.rowcount > 0:
+            inserted += 1
+
+    conn.commit()
+    conn.close()
+    print(f"  新插入 {inserted} 条记录到 yi_fen_yi_duan 表")
+    return inserted
+
+
 def main():
     print("=" * 60)
     print("  一分一段表数据 - 反推 + 查询工具")
     print("=" * 60)
 
-    # 1. 反推分数-位次映射
+    # 0. 写入 yi_fen_yi_duan 表
+    print("\n>>> 阶段 0: 从 admission_scores 反推并写入 yi_fen_yi_duan 表")
+    inserted = populate_from_admission_scores()
+    print(f"  共写入 {inserted} 条记录")
+
+    # 1. 反推分数-位次映射（内存视图）
     print("\n>>> 阶段 1: 从 admission_scores 表反推位次分布")
     rank_table = reverse_engineer_rank_table()
 
