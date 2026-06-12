@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -184,8 +183,10 @@ class OllamaEmbedding(EmbeddingProvider):
         if not texts:
             return []
         results: list[np.ndarray] = []
-        for text in texts:
-            payload = json.dumps({"model": self._model, "input": text}).encode()
+        batch_size = 200
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            payload = json.dumps({"model": self._model, "input": batch}).encode()
             req = self._req.Request(
                 f"{self._base_url}/api/embed",
                 data=payload,
@@ -193,7 +194,8 @@ class OllamaEmbedding(EmbeddingProvider):
             )
             with self._req.urlopen(req) as resp:
                 data = json.loads(resp.read())
-            results.append(np.array(data["embeddings"][0], dtype=np.float32))
+            for emb in data["embeddings"]:
+                results.append(np.array(emb, dtype=np.float32))
         return results
 
 
@@ -203,7 +205,7 @@ class KeywordOnlyEmbedding(EmbeddingProvider):
         self._dim = dim
 
     def embed(self, texts: list[str]) -> list[np.ndarray]:
-        return [np.zeros(self._dim, dtype=np.float32)] * len(texts)
+        return [np.zeros(self._dim, dtype=np.float32) for _ in range(len(texts))]
 
 
 def create_embedding_provider(provider: str = "openai",
