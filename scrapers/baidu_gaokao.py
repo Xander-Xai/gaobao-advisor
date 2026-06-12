@@ -216,7 +216,8 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
                 api_rank = safe_int(item.get("rank"))
                 if not existing.ranking and api_rank:
                     existing.ranking = api_rank
-                api_desc = item.get("tag_text", "")
+                api_tags = item.get("tag", [])
+                api_desc = "、".join(api_tags) if api_tags else ""
                 if not existing.description and api_desc:
                     existing.description = api_desc
                 # province 和 school_type 始终同步（API 是权威来源）
@@ -228,6 +229,7 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
             else:
                 stats["skipped"] += 1
         else:
+            tags = item.get("tag", [])
             school = School(
                 name=name,
                 province=item.get("province", ""),
@@ -238,7 +240,7 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
                 is_985=is_985,
                 is_211=is_211,
                 is_double_first_class=is_dfc,
-                description=item.get("tag_text", ""),
+                description="、".join(tags) if tags else "",
             )
             db_session.add(school)
             stats["new"] += 1
