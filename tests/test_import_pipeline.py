@@ -31,11 +31,12 @@ def test_import_schools_fills_missing_city():
     with patch("scrapers.baidu_gaokao.iter_schools", return_value=iter([mock_item])):
         stats = import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
 
-    # Should update city (was empty)
-    assert mock_session.query.called
-    # Verify city was filled
-    call_args = mock_session.query.return_value.filter.return_value.first.call_count
-    assert call_args >= 1  # lookup happened
+    # Verify city was filled (was empty)
+    assert mock_school.city == "广州", f"city should be filled from API, got {mock_school.city}"
+    # Verify ranking was filled (was None)
+    assert mock_school.ranking == 50, f"ranking should be filled from API, got {mock_school.ranking}"
+    # Verify description was filled (was None)
+    assert mock_school.description == "211重点大学", f"description should be filled from API, got {mock_school.description}"
 
 
 def test_import_schools_does_not_overwrite_existing_city():
@@ -70,3 +71,5 @@ def test_import_schools_does_not_overwrite_existing_city():
     assert mock_school.city == "深圳"
     assert mock_school.ranking == 10
     assert mock_school.description == "已有描述"
+    # school_type IS synced from API (it is not a "fill only if empty" field)
+    assert mock_school.school_type == "理工", f"school_type should sync from API, got {mock_school.school_type}"
