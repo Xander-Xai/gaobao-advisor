@@ -43,34 +43,34 @@ class TestCompressHistory:
     """_compress_history() 方法测试。"""
 
     def test_no_compression_when_under_threshold(self):
-        """对话少于 20 条时不触发压缩。"""
+        """对话少于 40 条（20轮）时不触发压缩。"""
         adv = _make_advisor()
-        # 填充 18 条对话（9 轮）
-        for i in range(9):
+        # 填充 38 条对话（19 轮）— 不超过阈值
+        for i in range(19):
             adv.conversation.append({"role": "user", "content": f"消息{i}"})
             adv.conversation.append({"role": "assistant", "content": f"回复{i}"})
-        assert len(adv.conversation) == 18
+        assert len(adv.conversation) == 38
         adv._compress_history()
-        assert len(adv.conversation) == 18  # 未压缩
+        assert len(adv.conversation) == 38  # 未压缩
 
     def test_compression_triggered_at_threshold(self):
-        """对话超过 20 条时触发压缩。"""
+        """对话超过 40 条（20轮）时触发压缩。"""
         adv = _make_advisor()
-        # 填充 22 条对话（11 轮）
-        for i in range(11):
+        # 填充 42 条对话（21 轮）
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": f"我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": f"推荐你武汉大学"})
-        assert len(adv.conversation) == 22
+        assert len(adv.conversation) == 42
         adv._compress_history()
-        # 压缩后应有 1 条摘要 + 10 条保留 = 11 条
-        assert len(adv.conversation) == 11
+        # 压缩后应有 1 条摘要 + 20 条保留 = 21 条
+        assert len(adv.conversation) == 21
         assert adv.conversation[0]["role"] == "system"
         assert "【对话摘要】" in adv.conversation[0]["content"]
 
     def test_compression_extracts_province(self):
         """摘要应提取省份信息。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -80,7 +80,7 @@ class TestCompressHistory:
     def test_compression_extracts_score(self):
         """摘要应提取分数信息。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -90,7 +90,7 @@ class TestCompressHistory:
     def test_compression_extracts_subject(self):
         """摘要应提取选科信息。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "选的物理，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -100,7 +100,7 @@ class TestCompressHistory:
     def test_compression_extracts_interest(self):
         """摘要应提取专业兴趣。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -110,7 +110,7 @@ class TestCompressHistory:
     def test_compression_extracts_goal(self):
         """摘要应提取核心诉求。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -120,7 +120,7 @@ class TestCompressHistory:
     def test_compression_extracts_schools(self):
         """摘要应提取 assistant 推荐过的学校。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({"role": "user", "content": "推荐学校"})
             adv.conversation.append({"role": "assistant", "content": "推荐武汉大学和华中科技大学"})
         adv._compress_history()
@@ -128,23 +128,23 @@ class TestCompressHistory:
         assert "武汉大学" in summary
 
     def test_compression_preserves_recent_messages(self):
-        """压缩后应保留最近的 10 条消息不变。"""
+        """压缩后应保留最近的 20 条消息不变。"""
         adv = _make_advisor()
-        # 填充 12 轮 = 24 条
-        for i in range(12):
+        # 填充 22 轮 = 44 条（超过 40 条阈值）
+        for i in range(22):
             adv.conversation.append({"role": "user", "content": f"用户消息{i}"})
             adv.conversation.append({"role": "assistant", "content": f"助手回复{i}"})
         adv._compress_history()
-        # 保留的最后 10 条应该是消息 11 的 2 条 + 消息 7-11 的各 2 条
-        last_msgs = adv.conversation[-10:]
-        # 最后两条应该是第 11 轮（index 从 0 开始）
-        assert "用户消息11" in last_msgs[-2]["content"]
-        assert "助手回复11" in last_msgs[-1]["content"]
+        # 保留最后 20 条（20条保留 + 1条摘要 = 21条总计）
+        last_msgs = adv.conversation[-20:]
+        # 最后两条应该是第 21 轮
+        assert "用户消息21" in last_msgs[-2]["content"]
+        assert "助手回复21" in last_msgs[-1]["content"]
 
     def test_compression_preserves_role_structure(self):
         """压缩后保留的消息应维持 user/assistant 交替结构。"""
         adv = _make_advisor()
-        for i in range(12):
+        for i in range(22):
             adv.conversation.append({"role": "user", "content": f"消息{i}"})
             adv.conversation.append({"role": "assistant", "content": f"回复{i}"})
         adv._compress_history()
@@ -159,12 +159,12 @@ class TestCompressHistory:
     def test_compression_repeated_idempotent(self):
         """连续调用压缩不会出错。"""
         adv = _make_advisor()
-        for i in range(15):
+        for i in range(22):
             adv.conversation.append({"role": "user", "content": "山东考生"})
             adv.conversation.append({"role": "assistant", "content": "武汉大学推荐"})
         adv._compress_history()
         len_after_first = len(adv.conversation)
-        # 再次调用：1(摘要)+10(保留)=11 < 20，不触发
+        # 再次调用：1(摘要)+20(保留)=21 < 40，不触发
         adv._compress_history()
         assert len(adv.conversation) == len_after_first
 
@@ -177,7 +177,7 @@ class TestCompressHistory:
     def test_compression_with_all_fields(self):
         """当所有字段都能提取时，摘要包含全部。"""
         adv = _make_advisor()
-        for i in range(11):
+        for i in range(21):
             adv.conversation.append({
                 "role": "user",
                 "content": "我是山东考生，580分，选的物理，想学计算机，看重就业，想去北京"

@@ -1387,8 +1387,8 @@ class GaokaoAdvisor:
                 hotlines = "\n".join(CRISIS_HOTLINES)
                 system_msg += f"\n\n【心理援助热线（仅在用户有自伤信号时提供）】\n{hotlines}"
         messages = [{"role": "system", "content": system_msg}]
-        # 添加历史（最近10轮=20条消息）
-        for h in self.conversation[-20:]:
+        # 添加历史（最近20轮=40条消息）
+        for h in self.conversation[-40:]:
             messages.append(h)
         messages.append({"role": "user", "content": user_msg})
 
@@ -1529,8 +1529,8 @@ class GaokaoAdvisor:
         return reply
 
     # ── 子方法：多轮对话上下文压缩 ──
-    _COMPRESS_THRESHOLD = 20   # 对话超过 20 条时触发
-    _COMPRESS_KEEP_COUNT = 10  # 保留后 10 条，压缩前 N 条
+    _COMPRESS_THRESHOLD = 40   # 对话超过 40 条（20轮）时触发压缩
+    _COMPRESS_KEEP_COUNT = 20  # 保留后 20 条（10轮），压缩更早的对话
 
     def _compress_history(self) -> None:
         """当对话历史超过阈值时，将早期对话压缩为一条摘要，减少 token 消耗。
@@ -1686,7 +1686,7 @@ class GaokaoAdvisor:
                 hotlines = "\n".join(CRISIS_HOTLINES)
                 system_msg += f"\n\n【心理援助热线（仅在用户有自伤信号时提供）】\n{hotlines}"
         messages = [{"role": "system", "content": system_msg}]
-        for h in self.conversation[-20:]:
+        for h in self.conversation[-40:]:
             messages.append(h)
         messages.append({"role": "user", "content": user_msg})
 
