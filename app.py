@@ -48,6 +48,7 @@ from agent import (
     PROVINCES,
 )
 from ratelimit import RateLimiter
+from onboarding import OnboardingState, render_onboarding
 
 # 进程级限流器单例（解决多 tab 绕过限流的竞态问题）
 _GLOBAL_RATE_LIMITER = RateLimiter(
@@ -1628,17 +1629,45 @@ if not _welcome_added:
         "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
     })
 
-# 动态快捷提问按钮（根据 slot 状态和对话上下文变化）
+# ── 3-step onboarding for first-time users ──────────────────
 _has_user_msg = any(m["role"] == "user" for m in st.session_state.messages)
-_quick_questions = _get_dynamic_quick_questions()
-if _quick_questions:
-    cols = st.columns(2)
-    for i, q in enumerate(_quick_questions):
-        col = cols[i % 2]
-        with col:
-            if st.button(q, key=f"quick_{i}", use_container_width=True):
-                st.session_state["_pending_question"] = q
-                st.rerun()
+_has_filled_slots = any(
+    v.get("filled", False) for v in st.session_state.slots.values()
+)
+_onboarding_state: OnboardingState | None = st.session_state.get("onboarding")
+
+_show_onboarding = (
+    not _has_user_msg
+    and not _has_filled_slots
+    and (_onboarding_state is None or not _onboarding_state.is_complete())
+)
+
+if _show_onboarding:
+    _result = render_onboarding()
+    if _result is not None:
+        # Onboarding just completed -- fill slots from answers
+        _filled = _result.to_slots()
+        for k, v in _filled.items():
+            if v.get("filled") and k in st.session_state.slots:
+                st.session_state.slots[k] = v
+        # Auto-send a greeting incorporating onboarding answers
+        _auto_msg = (
+            f"我是{_result.province}考生，{_result.score}分，"
+            f"选科{_result.subject}，对{_result.interest}方向感兴趣，帮我分析一下"
+        )
+        st.session_state["_pending_question"] = _auto_msg
+        st.rerun()
+else:
+    # 动态快捷提问按钮（根据 slot 状态和对话上下文变化）
+    _quick_questions = _get_dynamic_quick_questions()
+    if _quick_questions:
+        cols = st.columns(2)
+        for i, q in enumerate(_quick_questions):
+            col = cols[i % 2]
+            with col:
+                if st.button(q, key=f"quick_{i}", use_container_width=True):
+                    st.session_state["_pending_question"] = q
+                    st.rerun()
 
 # 快速提问 → 进入可编辑输入框（用户修改后再发送）
 if "_pending_question" in st.session_state:
