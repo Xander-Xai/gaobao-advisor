@@ -5,7 +5,7 @@ import logging
 import sys
 
 
-def setup_logger(name: str = "xuefeng-advisor") -> logging.Logger:
+def setup_logger(name: str = "gaobao-advisor") -> logging.Logger:
     """配置并返回 logger 实例。"""
     logger = logging.getLogger(name)
     if logger.handlers:

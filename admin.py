@@ -390,7 +390,7 @@ def main():
         st.markdown("---")
         st.markdown(
             '<div style="text-align:center; font-size:0.78rem; color:#9ca3af;">'
-            '⭐ Powered by <b>雪峰Agent</b></div>',
+            '⭐ Powered by <b>gaobao</b></div>',
             unsafe_allow_html=True,
         )
 

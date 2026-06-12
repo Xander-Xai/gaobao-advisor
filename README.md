@@ -1,4 +1,4 @@
-# 雪峰 Agent — AI 高考志愿顾问
+# gaobao — AI 高考志愿顾问
 
 > **不是 ChatGPT 套壳。** 是基于大量高考志愿规划方法论和院校数据构建的、有咨询逻辑的 AI 顾问。
 
@@ -42,7 +42,7 @@
 | 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,003 所**（985/211/双一流/普通） | T2 |
 | 本科专业 | 教育部 2024 专业目录 | **193 个**（12 学科门类，含就业率/薪资） | T1 |
 | 录取分数线 | 百度高考 API（gaokao.baidu.com） | **7,000+ 条**（2024年，覆盖20个省份） | T2 |
-| 张雪峰语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
+| 行业语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
 | 知识库 | Eric-Yibo-Shen/zhangxuefeng-skillset | **20 个模块**（含 AI 时代校正） | T2 |
 
 > 数据采集脚本：`python scripts/import_baidu_gaokao.py --top-n 80` 可扩展到万级分数线
@@ -53,7 +53,7 @@
 |------|------|
 | **位次法推荐** | 分数→位次映射（一分一段表反推），冲/稳/保三档位次法推荐 |
 | **百度高考 API** | 替代低质量百度 HTML 解析，直接获取结构化 JSON 数据 |
-| **语录库注入** | 根据用户提到的专业，自动注入相关张雪峰语录 |
+| **语录库注入** | 根据用户提到的专业，自动注入相关行业专家语录 |
 | **表达引擎 v2.0** | 8 种开场模板、铺垫→反转→金句节奏、禁词列表、8 项自检清单 |
 | **省份自适应** | Step 0 自动识别高考模式（3+3/3+1+2/传统文理） |
 | **情绪 SOP** | 5 阶段情绪危机处理（接住→稳定→转场→方案→收尾） |
@@ -67,7 +67,7 @@ knowledge/
 ├── 00_ai_era_correction.md    # AI 时代校正框架（红/黄/绿区）
 ├── 06_university_life_planning.md  # 大学在校 4 年规划
 ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-└── quotes/                    # 张雪峰语录库（105 条）
+└── quotes/                    # 行业专家语录库（105 条）
     ├── _index.json            # 全量索引
     ├── _by_major.json         # 按专业反查索引（74 个专业）
     ├── zhuanye.json           # 专业选择（28 条）
@@ -346,7 +346,7 @@ knowledge/
 
 ## 为什么选择它
 
-| 对比维度 | 普通志愿工具 | 雪峰Agent |
+| 对比维度 | 普通志愿工具 | gaobao |
 |---------|------------|-----------|
 | 交互方式 | 输入分数→吐表格 | 先反问：家里干什么的？想去哪？讨厌什么？ |
 | 推荐逻辑 | 只看分 | 分数 + 家庭资源 + 地域偏好 + 就业诉求 |
@@ -597,7 +597,7 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 │   ├── 00_ai_era_correction.md    # AI 时代校正框架
 │   ├── 06_university_life_planning.md  # 大学在校规划
 │   ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-│   └── quotes/                    # 张雪峰语录库（105 条，6 个分类）
+│   └── quotes/                    # 行业专家语录库（105 条，6 个分类）
 ├── content_scripts/      # 抖音内容脚本（55 条）
 ├── docs/
 ├── examples/

@@ -1515,7 +1515,7 @@ with st.sidebar:
     # ⭐ 品牌署名
     st.markdown(
         '<div style="text-align:center; padding:0.4rem; font-size:0.78rem; color:#9ca3af;">'
-        '⭐ Powered by <b>雪峰Agent</b> · '
+        '⭐ Powered by <b>gaobao</b> · '
         '<a href="https://github.com" target="_blank" '
         'style="color:#3b82f6; text-decoration:none;">GitHub 开源</a>'
         '</div>',

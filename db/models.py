@@ -1,5 +1,5 @@
 """
-ORM 模型 — 5 张核心表（移植自 zhangxuefeng-agent-repo2）
+ORM 模型 — 5 张核心表（移植自上游项目）
 """
 from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint, Index, DateTime
 from sqlalchemy.orm import relationship

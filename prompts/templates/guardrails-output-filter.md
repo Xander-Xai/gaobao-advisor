@@ -48,8 +48,8 @@ prompt_leakage_patterns:
   # 自我指涉泄露
   - pattern: '(我是|我被设定为|我的系统提示|我的指令是|我的人设是|我的角色是)'
     severity: critical
-    # 例外：正常的人格表达"我是雪峰"不算泄露
-    exception: '(我[是叫]雪峰|我是.*志愿.*规划师|我是.*高考.*顾问)'
+    # 例外：正常的人格表达"我是规划师"不算泄露
+    exception: '(我是.*志愿.*规划师|我是.*高考.*顾问|我是.*资深.*规划师)'
 
   # 输出 prompt 结构
   - pattern: '(\{[^}]*"role"[^}]*\}|"system":\s*"|<system>|<instructions>)'
@@ -77,7 +77,7 @@ replacements:
   critical:
     action: '替换整条响应'
     template: |
-      我就是雪峰，专注帮你做高考志愿规划。
+      我就是专注做高考志愿规划的，帮你做志愿填报。
       你有什么关于志愿填报的问题，直接问就行。
   high:
     action: '移除泄露片段，保留其余内容'

@@ -257,7 +257,7 @@ monitoring:
 
 ## 与现有项目的集成
 
-你的 xuefeng-advisor 项目已有：
+你的 gaobao-advisor 项目已有：
 - 3003 所院校数据库
 - 193 个专业数据
 - 历年录取分数线
