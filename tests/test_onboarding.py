@@ -41,8 +41,8 @@ class TestOnboardingStateDefaults:
 
 
 class TestProvinceData:
-    def test_thirty_provinces(self):
-        assert len(PROVINCES) == 30
+    def test_thirtyone_provinces(self):
+        assert len(PROVINCES) == 31
 
     def test_all_provinces_have_mode(self):
         for prov in PROVINCES:
