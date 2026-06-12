@@ -71,15 +71,74 @@ WELCOME_MSG = (
     "👇 直接打字或点下方快速提问："
 )
 
-# 场景化快速提问（按用户类型分组，不限定具体省份）
-QUICK_QUESTIONS = [
-    "📍 我是[XX省]考生，想让你帮我分析",
-    "🎯 我是高分考生，想冲 985/211",
-    "💼 我想找好就业的专业，怎么选？",
-    "📝 我想考公/考研，应该报什么？",
-    "😰 孩子考得不理想，帮我看看有什么选择",
-    "❓ 我对志愿填报一无所知，从哪开始？",
-]
+# ── 动态快捷提问生成器（根据 slot 状态和对话上下文） ──
+def _get_dynamic_quick_questions() -> list[str]:
+    """根据已收集的 slot 信息动态生成上下文感知的快捷提问。"""
+    _slots = st.session_state.slots
+    _has_province = _slots["province"]["filled"]
+    _has_score = _slots["score_rank"]["filled"]
+    _has_subject = _slots["subject"]["filled"]
+    _province = _slots["province"]["value"] if _has_province else ""
+    _has_ai_reply = any(
+        m["role"] == "assistant" and len(m.get("content", "")) > 50
+        for m in st.session_state.messages
+    )
+
+    # 从最近的 AI 回复中提取学校名（用于追问按钮）
+    _mentioned_schools = []
+    if _has_ai_reply:
+        import re as _re_qq
+        for m in reversed(st.session_state.messages):
+            if m["role"] == "assistant":
+                _school_hits = _re_qq.findall(
+                    r'([一-龥]{2,}(?:大学|学院|学校))',
+                    m.get("content", "")
+                )
+                _mentioned_schools = list(dict.fromkeys(_school_hits))[:3]
+                break
+
+    questions = []
+
+    # 状态 1：已有 AI 推荐结果 → 提供追问选项
+    if _mentioned_schools and _has_province and _has_score:
+        questions.append(f"📋 帮我生成冲稳保志愿表")
+        questions.append(f"🔍 {_mentioned_schools[0]}的详细信息")
+        if len(_mentioned_schools) >= 2:
+            questions.append(f"⚖️ 对比{_mentioned_schools[0]}和{_mentioned_schools[1]}")
+        questions.append("💡 还有其他类似学校推荐吗？")
+        return questions[:4]
+
+    # 状态 2：省份+分数+选科都有 → 深入方向
+    if _has_province and _has_score and _has_subject:
+        questions.append(f"🎯 帮我分析冲稳保各有哪些学校")
+        questions.append("💼 什么专业好就业？")
+        questions.append("📝 我想考公/考研，应该报什么？")
+        questions.append(f"🏙️ 我想去大城市读书")
+        return questions[:4]
+
+    # 状态 3：省份+分数已知，选科未知
+    if _has_province and _has_score and not _has_subject:
+        questions.append("📚 我选了物化生，帮我分析一下")
+        questions.append("🎯 我想冲 985/211")
+        questions.append("💼 我想找好就业的专业")
+        questions.append("📝 我想考公/考研，应该报什么？")
+        return questions[:4]
+
+    # 状态 4：只有省份
+    if _has_province and not _has_score:
+        questions.append(f"📊 我是{_province}考生，580分，帮我分析")
+        questions.append("🎯 我是高分考生，想冲 985/211")
+        questions.append("😰 孩子考得不理想，帮我看看选择")
+        questions.append("❓ 我对志愿填报一无所知，从哪开始？")
+        return questions[:4]
+
+    # 状态 5：什么都没有 → 引导型提问
+    return [
+        "📍 我是山东考生，580分，帮我分析",
+        "🎯 我是高分考生，想冲 985/211",
+        "💼 我想找好就业的专业，怎么选？",
+        "❓ 我对志愿填报一无所知，从哪开始？",
+    ]
 
 # 免责声明三件套之一：欢迎消息末尾的合规提示
 DISCLAIMER_BRIEF = (
@@ -622,7 +681,7 @@ st.markdown(
     /* 隐藏 Streamlit 默认的 hamburger menu 和 footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    [data-testid="stHeader"] {visibility: hidden;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -798,28 +857,13 @@ with st.sidebar:
     st.markdown("### 🎓 高报Agent AI 高考志愿顾问")
     st.markdown("---")
 
-    # API Key 输入（仅当环境变量中没有 key 时显示，正常部署不会出现）
+    # API Key 未配置时：显示友好维护页面（不暴露技术细节）
     if not _has_env_key:
-        st.markdown("#### ⚙️ 需要配置 API Key")
         st.markdown(
-            "应用尚未配置 AI 服务。\n\n"
-            "**部署者**：请在 Streamlit Cloud 的 Settings → Secrets 中添加：\n"
-            "```toml\nLLM_API_KEY = \"sk-你的key\"\n```\n"
-            "或者你也可以临时在下方输入自己的 Key 来体验："
+            "#### 🔧 系统维护中\n\n"
+            "顾问正在升级中，暂时无法使用。\n\n"
+            "请稍后再试，或联系管理员获取帮助。"
         )
-        api_input = st.text_input(
-            "临时 API Key",
-            type="password",
-            placeholder="sk-...",
-            key="api_key_input",
-        )
-        if st.button("✅ 使用此 Key", use_container_width=True, disabled=not api_input):
-            st.session_state.user_api_key = api_input
-            st.session_state.api_key_confirmed = True
-            if "advisor" in st.session_state:
-                del st.session_state["advisor"]
-            st.rerun()
-        st.markdown("[免费获取 DeepSeek Key →](https://platform.deepseek.com)")
         st.markdown("---")
 
     st.markdown("**智能分析你的分数**，推荐最合适的冲、稳、保院校。")
@@ -984,7 +1028,7 @@ with st.sidebar:
                 role_label = "👤 用户" if msg["role"] == "user" else "🤖 顾问"
                 content = msg["content"]
                 # 清理 HTML 标签
-                content = re.sub(r'<[^>]+>', '', content)
+                content = _re.sub(r'<[^>]+>', '', content)
                 export_lines.append(f"### {role_label}\n{content}\n")
             export_text = "\n".join(export_lines)
             st.download_button(
@@ -1178,7 +1222,7 @@ with st.sidebar:
                     )
                     # 解析分数
                     _score_text = _slots_now["score_rank"]["value"]
-                    _score_match = re.search(r'(\d{3})', _score_text)
+                    _score_match = _re.search(r'(\d{3})', _score_text)
                     if _score_match:
                         _score = int(_score_match.group(1))
                         _table = generate_volunteer_table(
@@ -1357,11 +1401,12 @@ if not _welcome_added:
         "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
     })
 
-# 快速提问按钮（始终显示，直到有用户消息）
+# 动态快捷提问按钮（根据 slot 状态和对话上下文变化）
 _has_user_msg = any(m["role"] == "user" for m in st.session_state.messages)
-if not _has_user_msg:
+_quick_questions = _get_dynamic_quick_questions()
+if _quick_questions:
     cols = st.columns(2)
-    for i, q in enumerate(QUICK_QUESTIONS):
+    for i, q in enumerate(_quick_questions):
         col = cols[i % 2]
         with col:
             if st.button(q, key=f"quick_{i}", use_container_width=True):
@@ -1426,9 +1471,9 @@ if user_input:
         st.session_state.limit_reached = True
         st.stop()
 
-    # 检查是否有 API Key
+    # 检查是否有 API Key（无 key 时显示维护提示，不暴露技术细节）
     if not advisor:
-        no_key_msg = "请先在左侧边栏输入你的 **API Key** 才能使用顾问。\n\n免费获取：[DeepSeek Platform](https://platform.deepseek.com)"
+        no_key_msg = "🔧 顾问系统正在维护中，请稍后再试。如需帮助请联系管理员。"
         with st.chat_message("user"):
             st.markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -1514,10 +1559,17 @@ if user_input:
 
     # 调用 agent 核心逻辑（流式输出）
     with st.chat_message("assistant"):
-        # 初始加载提示
+        # 初始加载提示（多阶段渐进）
         loading_placeholder = st.empty()
+        _loading_start = time.time()
+        _loading_phases = [
+            (0, "🔍 正在匹配你的信息..."),
+            (2.0, "📊 正在查询院校数据..."),
+            (5.0, "🧠 AI 顾问正在分析，马上就好..."),
+            (10.0, "⏳ 复杂情况可能需要更多时间，请稍候..."),
+        ]
         loading_placeholder.markdown(
-            '<div class="loading-step">🔍 正在分析你的信息...</div>',
+            f'<div class="loading-step">{_loading_phases[0][1]}</div>',
             unsafe_allow_html=True,
         )
 
