@@ -824,6 +824,19 @@ with st.sidebar:
 
     st.markdown("**智能分析你的分数**，推荐最合适的冲、稳、保院校。")
 
+    # 性格变体开关（默认关闭）
+    st.markdown("#### 🎯 顾问风格")
+    persona_mode = st.checkbox(
+        "⚡ 启用顾问直给模式",
+        value=False,
+        help="开启后，顾问回复更犀利（东北老炮风格），使用更强反问句和段子。适合已熟悉高考填报、能接受直给风格的用户。",
+        key="persona_mode",
+    )
+    st.session_state.persona_enabled = persona_mode
+    if persona_mode:
+        st.caption("🔥 直给模式已开启，顾问会更直接地给判断")
+    st.markdown("---")
+
     st.markdown("#### 💡 使用技巧")
     for tip in TIPS:
         st.markdown(f'<div class="tip-item">{tip}</div>', unsafe_allow_html=True)
@@ -1512,6 +1525,8 @@ if user_input:
         collected_chunks = []
         _stream_placeholder = None
         try:
+            # P2-3: 同步 UI 开关到 advisor
+            advisor.persona_enabled = st.session_state.get("persona_enabled", False)
             # 流式渲染：逐 chunk 输出到页面
             for chunk in advisor.chat_stream(user_input):
                 if chunk.startswith("|||FINAL|||"):
