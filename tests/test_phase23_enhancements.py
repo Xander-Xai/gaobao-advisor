@@ -192,3 +192,58 @@ class TestConversationHistory:
             encoding="utf-8",
         ).read()
         assert "?sid=" in app_src
+
+
+# ══════════════════════════════════════════════════════
+#  Phase 2.2: 院校详情查询面板
+# ══════════════════════════════════════════════════════
+
+class TestSchoolDetailPanel:
+    """验证院校详情查询面板（3个tab：趋势/排名/就业）。"""
+
+    def test_sidebar_has_detail_panel(self):
+        """侧边栏有院校详情查询面板。"""
+        app_src = open(
+            os.path.join(os.path.dirname(__file__), "..", "app.py"),
+            encoding="utf-8",
+        ).read()
+        assert "🔍 院校详情查询" in app_src
+        assert "学校名称" in app_src
+
+    def test_detail_panel_has_three_tabs(self):
+        """详情面板包含3个tab：历年趋势、学科排名、就业数据。"""
+        app_src = open(
+            os.path.join(os.path.dirname(__file__), "..", "app.py"),
+            encoding="utf-8",
+        ).read()
+        assert "📈 历年趋势" in app_src
+        assert "🏅 学科排名" in app_src
+        assert "💼 就业数据" in app_src
+
+    def test_detail_panel_queries_trend(self):
+        """Tab 1 调用 query_admission_trend 函数。"""
+        app_src = open(
+            os.path.join(os.path.dirname(__file__), "..", "app.py"),
+            encoding="utf-8",
+        ).read()
+        assert "query_admission_trend" in app_src
+        assert "trend_detail" in app_src or "trend" in app_src
+
+    def test_detail_panel_queries_ranking(self):
+        """Tab 2 调用 query_subject_ranking 函数。"""
+        app_src = open(
+            os.path.join(os.path.dirname(__file__), "..", "app.py"),
+            encoding="utf-8",
+        ).read()
+        assert "query_subject_ranking" in app_src
+        assert "学科评估排名" in app_src
+
+    def test_detail_panel_queries_employment(self):
+        """Tab 3 调用 query_major_info 函数展示就业数据。"""
+        app_src = open(
+            os.path.join(os.path.dirname(__file__), "..", "app.py"),
+            encoding="utf-8",
+        ).read()
+        assert "query_major_info" in app_src
+        assert "employment_rate" in app_src
+        assert "avg_salary" in app_src

@@ -1046,6 +1046,108 @@ with st.sidebar:
             else:
                 st.warning("请至少填写省份或分数中的一项。")
 
+    # ── 院校详情查询面板（3类信息：历年趋势/学科排名/就业数据）──
+    with st.expander("🔍 院校详情查询", expanded=False):
+        st.markdown("**输入学校名称，查询详细信息**")
+        _detail_school = st.text_input(
+            "学校名称",
+            placeholder="如：武汉大学",
+            key="detail_school_input",
+        )
+        if st.button("🔎 查询详情", use_container_width=True, disabled=not _detail_school):
+            if not _detail_school or not _detail_school.strip():
+                st.warning("请输入学校名称")
+            else:
+                _province_hint = st.session_state.slots.get("province", {}).get("value") or "全国"
+                _subj_hint = st.session_state.slots.get("subject", {}).get("value") or "物理"
+                _known_subj = "物理" if "物理" in _subj_hint else ("历史" if "历史" in _subj_hint else "综合")
+
+                _tabs = st.tabs(["📈 历年趋势", "🏅 学科排名", "💼 就业数据"])
+
+                # Tab 1: 历年趋势
+                with _tabs[0]:
+                    try:
+                        from gaokao_data import query_admission_trend
+                        _trend = query_admission_trend(
+                            _detail_school.strip(), _province_hint, _known_subj, years=3
+                        )
+                        if _trend and _trend.get("data"):
+                            _trend_emoji = {"逐年上升": "📈", "逐年下降": "📉", "波动": "〰️", "稳定": "➡️"}.get(
+                                _trend["trend"], "📊"
+                            )
+                            st.markdown(f"**{_detail_school} — {_province_hint} · {_known_subj}**")
+                            st.markdown(f"趋势：**{_trend_emoji} {_trend['trend']}**")
+                            if _trend.get("trend_detail"):
+                                st.info(_trend["trend_detail"])
+                            st.markdown("**近年录取分数：**")
+                            _rows_data = []
+                            for _d in _trend["data"]:
+                                _score_s = str(_d.get("min_score", "—"))
+                                _rank_s = f"位次 {_d['min_rank']:,}" if _d.get("min_rank") else ""
+                                _rows_data.append({
+                                    "年份": str(_d.get("year", "")),
+                                    "最低分": _score_s,
+                                    "最低位次": _rank_s,
+                                })
+                            if _rows_data:
+                                st.dataframe(_rows_data, use_container_width=True, hide_index=True)
+                        elif _trend:
+                            st.info(_trend.get("trend_detail", "暂无该校的录取趋势数据"))
+                        else:
+                            st.warning("未找到该学校的数据，请检查学校名称是否正确。")
+                    except Exception:
+                        st.warning("查询失败，请稍后再试。")
+
+                # Tab 2: 学科排名
+                with _tabs[1]:
+                    try:
+                        from gaokao_data import query_subject_ranking
+                        _ranking = query_subject_ranking(_detail_school.strip())
+                        if _ranking and _ranking.get("rankings"):
+                            st.markdown(f"**{_detail_school} — 学科评估排名**")
+                            _rk_rows = []
+                            for _r in _ranking["rankings"][:10]:
+                                _rk_rows.append({
+                                    "学科类别": _r.get("major_category", ""),
+                                    "评估等级": _r.get("grade", "—"),
+                                    "排名来源": _r.get("ranking_source", ""),
+                                })
+                            st.dataframe(_rk_rows, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("暂无该校的学科排名数据（数据来源：教育部学科评估）")
+                    except Exception:
+                        st.info("暂无法查询学科排名数据")
+
+                # Tab 3: 就业数据
+                with _tabs[2]:
+                    try:
+                        from gaokao_data import query_major_info
+                        # 查询学校王牌专业的就业数据
+                        _major_map = {
+                            "计算机": "计算机", "软件": "软件工程", "电子信息": "电子信息工程",
+                            "电气": "电气工程", "临床医学": "临床医学", "金融": "金融学",
+                        }
+                        _majors_to_show = list(_major_map.keys())[:3]
+                        _found = False
+                        for _m in _majors_to_show:
+                            _mi = query_major_info(_m)
+                            if _mi and _mi.get("employment_rate"):
+                                _found = True
+                                _emp = f"{_mi['employment_rate']*100:.0f}%" if _mi.get("employment_rate") else "—"
+                                _salary = f"{_mi.get('avg_salary', 0)/1000:.1f}k" if _mi.get("avg_salary") else "—"
+                                _post = f"{_mi['postgraduate_rate']*100:.0f}%" if _mi.get("postgraduate_rate") else "—"
+                                st.markdown(f"**{_mi['name']}**")
+                                st.markdown(
+                                    f"就业率 **{_emp}** · 毕业5年月薪 **{_salary}元** · "
+                                    f"考研率 **{_post}** · 学科 **{_mi.get('category', '—')}**"
+                                )
+                                if _mi.get("job_directions"):
+                                    st.caption(f"主要去向：{' | '.join(_mi['job_directions'][:3])}")
+                        if not _found:
+                            st.info("暂无该校的就业数据（数据来源：麦可思/各校就业质量报告）")
+                    except Exception:
+                        st.info("暂无法查询就业数据")
+
     # 重置按钮
     if st.button("🔄 重新开始对话", use_container_width=True):
         if advisor:
