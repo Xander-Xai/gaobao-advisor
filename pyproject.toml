@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaobao-advisor"
+version = "1.0.0"
+description = "高考志愿 AI 顾问 — 基于 RAG 的智能志愿填报助手"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "gaobao-ai"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Education",
+]
+
+dependencies = [
+    "openai>=1.0.0,<3.0.0",
+    "streamlit>=1.30.0,<2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "sqlalchemy>=2.0.0,<3.0.0",
+    "reportlab>=4.0",
+    "numpy>=1.24.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0,<9.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/gaobao-ai/gaobao-advisor"
+Repository = "https://github.com/gaobao-ai/gaobao-advisor"
+Issues = "https://github.com/gaobao-ai/gaobao-advisor/issues"
+
+[tool.setuptools.packages.find]
+include = [
+    "agent*",
+    "db*",
+    "quality*",
+    "scrapers*",
+    "analytics*",
+    "scripts*",
+    "prompts*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-v",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external services",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function call in default argument
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent", "db", "quality", "scrapers", "analytics"]
