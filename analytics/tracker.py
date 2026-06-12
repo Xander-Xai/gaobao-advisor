@@ -11,8 +11,14 @@ from typing import Any, Dict, List, Tuple
 EVENT_SESSION_START = "session_start"
 EVENT_QUERY_SUBMITTED = "query_submitted"
 EVENT_EMOTION_SCORED = "emotion_scored"
+EVENT_EMOTION_DETECTED = "emotion_detected"
 EVENT_MAJORS_VIEWED = "majors_viewed"
 EVENT_SCHOOLS_VIEWED = "schools_viewed"
+EVENT_SLOT_FILLED = "slot_filled"
+EVENT_MAJOR_QUERY = "major_query"
+EVENT_SCHOOL_QUERY = "school_query"
+EVENT_EXPORT_CLICKED = "export_clicked"
+EVENT_ONBOARDING_COMPLETE = "onboarding_complete"
 
 # 情绪映射
 EMOTION_MAP = {"positive": "🟢", "neutral": "🟡", "negative": "🔴"}
