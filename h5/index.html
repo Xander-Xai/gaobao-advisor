@@ -341,6 +341,34 @@ body {
     box-shadow: 0 0 20px rgba(0,0,0,0.1);
   }
 }
+
+/* ── 移动端触控优化 ── */
+button, .quick-btn, .send-btn, .header-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+.quick-btn {
+  padding: 12px 16px;
+  font-size: 15px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+.send-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 20px;
+}
+textarea {
+  font-size: 16px;  /* Prevent iOS zoom */
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+.msg-bubble {
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 </style>
 </head>
 <body>
