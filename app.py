@@ -923,8 +923,8 @@ def _check_api_key_available() -> None:
     try:
         if st.query_params.get("admin") == "true":
             return
-    except Exception:
-        pass
+    except (AttributeError, TypeError, RuntimeError) as e:
+        logging.warning("st.query_params unavailable: %s", e)
 
     if not _has_env_key:
         render_maintenance_page()
@@ -1820,9 +1820,10 @@ if _show_onboarding:
             if v.get("filled") and k in st.session_state.slots:
                 st.session_state.slots[k] = v
         # Auto-send a greeting incorporating onboarding answers
+        _interest_text = _result.interest if _result.interest != "暂不确定" else "各方向"
         _auto_msg = (
             f"我是{_result.province}考生，{_result.score}分，"
-            f"选科{_result.subject}，对{_result.interest}方向感兴趣，帮我分析一下"
+            f"选科{_result.subject}，对{_interest_text}方向感兴趣，帮我分析一下"
         )
         st.session_state["_pending_question"] = _auto_msg
         st.rerun()
