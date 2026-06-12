@@ -44,14 +44,20 @@ def get_session():
     return SessionLocal()
 
 
+def _lock_db_permissions(db_path: str):
+    """收紧数据库及其 WAL/SHM 附属文件的权限为 0600（仅 owner 可读写）。"""
+    for suffix in ("", "-wal", "-shm"):
+        path = db_path + suffix
+        if os.path.exists(path):
+            try:
+                os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+            except OSError:
+                pass
+
+
 def init_db():
     """创建所有表"""
     from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight  # noqa
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
-    # #12: 收紧 SQLite 文件权限（仅 owner 可读写）
-    if os.path.exists(DB_PATH):
-        try:
-            os.chmod(DB_PATH, stat.S_IRUSR | stat.S_IWUSR)  # 0600
-        except OSError:
-            pass
+    _lock_db_permissions(DB_PATH)

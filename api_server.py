@@ -9,20 +9,44 @@ import os
 import sys
 import json
 import uuid
+import time
 import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+from ratelimit import RateLimiter
 
 # 延迟导入 agent 模块（避免启动时加载全部依赖）
 from agent import GaokaoAdvisor, SLOTS, filled_slots
 
 app = FastAPI(title="高报Agent API", version="1.0.0")
+
+# 进程级限流器（解决多 tab 绕过限流的竞态问题）
+_api_rate_limiter = RateLimiter(
+    hourly_limit=20,
+    daily_limit=40,
+    max_input_len=500,
+)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    """HTTP 中间件：基于客户端 IP 的令牌桶限流。"""
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, reason = _api_rate_limiter.check(client_ip, msg_length=0)
+    if not allowed:
+        logging.warning("rate_limit_exceeded ip=%s reason=%s", client_ip, reason)
+        return JSONResponse(
+            status_code=429,
+            content={"error": "请求过于频繁，请稍后再试", "detail": reason},
+        )
+    return await call_next(request)
 
 # CORS 支持（H5 页面跨域调用）
 app.add_middleware(
@@ -66,23 +90,42 @@ class ResetRequest(BaseModel):
 
 # ── 全局 advisor 池（按 session_id 管理）──
 _advisors: dict[str, GaokaoAdvisor] = {}
+_session_timestamps: dict[str, float] = {}  # session_id -> last access time
 
 # 最大并发会话数（防止内存无限增长）
 MAX_SESSIONS = 500
 
+# 会话最大空闲时间（秒），超时后自动淘汰
+SESSION_TTL = 1800  # 30 minutes
+
 
 def _get_advisor(session_id: str) -> GaokaoAdvisor:
-    """获取或创建 advisor 实例。超过上限时淘汰最老的。"""
+    """获取或创建 advisor 实例。超过上限或 TTL 超时则淘汰。"""
+    global _advisors, _session_timestamps
+    now = time.time()
+
+    # 淘汰所有超时的会话（TTL 过期）
+    expired = [
+        sid for sid, ts in _session_timestamps.items() if now - ts > SESSION_TTL
+    ]
+    for sid in expired:
+        _advisors.pop(sid, None)
+        _session_timestamps.pop(sid, None)
+        logging.info("session_expired sid=%s (TTL exceeded)", sid)
+
+    # LRU 淘汰：超过上限时清除最久未访问的会话
+    if len(_advisors) >= MAX_SESSIONS and session_id not in _advisors:
+        oldest_sid = min(_session_timestamps, key=_session_timestamps.get)
+        _advisors.pop(oldest_sid, None)
+        _session_timestamps.pop(oldest_sid, None)
+        logging.info("session_evicted sid=%s (pool full)", oldest_sid)
+
     if session_id not in _advisors:
-        # 淘汰策略：超过上限时清除最前面的会话
-        if len(_advisors) >= MAX_SESSIONS:
-            oldest_key = next(iter(_advisors))
-            del _advisors[oldest_key]
-            logging.info("session_evicted sid=%s (pool full)", oldest_key)
         _advisors[session_id] = GaokaoAdvisor(
             api_key=os.environ.get("LLM_API_KEY", ""),
             slots={k: dict(v) for k, v in SLOTS.items()},
         )
+    _session_timestamps[session_id] = now
     return _advisors[session_id]
 
 
