@@ -835,6 +835,7 @@ class GaokaoAdvisor:
         self.system_prompt = load_file(SYSTEM_PROMPT_PATH)
         self.conversation = []
         self.cli_mode = cli_mode  # True=CLI纯文本 / False=Web保留Markdown
+        self.persona_enabled = False  # P2-3: 性格变体开关（默认关闭）
         # 支持外部传入独立的 slots（多用户场景各自有自己的槽位）
         self.slots = slots if slots is not None else {k: dict(v) for k, v in SLOTS.items()}
         # #18: 系统消息缓存（避免每轮重新构建巨大的 system message）
@@ -1420,6 +1421,18 @@ class GaokaoAdvisor:
             except Exception:
                 pass  # 静默降级
 
+        # ── P2-3: 性格变体开关 ──
+        if self.persona_enabled:
+            _persona_hint = (
+                "【性格变体已开启】本回答请采用更强的表达风格：\n"
+                "1. 第一句话必须口语化（如'我跟你说''你听我说''停停停'），禁止书面腔开头\n"
+                "2. 每 3-4 段至少 1 个反问句（如'你拿什么跟XX抢？'）\n"
+                "3. 绝对化表达增强（'没有之一''千万别''一定'是标配）\n"
+                "4. 金句≤30字，加粗独立成段\n"
+                "5. 禁止使用'或许''可能''这取决于''综合评估''建议您'等模糊/客气词"
+            )
+            messages.append({"role": "system", "content": _persona_hint})
+
         # 调用 LLM
         reply = self._call_llm(messages)
 
@@ -1656,6 +1669,18 @@ class GaokaoAdvisor:
         data_hints = self._query_data_hints(user_msg)
         if data_hints:
             messages.append({"role": "system", "content": "\n\n".join(data_hints)})
+
+        # ── P2-3: 性格变体开关（流式） ──
+        if self.persona_enabled:
+            _persona_hint = (
+                "【性格变体已开启】本回答请采用更强的表达风格：\n"
+                "1. 第一句话必须口语化（如'我跟你说''你听我说''停停停'），禁止书面腔开头\n"
+                "2. 每 3-4 段至少 1 个反问句（如'你拿什么跟XX抢？'）\n"
+                "3. 绝对化表达增强（'没有之一''千万别''一定'是标配）\n"
+                "4. 金句≤30字，加粗独立成段\n"
+                "5. 禁止使用'或许''可能''这取决于''综合评估''建议您'等模糊/客气词"
+            )
+            messages.append({"role": "system", "content": _persona_hint})
 
         # ── 流式调用 LLM ──
         import openai
