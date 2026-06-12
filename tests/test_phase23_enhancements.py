@@ -170,12 +170,12 @@ class TestConversationHistory:
         assert "list_user_conversations" in app_src
 
     def test_history_shows_recent_conversations(self):
-        """历史面板显示最近 5 条对话。"""
+        """历史面板显示最近 20 条对话。"""
         app_src = open(
             os.path.join(os.path.dirname(__file__), "..", "app.py"),
             encoding="utf-8",
         ).read()
-        assert "limit=5" in app_src
+        assert "limit=20" in app_src
 
     def test_history_highlights_current_session(self):
         """当前会话在历史列表中高亮显示。"""
@@ -186,12 +186,13 @@ class TestConversationHistory:
         assert "*(当前)*" in app_src or "(当前)" in app_src
 
     def test_history_links_are_clickable(self):
-        """历史对话可点击切换（URL 含 sid 参数）。"""
+        """历史对话可通过按钮点击恢复会话。"""
         app_src = open(
             os.path.join(os.path.dirname(__file__), "..", "app.py"),
             encoding="utf-8",
         ).read()
-        assert "?sid=" in app_src
+        # 点击恢复按钮或 URL 链接（兼容两种实现）
+        assert "hist_restore_" in app_src or "?sid=" in app_src
 
 
 # ══════════════════════════════════════════════════════
