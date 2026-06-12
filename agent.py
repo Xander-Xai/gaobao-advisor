@@ -858,6 +858,7 @@ class GaokaoAdvisor:
         self._cached_base_system = None  # 不含槽位和搜索状态的基础部分
         self._cache_dirty = True
         self._last_user_msg = ""  # 供 RAG 检索使用
+        self._rag_result = None   # RAG 检索结果缓存
 
         # ── RAG 知识检索引擎 ──
         self.kb_retriever = None
@@ -880,15 +881,14 @@ class GaokaoAdvisor:
     def _build_system_message(self):
         """构建系统消息，包含 system prompt + 知识库 + 数据库状态 + 数据治理规则 + 槽位状态。"""
         # ── 知识库内容：RAG 模式 vs 全量模式 ──
-        if self.kb_retriever and hasattr(self, '_last_user_msg') and self._last_user_msg:
+        if self.kb_retriever and self._last_user_msg:
             try:
-                rag_result = self.kb_retriever.search(self._last_user_msg, self.slots)
-                kb_parts: list[str] = []
-                for chunk in rag_result.group_chunks:
-                    kb_parts.append(chunk.text)
+                self._rag_result = self.kb_retriever.search(self._last_user_msg, self.slots)
+                kb_parts: list[str] = [c.text for c in self._rag_result.group_chunks]
                 kb = "\n\n".join(kb_parts) if kb_parts else (self.knowledge_base or "")
             except Exception as e:
                 log.warning(f"RAG 检索失败，降级为全量知识库: {e}")
+                self._rag_result = None
                 kb = self.knowledge_base if self.knowledge_base else ""
         else:
             kb = self.knowledge_base if self.knowledge_base else ""
@@ -978,13 +978,12 @@ class GaokaoAdvisor:
     # ── 子方法：注入张雪峰语录 ──
     def _inject_quotes(self, messages: list, user_msg: str) -> None:
         """根据用户提到的专业，注入相关语录作为参考。"""
-        # ── RAG 模式：混合检索 ──
-        if self.kb_retriever:
+        # ── RAG 模式：复用 _build_system_message 的检索结果 ──
+        if self.kb_retriever and self._rag_result is not None:
             try:
-                result = self.kb_retriever.search(user_msg, self.slots)
-                if result.quotes:
+                if self._rag_result.quotes:
                     quote_text = "\n".join(
-                        [f"· {q.text}" for q in result.quotes[:3]]
+                        [f"· {q.text}" for q in self._rag_result.quotes[:3]]
                     )
                     messages.append({
                         "role": "system",
@@ -992,7 +991,7 @@ class GaokaoAdvisor:
                     })
                 return
             except Exception as e:
-                log.warning(f"RAG 语录检索失败，降级为旧匹配: {e}")
+                log.warning(f"RAG 语录注入失败，降级为旧匹配: {e}")
 
         # ── 旧模式：关键词精确匹配（完全保留） ──
         if not QUOTES_INDEX:
