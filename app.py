@@ -20,10 +20,35 @@ import streamlit as st
 
 # ── 页面配置（必须是第一个 st 命令）────────────────────
 st.set_page_config(
-    page_title="高报Agent · AI 高考志愿顾问",
+    page_title="gaoBao AI 高考志愿顾问 — 免费智能志愿填报指导",
     page_icon="🎓",
     layout="centered",
     initial_sidebar_state="expanded",
+)
+
+# ── Open Graph meta tags（微信分享优化） ─────────────────
+# Streamlit 不原生支持 <head> 注入，通过 <style> 之外的 HTML 方式注入 OG 标签。
+# 注意：st.markdown(unsafe_allow_html=True) 在页面 body 区域注入内容，
+# 但微信/QQ 等社交平台的爬虫可以解析页面中出现的 <meta> 标签。
+OG_TITLE = "gaoBao AI 高考志愿顾问 — 免费智能志愿填报指导"
+OG_DESC = "基于 3000+ 院校数据、17+ 知识库模块的 AI 高考志愿顾问。免费使用，帮你说真话、选对路。"
+# OG image 使用绝对 URL，确保微信爬虫可抓取；部署后替换为实际地址
+OG_IMAGE_URL = os.environ.get(
+    "OG_IMAGE_URL",
+    "https://raw.githubusercontent.com/gaobao-advisor/static/main/og-image.png",
+)
+st.markdown(
+    f"""<meta property="og:title" content="{OG_TITLE}">
+<meta property="og:description" content="{OG_DESC}">
+<meta property="og:image" content="{OG_IMAGE_URL}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="gaoBao AI 高考志愿顾问">
+<meta name="description" content="{OG_DESC}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="canonical" href="https://gaobao-ai.streamlit.app">""",
+    unsafe_allow_html=True,
 )
 
 # ── Streamlit Cloud Secrets 支持 ─────────────────────
@@ -730,6 +755,38 @@ st.markdown(
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     [data-testid="stHeader"] {visibility: hidden;}
+
+    /* ── 微信浏览器兼容性优化 ─────────────────────── */
+    /* iOS 平滑滚动 */
+    .stApp, .stChatMessage, [data-testid="stSidebar"] {
+        -webkit-overflow-scrolling: touch;
+    }
+    /* 触摸目标最小 44px（iOS HIG 标准） */
+    button, [data-testid="stButton"] button,
+    [data-testid="stFormSubmitButton"] button,
+    a, [role="button"] {
+        min-height: 44px;
+    }
+    /* 聊天输入框不被移动端键盘遮挡 */
+    [data-testid="stChatInput"] {
+        position: sticky !important;
+        bottom: 0;
+        z-index: 999;
+        background: white;
+        padding-bottom: env(safe-area-inset-bottom, 8px);
+    }
+    /* 微信内嵌浏览器（WebView）顶部安全区域 */
+    @supports (padding-top: env(safe-area-inset-top)) {
+        .stApp {
+            padding-top: env(safe-area-inset-top);
+        }
+    }
+    /* 防止微信横屏切换时布局错乱 */
+    @media screen and (orientation: landscape) and (max-height: 500px) {
+        [data-testid="stChatInput"] {
+            max-height: 40vh;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
