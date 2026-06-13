@@ -115,3 +115,40 @@ def test_preserved_scene(graph):
         "slots": {},
     })
     assert result.get("scene") == "kaoyan"
+
+
+def test_full_pipeline_has_structured_card(graph):
+    """Full pipeline should produce a structured card with all required fields."""
+    result = graph.invoke({
+        "input_text": "河北物理类600分想学计算机普通家庭想就业",
+        "scene": "gaokao",
+        "session_id": "test-integration-001",
+        "slots": {},
+    })
+    assert result.get("reply")
+    structured = result.get("structured_result", {})
+    assert structured.get("title"), "Card should have a title"
+    assert structured.get("summary"), "Card should have a summary"
+    assert isinstance(structured.get("facts", []), list), "facts should be a list"
+    assert isinstance(structured.get("suggestions", []), list), "suggestions should be a list"
+    assert isinstance(structured.get("risks", []), list), "risks should be a list"
+    assert isinstance(structured.get("next_actions", []), list), "next_actions should be a list"
+
+
+def test_skill_context_in_trace(graph):
+    """Trace should show skill_scene in quality_orchestrate."""
+    result = graph.invoke({
+        "input_text": "河北物理类600分想学计算机",
+        "scene": "gaokao",
+        "session_id": "test-integration-002",
+        "slots": {
+            "province": "河北",
+            "score": "600",
+            "subject": "物理",
+            "interest": "计算机",
+        },
+    })
+    trace = result.get("trace", [])
+    quality_traces = [t for t in trace if t.get("node") == "quality_orchestrate"]
+    assert len(quality_traces) > 0
+    assert "skill_scene" in quality_traces[0]
