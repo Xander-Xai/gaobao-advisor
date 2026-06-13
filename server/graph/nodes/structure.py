@@ -1,62 +1,187 @@
-"""Structure output node — builds a structured planning card."""
+"""Structure output node — builds a StructuredPlanningCard from gathered data."""
 from __future__ import annotations
 
 from typing import Any
 
+from server.domain.schemas import StructuredPlanningCard
+
+
+_TITLE_MAP = {
+    "gaokao": "高考志愿规划建议",
+    "kaoyan": "考研规划建议",
+    "career": "职业发展建议",
+    "general": "教育规划建议",
+}
+
 
 def structure_output_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Build a structured result dict (planning card) from gathered data.
+    """Build a StructuredPlanningCard from reasoning and data query results.
 
-    This produces the JSON payload that the frontend can render as
-    a rich card with school recommendations, score analysis, etc.
+    Extracts facts, suggestions, risks, and next_actions from the state,
+    producing a structured JSON payload for the frontend.
+    Falls back to a minimal card if extraction fails.
     """
     scene = state.get("scene", "general")
     slots = state.get("slots", {})
     data = state.get("data_query_results", {})
     reasoning = state.get("reasoning", "")
 
-    structured: dict[str, Any] = {
-        "scene": scene,
-        "profile": {k: v for k, v in slots.items() if v},
-    }
+    try:
+        facts = _extract_facts(slots, data, reasoning)
+        suggestions = _extract_suggestions(scene, data, reasoning)
+        risks = _extract_risks(scene, data, slots)
+        next_actions = _extract_next_actions(scene, slots, data)
+        summary = _build_summary(scene, slots, data)
 
-    if scene == "gaokao":
-        match_schools = data.get("match_schools", [])
-        if match_schools:
-            # Build school cards
-            schools = []
-            for s in match_schools[:10]:
-                schools.append({
-                    "name": s.get("school_name", s.get("name", "")),
-                    "score_line": s.get("score_line", s.get("min_score", "")),
-                    "province": s.get("province", ""),
-                    "category": s.get("category", ""),
-                })
-            structured["matched_schools"] = schools
+        filled_count = len([v for v in slots.values() if v])
+        total_slots = max(len(slots) if slots else 7, 1)
+        confidence = round(filled_count / total_slots, 2)
 
-        rank_info = data.get("rank_info")
-        if rank_info:
-            structured["rank_analysis"] = rank_info
-
-        major_info = data.get("major_info")
-        if major_info:
-            structured["major_analysis"] = major_info
-
-        schools_by_major = data.get("schools_by_major", {})
-        if schools_by_major:
-            structured["schools_by_major"] = schools_by_major
-
-    elif scene == "kaoyan":
-        major_info = data.get("major_info")
-        if major_info:
-            structured["major_analysis"] = major_info
-
-    # Include confidence estimate
-    filled_count = len([v for v in slots.values() if v])
-    total_slots = len(slots) if slots else 7
-    structured["confidence"] = round(filled_count / max(total_slots, 1), 2)
+        card = StructuredPlanningCard(
+            title=_TITLE_MAP.get(scene, "教育规划建议"),
+            summary=summary,
+            scene=scene,
+            facts=facts,
+            suggestions=suggestions,
+            risks=risks,
+            next_actions=next_actions,
+            confidence=confidence,
+        )
+        structured = card.model_dump()
+    except Exception:
+        # Graceful fallback: minimal card
+        structured = StructuredPlanningCard(
+            title=_TITLE_MAP.get(scene, "教育规划建议"),
+            summary="数据不足，建议补充更多信息。",
+            scene=scene,
+        ).model_dump()
 
     trace = list(state.get("trace", []))
     trace.append({"node": "structure_output", "event": "card_built"})
-
     return {"structured_result": structured, "trace": trace}
+
+
+def _extract_facts(slots: dict, data: dict, reasoning: str) -> list[str]:
+    """Extract factual statements from slots, data, and reasoning."""
+    facts: list[str] = []
+
+    slot_labels = {
+        "province": "省份",
+        "score": "分数",
+        "subject": "选科",
+        "interest": "专业意向",
+        "region": "地域偏好",
+        "family": "家庭背景",
+        "goal": "核心诉求",
+    }
+    for key, label in slot_labels.items():
+        val = slots.get(key, "")
+        if val:
+            facts.append(f"{label}：{val}")
+
+    match_schools = data.get("match_schools", [])
+    if match_schools:
+        names = [s.get("school_name", s.get("name", "")) for s in match_schools[:5]]
+        names = [n for n in names if n]
+        if names:
+            facts.append(f"匹配院校：{', '.join(names)}")
+
+    rank_info = data.get("rank_info")
+    if rank_info:
+        facts.append(f"位次分析：{rank_info}")
+
+    major_info = data.get("major_info")
+    if major_info and isinstance(major_info, dict):
+        name = major_info.get("name", "")
+        emp = major_info.get("employment_rate")
+        if name:
+            emp_str = f"，就业率{emp*100:.0f}%" if emp else ""
+            facts.append(f"专业信息：{name}{emp_str}")
+
+    return facts
+
+
+def _extract_suggestions(scene: str, data: dict, reasoning: str) -> list[str]:
+    """Extract actionable suggestions from data and reasoning."""
+    suggestions: list[str] = []
+
+    match_schools = data.get("match_schools", [])
+    if match_schools and scene == "gaokao":
+        for s in match_schools[:3]:
+            name = s.get("school_name", s.get("name", ""))
+            score = s.get("min_score", s.get("score_line", ""))
+            level = s.get("school_level", "")
+            if name:
+                tag = f"（{level}）" if level else ""
+                score_str = f"，参考线{score}分" if score else ""
+                suggestions.append(f"推荐：{name}{tag}{score_str}")
+
+    if not suggestions:
+        suggestions.append("建议补充更多信息以获得精准推荐")
+
+    return suggestions
+
+
+def _extract_risks(scene: str, data: dict, slots: dict) -> list[str]:
+    """Extract risk warnings."""
+    risks: list[str] = []
+
+    if scene == "gaokao":
+        score = slots.get("score", "")
+        if score:
+            try:
+                score_num = int(str(score).replace("分", ""))
+                if score_num < 450:
+                    risks.append("分数较低，建议重点关注专科/高职优质专业")
+            except (ValueError, TypeError):
+                pass
+
+        interest = slots.get("interest", "")
+        high_risk = {"金融", "法学", "新闻", "工商管理", "土木", "建筑学"}
+        for r in high_risk:
+            if r in interest:
+                risks.append(f"「{interest}」属于需谨慎选择的专业方向，建议关注就业数据")
+                break
+
+    if not risks:
+        risks.append("数据有限，建议以官方最新信息为准")
+
+    return risks
+
+
+def _extract_next_actions(scene: str, slots: dict, data: dict) -> list[str]:
+    """Extract concrete next steps."""
+    actions: list[str] = []
+
+    missing = [k for k in ["province", "score", "subject", "interest", "goal"]
+               if not slots.get(k)]
+    if missing:
+        labels = {"province": "省份", "score": "分数", "subject": "选科",
+                  "interest": "专业意向", "goal": "核心诉求"}
+        action_text = "、".join(labels.get(m, m) for m in missing[:3])
+        actions.append(f"补充{action_text}信息")
+
+    if data.get("match_schools"):
+        actions.append("对比推荐院校的录取数据和招生计划")
+        actions.append("到省考试院官网核实最新录取信息")
+
+    return actions
+
+
+def _build_summary(scene: str, slots: dict, data: dict) -> str:
+    """Build a one-line summary of the current analysis."""
+    parts: list[str] = []
+    province = slots.get("province", "")
+    score = slots.get("score", "")
+    interest = slots.get("interest", "")
+
+    if province:
+        parts.append(province)
+    if score:
+        parts.append(str(score))
+    if interest:
+        parts.append(f"意向{interest}")
+
+    if parts:
+        return "，".join(parts) + "，规划分析中。"
+    return "等待更多画像信息以生成精准规划。"

@@ -1,6 +1,7 @@
 """Tests for StructuredPlanningCard schema."""
 import pytest
 from server.domain.schemas import StructuredPlanningCard
+from server.graph.nodes.structure import structure_output_node
 
 
 def test_card_creation():
@@ -77,3 +78,51 @@ def test_card_from_dict():
     assert card.risks == ["风险1", "风险2"]
     assert card.next_actions == ["行动1"]
     assert card.confidence == 0.75
+
+
+def test_structure_output_gaokao():
+    """Gaokao scene with data should produce a structured card with facts and schools."""
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "河北", "score": "600分", "subject": "物理类"},
+        "data_query_results": {
+            "match_schools": [
+                {"school_name": "华北电力大学", "min_score": 595, "school_level": "211"},
+                {"school_name": "河北工业大学", "min_score": 580, "school_level": "211"},
+            ],
+            "rank_info": "位次约12000",
+        },
+        "reasoning": "用户画像: 河北600分物理类",
+        "trace": [],
+    }
+    result = structure_output_node(state)
+    card = result["structured_result"]
+    assert card["title"] != ""
+    assert card["summary"] != ""
+    assert card["scene"] == "gaokao"
+    assert len(card["facts"]) > 0
+    assert len(card["suggestions"]) > 0
+
+
+def test_structure_output_incomplete():
+    """When data is empty, card should still have title and empty lists."""
+    state = {
+        "scene": "gaokao",
+        "slots": {},
+        "data_query_results": {},
+        "reasoning": "",
+        "trace": [],
+    }
+    result = structure_output_node(state)
+    card = result["structured_result"]
+    assert card["title"] != ""
+    assert isinstance(card["facts"], list)
+    assert isinstance(card["risks"], list)
+
+
+def test_structure_output_appends_trace():
+    """Node should append to trace."""
+    state = {"scene": "gaokao", "slots": {}, "data_query_results": {}, "reasoning": "", "trace": []}
+    result = structure_output_node(state)
+    assert len(result["trace"]) > 0
+    assert result["trace"][-1]["node"] == "structure_output"
