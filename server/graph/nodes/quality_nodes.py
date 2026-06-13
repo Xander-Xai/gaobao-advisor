@@ -1,6 +1,7 @@
 """Quality orchestration node — runs the full quality pipeline."""
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -9,19 +10,24 @@ from skills.service import SkillService
 
 _orchestrator = None
 _skill_service = None
+_init_lock = threading.Lock()
 
 
 def _get_orchestrator() -> QualityOrchestrator:
     global _orchestrator
     if _orchestrator is None:
-        _orchestrator = QualityOrchestrator()
+        with _init_lock:
+            if _orchestrator is None:  # double-check
+                _orchestrator = QualityOrchestrator()
     return _orchestrator
 
 
 def _get_skill_service() -> SkillService:
     global _skill_service
     if _skill_service is None:
-        _skill_service = SkillService(skills_dir=Path(__file__).parents[2] / "skills")
+        with _init_lock:
+            if _skill_service is None:  # double-check
+                _skill_service = SkillService(skills_dir=Path(__file__).parents[2] / "skills")
     return _skill_service
 
 
