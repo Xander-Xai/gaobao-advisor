@@ -15,10 +15,12 @@ def test_quality_node_injects_skill_context(graph):
         "input_text": "我是河北考生，600分，想学计算机",
         "scene": "gaokao",
         "session_id": "test-skill-001",
-        "slots": {},
+        "slots": {"province": "河北", "score": "600分", "subject": "物理类"},
     })
     reasoning = result.get("reasoning", "")
     assert isinstance(reasoning, str)
+    # Skill context should be injected into reasoning
+    assert "社会筛子论" in reasoning or "就业倒推法" in reasoning or len(reasoning) > 50
 
 
 def test_reasoning_contains_mental_model(graph):
