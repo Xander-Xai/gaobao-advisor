@@ -5,6 +5,12 @@ from typing import Any
 
 from server.domain.schemas import StructuredPlanningCard
 
+# Threshold for low-score risk warning (450分 ≈ 专科/高职 boundary)
+_LOW_SCORE_THRESHOLD = 450
+_DEFAULT_SLOT_COUNT = 7
+_HIGH_RISK_MAJORS = {"金融", "法学", "新闻", "工商管理", "土木", "建筑学"}
+# Slot keys required for next actions
+MISSING_SLOT_KEYS = ["province", "score", "subject", "interest", "goal"]
 
 _TITLE_MAP = {
     "gaokao": "高考志愿规划建议",
@@ -34,7 +40,7 @@ def structure_output_node(state: dict[str, Any]) -> dict[str, Any]:
         summary = _build_summary(scene, slots, data)
 
         filled_count = len([v for v in slots.values() if v])
-        total_slots = max(len(slots) if slots else 7, 1)
+        total_slots = max(len(slots) if slots else _DEFAULT_SLOT_COUNT, 1)
         confidence = round(filled_count / total_slots, 2)
 
         card = StructuredPlanningCard(
@@ -131,14 +137,13 @@ def _extract_risks(scene: str, data: dict, slots: dict) -> list[str]:
         if score:
             try:
                 score_num = int(str(score).replace("分", ""))
-                if score_num < 450:
+                if score_num < _LOW_SCORE_THRESHOLD:
                     risks.append("分数较低，建议重点关注专科/高职优质专业")
             except (ValueError, TypeError):
                 pass
 
         interest = slots.get("interest", "")
-        high_risk = {"金融", "法学", "新闻", "工商管理", "土木", "建筑学"}
-        for r in high_risk:
+        for r in _HIGH_RISK_MAJORS:
             if r in interest:
                 risks.append(f"「{interest}」属于需谨慎选择的专业方向，建议关注就业数据")
                 break
@@ -153,8 +158,7 @@ def _extract_next_actions(scene: str, slots: dict, data: dict) -> list[str]:
     """Extract concrete next steps."""
     actions: list[str] = []
 
-    missing = [k for k in ["province", "score", "subject", "interest", "goal"]
-               if not slots.get(k)]
+    missing = [k for k in MISSING_SLOT_KEYS if not slots.get(k)]
     if missing:
         labels = {"province": "省份", "score": "分数", "subject": "选科",
                   "interest": "专业意向", "goal": "核心诉求"}
