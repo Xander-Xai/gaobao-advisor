@@ -9,7 +9,8 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from kb_retriever import (
-    KbRetriever, KeywordOnlyEmbedding, GROUP_TRIGGERS,
+    KbRetriever,
+    KeywordOnlyEmbedding,
 )
 
 

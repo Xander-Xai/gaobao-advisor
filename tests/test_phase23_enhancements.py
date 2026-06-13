@@ -7,8 +7,8 @@ Phase 2.2/3 增强测试 — 学校卡片趋势 / 咨询报告 / 移动端
   - Phase 3.4: 移动端 CSS 增强
   - Phase 3.1: 历史对话列表
 """
-import pytest
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

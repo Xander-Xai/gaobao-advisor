@@ -2,25 +2,26 @@
 agent.py 核心逻辑单元测试
 覆盖：_safe_int、槽位提取、意图识别、搜索触发、格式清理、注入检测、输入校验
 """
+import os
+import sys
+
 import pytest
-import sys, os
 
 # 确保项目根目录在 path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent import (
-    extract_slots_from_message,
-    is_consultation_intent,
-    should_search,
+    MAX_USER_INPUT_LEN,
     cleanup_format,
     detect_prompt_injection,
-    validate_user_input,
+    extract_slots_from_message,
     filled_slots,
+    is_consultation_intent,
     missing_slots,
+    should_search,
     slots_summary,
-    MAX_USER_INPUT_LEN,
+    validate_user_input,
 )
-
 
 # ── 辅助工厂 ──
 
@@ -522,6 +523,7 @@ class TestSharedConstants:
         assert safe_int(None, default=0) == 0
 
     def test_data_year(self):
-        from gaokao_data import DATA_YEAR
         from datetime import datetime
+
+        from gaokao_data import DATA_YEAR
         assert DATA_YEAR == datetime.now().year - 1

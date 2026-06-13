@@ -8,9 +8,8 @@ Phase 0-2 功能测试 — API Key 优化 / 动态快捷提问 / 年份标注 / 
   - Task 1.3: 选科兼容性注入到 data_hints
   - Task 2.4: 动态上下文感知快捷提问
 """
-import pytest
-import sys, os
-from unittest.mock import MagicMock, patch
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -186,7 +185,7 @@ class TestDynamicQuickQuestions:
             os.path.join(os.path.dirname(__file__), "..", "app.py"),
             encoding="utf-8",
         ).read()
-        assert f"我是{{_province}}考生" in app_src
+        assert "我是{_province}考生" in app_src
 
     def test_school_followup_questions(self):
         """有 AI 推荐结果时提供学校追问。"""

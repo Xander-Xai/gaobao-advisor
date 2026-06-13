@@ -1,6 +1,8 @@
 """验证 slot value 转义逻辑。"""
 import html
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 

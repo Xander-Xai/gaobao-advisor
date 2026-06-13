@@ -4,18 +4,25 @@ P2 新质量控制模块测试
 - anti_pattern_checker: 8 条反模式检测
 - model_selector: 模型选择矩阵
 """
-import pytest
-from quality.decision_framework import (
-    infer_scenario, recommend_heuristics, get_heuristic, list_heuristics,
-)
 from quality.anti_pattern_checker import (
-    check_anti_patterns, should_rewrite, format_report,
+    check_anti_patterns,
+    format_report,
+    should_rewrite,
+)
+from quality.decision_framework import (
+    get_heuristic,
+    infer_scenario,
+    list_heuristics,
+    recommend_heuristics,
+)
+from quality.model_selector import (
+    format_model_hint,
+    infer_phase,
+    select_models,
 )
 from quality.model_selector import (
     infer_scenario as model_infer_scenario,
-    infer_phase, select_models, format_model_hint,
 )
-
 
 # ── decision_framework ─────────────────────────────────────
 

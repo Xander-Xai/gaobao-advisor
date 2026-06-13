@@ -57,7 +57,7 @@ cd gaobao-advisor
 在黑色窗口里输入：
 
 ```bash
-pip install openai pywin32
+pip install -r requirements.txt
 ```
 
 等待安装完成（1-2分钟）。

@@ -2,10 +2,9 @@
 断点续传模块 — 保存/加载/清除导入进度。
 断点文件为 JSON，记录当前导入位置和统计信息，用于中断后恢复。
 """
-import os
 import json
 import logging
-from typing import Optional
+import os
 
 log = logging.getLogger(__name__)
 
@@ -20,14 +19,14 @@ def save_checkpoint(path: str, data: dict) -> None:
     log.debug("断点已保存: %s", path)
 
 
-def load_checkpoint(path: str) -> Optional[dict]:
+def load_checkpoint(path: str) -> dict | None:
     """加载断点数据。文件不存在或解析失败返回 None。"""
     if not os.path.exists(path):
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         log.warning("断点文件损坏 %s: %s", path, e)
         return None
 

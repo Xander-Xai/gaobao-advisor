@@ -1,4 +1,4 @@
-# 开发计划：xuefeng-advisor 用户体验升级
+# 开发计划：gaobao-advisor 用户体验升级
 
 > 制定日期：2026-06-12
 > 基于：[用户视角体验审计报告](user-experience-audit.md)

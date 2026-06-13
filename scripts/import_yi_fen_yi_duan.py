@@ -12,12 +12,11 @@
 - 反推位次：T3（基于录取数据估算，仅作参考）
 - CSV 导入：T1（各省考试院官方）
 """
-import os
-import sys
 import csv
+import os
 import sqlite3
+import sys
 from collections import defaultdict
-from typing import Optional
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -60,7 +59,7 @@ def reverse_engineer_rank_table(db_path: str = None) -> dict:
 
 
 def query_rank_for_score(province: str, year: int, subject_type: str,
-                          score: int, db_path: str = None) -> Optional[int]:
+                          score: int, db_path: str = None) -> int | None:
     """查询某分数在 (省份, 年份, 科类) 下的位次（线性插值近似）
 
     智能匹配 subject_type: 物理/物理类/物 → 3+3综合/物理/理科任一即可
@@ -118,7 +117,7 @@ def query_rank_for_score(province: str, year: int, subject_type: str,
 
 
 def query_score_for_rank(province: str, year: int, subject_type: str,
-                          rank: int, db_path: str = None) -> Optional[int]:
+                          rank: int, db_path: str = None) -> int | None:
     """查询某位次对应的分数（等位分，等位分计算用）"""
     if db_path is None:
         db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
@@ -177,7 +176,7 @@ def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: st
     # 此函数预留用于将来直接导入 T1 官方数据
     # 当前未在数据库中建表，所以先打印统计
     imported = 0
-    with open(csv_path, "r", encoding="utf-8-sig") as f:
+    with open(csv_path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
             imported += 1

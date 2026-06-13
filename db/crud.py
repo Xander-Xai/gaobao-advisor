@@ -2,9 +2,19 @@
 CRUD 操作 — 数据库查询层
 """
 import json
-from typing import Optional
+
 from sqlalchemy.orm import Session
-from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, Conversation, ConversationMessage, Feedback, Feedback
+
+from db.models import (
+    AdmissionScore,
+    Conversation,
+    ConversationMessage,
+    EnrollmentPlan,
+    Feedback,
+    Major,
+    School,
+    SubjectRanking,
+)
 
 
 def _escape_like(value: str) -> str:
@@ -14,7 +24,7 @@ def _escape_like(value: str) -> str:
 
 # ── 院校查询 ──
 
-def get_school_by_name(db: Session, name: str) -> Optional[School]:
+def get_school_by_name(db: Session, name: str) -> School | None:
     """精确匹配院校（支持模糊：先精确，再 LIKE）"""
     school = db.query(School).filter(School.name == name).first()
     if school:
@@ -34,7 +44,7 @@ def get_schools_by_level(db: Session, level: str) -> list:
 
 # ── 专业查询 ──
 
-def get_major_by_name(db: Session, name: str) -> Optional[Major]:
+def get_major_by_name(db: Session, name: str) -> Major | None:
     major = db.query(Major).filter(Major.name == name).first()
     if major:
         return major
@@ -56,14 +66,14 @@ def get_majors_by_category(db: Session, category: str) -> list:
 
 def get_admission_scores(
     db: Session,
-    school_id: Optional[int] = None,
-    province: Optional[str] = None,
-    year: Optional[int] = None,
-    year_from: Optional[int] = None,
-    year_to: Optional[int] = None,
-    subject_type: Optional[str] = None,
-    min_score_floor: Optional[int] = None,
-    max_score_ceil: Optional[int] = None,
+    school_id: int | None = None,
+    province: str | None = None,
+    year: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+    subject_type: str | None = None,
+    min_score_floor: int | None = None,
+    max_score_ceil: int | None = None,
     limit: int = 50,
 ) -> list[dict]:
     """多条件查询录取分数线"""
@@ -108,8 +118,8 @@ def get_admission_scores(
 
 
 def get_scores_by_school(db: Session, school_id: int,
-                         province: Optional[str] = None,
-                         year: Optional[int] = None) -> list:
+                         province: str | None = None,
+                         year: int | None = None) -> list:
     q = db.query(AdmissionScore).filter(AdmissionScore.school_id == school_id)
     if province:
         q = q.filter(AdmissionScore.province == province)
@@ -121,10 +131,10 @@ def get_scores_by_school(db: Session, school_id: int,
 # ── 招生计划查询 ──
 
 def get_enrollment_plans(db: Session,
-                         school_id: Optional[int] = None,
-                         major_id: Optional[int] = None,
-                         province: Optional[str] = None,
-                         year: Optional[int] = None) -> list:
+                         school_id: int | None = None,
+                         major_id: int | None = None,
+                         province: str | None = None,
+                         year: int | None = None) -> list:
     q = db.query(EnrollmentPlan)
     if school_id:
         q = q.filter(EnrollmentPlan.school_id == school_id)
@@ -140,8 +150,8 @@ def get_enrollment_plans(db: Session,
 # ── 学科排名查询 ──
 
 def get_subject_rankings(db: Session,
-                         school_id: Optional[int] = None,
-                         major_category: Optional[str] = None) -> list:
+                         school_id: int | None = None,
+                         major_category: str | None = None) -> list:
     q = db.query(SubjectRanking)
     if school_id:
         q = q.filter(SubjectRanking.school_id == school_id)
@@ -153,7 +163,7 @@ def get_subject_rankings(db: Session,
 # ── 策略性查询（给 agent 用）──
 
 def query_admission_from_db(db: Session, school_name: str, province: str,
-                            year: Optional[int] = None) -> list[dict]:
+                            year: int | None = None) -> list[dict]:
     """根据学校名+省份查录取数据，返回格式化结果"""
     school = get_school_by_name(db, school_name)
     if not school:
@@ -310,7 +320,7 @@ def check_subject_compatibility(
 def get_majors_by_subject_compatibility(
     db: Session,
     user_subjects: list[str],
-    category: Optional[str] = None,
+    category: str | None = None,
 ) -> list[dict]:
     """
     查询符合用户选科的所有专业。
@@ -403,7 +413,7 @@ def load_conversation_history(db: Session, session_id: str) -> list[dict]:
     return [{"role": m.role, "content": m.content} for m in conv.messages]
 
 
-def load_conversation_slots(db: Session, session_id: str) -> Optional[dict]:
+def load_conversation_slots(db: Session, session_id: str) -> dict | None:
     """加载对话槽位。"""
     conv = db.query(Conversation).filter(Conversation.session_id == session_id).first()
     if not conv or not conv.slots_json:

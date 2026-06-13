@@ -3,8 +3,9 @@ SQLite 数据库连接 — 零依赖外部服务，开箱即用
 """
 import os
 import stat
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(HERE)

@@ -9,10 +9,11 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import init_db, get_session
-from db.models import School, AdmissionScore
-from scrapers.provinces import ALL_PROVINCES
 from sqlalchemy import func
+
+from db.database import get_session, init_db
+from db.models import AdmissionScore, School
+from scrapers.provinces import ALL_PROVINCES
 
 
 def validate() -> None:
@@ -28,13 +29,13 @@ def validate() -> None:
     total_scores = db.query(AdmissionScore).count()
     schools_with_scores = db.query(AdmissionScore.school_id).distinct().count()
 
-    print(f"\n总体统计:")
+    print("\n总体统计:")
     print(f"  院校总数: {total_schools}")
     print(f"  录取分数记录: {total_scores}")
     print(f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({schools_with_scores/total_schools*100:.1f}%)")
 
     # 2. 省份覆盖
-    print(f"\n省份覆盖:")
+    print("\n省份覆盖:")
     province_stats = db.query(
         AdmissionScore.province,
         func.count(AdmissionScore.id)
@@ -54,7 +55,7 @@ def validate() -> None:
         print(f"\n  OK: 全部 {len(ALL_PROVINCES)} 省覆盖")
 
     # 3. 年份覆盖
-    print(f"\n年份覆盖:")
+    print("\n年份覆盖:")
     year_stats = db.query(
         AdmissionScore.year,
         func.count(AdmissionScore.id)
@@ -64,7 +65,7 @@ def validate() -> None:
         print(f"  {y}: {c:,} 条")
 
     # 4. 数据质量检查
-    print(f"\n数据质量:")
+    print("\n数据质量:")
 
     # 分数范围 — 海南省使用标准分制度（满分900），分数 >750 是正常的
     bad_scores = db.query(AdmissionScore).filter(
@@ -86,7 +87,7 @@ def validate() -> None:
     print(f"  空分数记录: {null_scores}")
 
     # 5. 批次分布
-    print(f"\n批次分布:")
+    print("\n批次分布:")
     batch_stats = db.query(
         AdmissionScore.batch,
         func.count(AdmissionScore.id)
@@ -98,7 +99,7 @@ def validate() -> None:
         print(f"  {b}: {c:,} 条")
 
     # 6. 结论
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     issues = []
     if missing_provinces:
         issues.append(f"缺失 {len(missing_provinces)} 个省份")
@@ -110,7 +111,7 @@ def validate() -> None:
     if issues:
         print(f"  WARNING: 发现问题: {'; '.join(issues)}")
     else:
-        print(f"  OK: 数据质量验证通过")
+        print("  OK: 数据质量验证通过")
 
     print("=" * 60)
     db.close()

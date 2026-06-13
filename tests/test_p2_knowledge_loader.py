@@ -1,7 +1,6 @@
 """
 P2-1 知识库按需加载模块测试
 """
-import pytest
 from quality.knowledge_loader import load_contextual_knowledge
 
 

@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 
 from kb_retriever import (
-    load_all_groups, create_embedding_provider,
+    create_embedding_provider,
+    load_all_groups,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +72,7 @@ def precompute_groups(groups_dir: str, embedder, output_dir: str) -> None:
 def precompute_quotes(quotes_path: str, embedder) -> None:
     """预计算语录的 embedding。"""
     index_path = os.path.join(quotes_path, "_by_major.json")
-    with open(index_path, "r", encoding="utf-8") as f:
+    with open(index_path, encoding="utf-8") as f:
         raw_index: dict = json.load(f)
 
     all_texts: list[str] = []

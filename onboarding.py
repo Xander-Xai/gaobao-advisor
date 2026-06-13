@@ -9,10 +9,10 @@ Pure Python core (OnboardingState) with a Streamlit render_onboarding() function
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from constants import PROVINCES, PROVINCE_MODES, SUBJECT_TYPES, INTERESTS
+from constants import INTERESTS, PROVINCE_MODES, PROVINCES, SUBJECT_TYPES
 
 # ── Province modes (UI display — extended with traditional mode) ──
 PROVINCE_MODES: dict[str, str] = {

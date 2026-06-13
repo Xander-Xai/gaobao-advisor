@@ -2,8 +2,6 @@
 import os
 import sys
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from quality.knowledge_loader import load_contextual_knowledge

@@ -1,9 +1,8 @@
 """Tests for checkpoint save/load/resume."""
 import os
-import json
 import tempfile
-import pytest
-from scrapers.checkpoint import save_checkpoint, load_checkpoint, clear_checkpoint
+
+from scrapers.checkpoint import clear_checkpoint, load_checkpoint, save_checkpoint
 
 CHECKPOINT_DATA = {
     "last_run": "2026-06-12T15:30:00",
@@ -64,7 +63,7 @@ def test_save_creates_parent_dirs():
 
 
 def test_all_provinces_has_30():
-    from scrapers.provinces import ALL_PROVINCES, PROVINCE_CURRICULUMS
+    from scrapers.provinces import ALL_PROVINCES
     assert len(ALL_PROVINCES) == 30
     assert "西藏" not in ALL_PROVINCES
 

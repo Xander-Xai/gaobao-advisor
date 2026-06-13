@@ -1,6 +1,6 @@
 # Web 版部署指南
 
-> 雪峰Agent Web版 — 三种部署方式，从免费到专业
+> gaobao-advisor Web版 — 三种部署方式，从免费到专业
 
 ---
 
@@ -10,17 +10,17 @@
 
 **1. 准备 GitHub 仓库**
 ```bash
-cd xuefeng-advisor
+cd gaobao-advisor
 git init  # 如果尚未初始化
 git add .
 git commit -m "ready for deploy"
-gh repo create xuefeng-advisor --public --source=. --push
+gh repo create gaobao-advisor --public --source=. --push
 ```
 
 **2. 关联 Streamlit Cloud**
 - 访问 https://share.streamlit.io
 - 用 GitHub 账号登录
-- 点击 "New app" → 选择 `xuefeng-advisor` 仓库
+- 点击 "New app" → 选择 `gaobao-advisor` 仓库
 - Main file: `app.py`
 
 **3. 配置 Secrets（在 Advanced settings → Secrets）**
@@ -77,7 +77,7 @@ streamlit run app.py
 
 #### 第1步：推送到 GitHub
 ```bash
-cd xuefeng-agent
+cd gaobao-advisor
 git add .
 git commit -m "Add Streamlit web frontend"
 git push origin master
@@ -87,7 +87,7 @@ git push origin master
 1. 打开 https://share.streamlit.io
 2. 用 GitHub 账号登录
 3. 点击 "New app"
-4. 选择你的仓库：`ziqihe10-droid/xuefeng-agent`
+4. 选择你的仓库：`你的用户名/gaobao-advisor`
 5. Main file path: `app.py`
 6. 点击 "Deploy!"
 
@@ -129,8 +129,8 @@ ssh root@your-server-ip
 
 # 2. 安装 Python 和依赖
 apt update && apt install -y python3 python3-pip git
-git clone https://github.com/ziqihe10-droid/xuefeng-agent.git
-cd xuefeng-agent
+git clone https://github.com/你的用户名/gaobao-advisor.git
+cd gaobao-advisor
 pip3 install -r requirements.txt
 
 # 3. 配置 API Key
@@ -142,7 +142,7 @@ nohup streamlit run app.py --server.port 8501 --server.headless true &
 
 # 5. 配置 Nginx 反向代理（可选，用于自定义域名）
 apt install -y nginx
-# 配置 /etc/nginx/sites-available/xuefeng-agent
+# 配置 /etc/nginx/sites-available/gaobao-advisor
 ```
 
 ### Nginx 配置示例
@@ -214,7 +214,7 @@ LLM_MODEL=glm-4
 
 ---
 
-*雪峰Agent · Web版部署指南 V1.0*
+*gaobao-advisor · Web版部署指南 V1.0*
 
 ## 💰 运营成本估算
 

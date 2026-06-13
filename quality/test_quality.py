@@ -4,16 +4,17 @@ quality.emotion_detector 单元测试
 运行: cd /home/dev/projects/gaobao/gaobao-advisor && python quality/test_quality.py
 """
 
-import sys
 import os
+import sys
 
 # 让 import 能找到项目根目录
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
-from quality.emotion_detector import EmotionDetector, CRISIS_HOTLINES
-from quality.cross_validator import cross_validate_admission
+
 from quality.ai_era_risk import get_major_risk, get_risk_summary
+from quality.cross_validator import cross_validate_admission
+from quality.emotion_detector import CRISIS_HOTLINES, EmotionDetector
 
 
 class TestEmotionDetector(unittest.TestCase):

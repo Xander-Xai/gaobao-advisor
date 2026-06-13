@@ -6,8 +6,8 @@ decision_framework — 8 条决策启发式调用器
 """
 
 from __future__ import annotations
-from typing import Any
 
+from typing import Any
 
 # ── 启发式定义 ──────────────────────────────────────────────
 

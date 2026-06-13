@@ -1,8 +1,8 @@
 """共享工具函数（消除跨模块重复代码）。"""
+import ipaddress
 import re
 import socket
 import urllib.parse
-import ipaddress
 
 
 def safe_int(value, default=None):

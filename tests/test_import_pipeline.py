@@ -1,11 +1,11 @@
 """Tests for enhanced import functions."""
-import pytest
-import sys, os
+import os
+import sys
 
 # 确保项目根目录在 path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_import_schools_fills_missing_city():
@@ -83,13 +83,13 @@ def test_import_schools_does_not_overwrite_existing_city():
 def test_import_scores_uses_province_curriculums():
     """import_scores_to_db should use PROVINCE_CURRICULUMS from provinces module."""
     from scrapers.baidu_gaokao import import_scores_to_db
-    from scrapers.provinces import ALL_PROVINCES
 
     mock_session = MagicMock()
     mock_school = MagicMock()
     mock_school.id = 1
     mock_school.name = "测试大学"
     mock_session.query.return_value.filter.return_value.first.return_value = None  # no existing
+    mock_session.query.return_value.filter.return_value.count.return_value = 0  # no existing scores
 
     with patch("scrapers.baidu_gaokao.fetch_school_score", return_value=[]) as mock_fetch:
         import_scores_to_db(
@@ -113,6 +113,7 @@ def test_import_scores_checkpoint_saves_progress(tmp_path):
     mock_school.id = 1
     mock_school.name = "测试大学"
     mock_session.query.return_value.filter.return_value.first.return_value = None
+    mock_session.query.return_value.filter.return_value.count.return_value = 0  # no existing scores
 
     checkpoint_file = str(tmp_path / "test_ckpt.json")
 

@@ -5,25 +5,24 @@
 """
 from __future__ import annotations
 
+import json
+import logging
 import os
 import sys
-import json
-import uuid
 import time
-import logging
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ratelimit import RateLimiter
-
 # 延迟导入 agent 模块（避免启动时加载全部依赖）
-from agent import GaokaoAdvisor, SLOTS, filled_slots
+from agent import SLOTS, GaokaoAdvisor
+from ratelimit import RateLimiter
 
 app = FastAPI(title="高报Agent API", version="1.0.0")
 

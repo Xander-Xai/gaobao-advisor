@@ -2,20 +2,18 @@
 3-step onboarding flow tests.
 Covers: OnboardingState dataclass, province mapping, to_slots, step progression.
 """
-import pytest
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from onboarding import (
-    OnboardingState,
-    PROVINCES,
-    PROVINCE_MODES,
-    SUBJECT_TYPES,
     INTERESTS,
+    PROVINCE_MODES,
+    PROVINCES,
+    SUBJECT_TYPES,
+    OnboardingState,
 )
-
 
 # ── OnboardingState defaults ──
 

@@ -1,7 +1,8 @@
 """
 AI时代专业风险评估模块 — 结构化风险数据查询。
 """
-import json, os
+import json
+import os
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DATA_PATH = os.path.join(_HERE, "ai_era_risk_data.json")
@@ -12,7 +13,7 @@ def _load_data() -> dict:
     global _risk_data
     if _risk_data is None:
         if os.path.exists(_DATA_PATH):
-            with open(_DATA_PATH, "r", encoding="utf-8") as f:
+            with open(_DATA_PATH, encoding="utf-8") as f:
                 _risk_data = json.load(f)
         else:
             _risk_data = {}
