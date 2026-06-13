@@ -2,21 +2,28 @@
 from __future__ import annotations
 
 import os
+import threading
 from typing import Any
 
 from openai import OpenAI
 
 
 _client: OpenAI | None = None
+_client_lock = threading.Lock()
 
 
 def _get_llm_client() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI(
-            api_key=os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", "")),
-            base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-        )
+        with _client_lock:
+            if _client is None:
+                api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+                if not api_key:
+                    raise RuntimeError("LLM_API_KEY or OPENAI_API_KEY must be set")
+                _client = OpenAI(
+                    api_key=api_key,
+                    base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
+                )
     return _client
 
 
@@ -63,6 +70,8 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
     user_parts.append("请基于以上信息，用你的人设和表达方式，给出回复。")
     user_message = "\n\n".join(user_parts)
 
+    trace = list(state.get("trace", []))
+
     try:
         client = _get_llm_client()
         system_prompt = _load_system_prompt()
@@ -76,11 +85,14 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
             temperature=0.7,
             max_tokens=2000,
         )
-        reply = response.choices[0].message.content.strip()
-    except Exception:
+        content = response.choices[0].message.content
+        reply = (content or "").strip()
+        if not reply:
+            reply = _FALLBACK_REPLY
+    except Exception as exc:
         reply = _FALLBACK_REPLY
+        trace.append({"node": "llm_reason", "event": "llm_error", "error": str(exc)[:200]})
 
-    trace = list(state.get("trace", []))
     trace.append({"node": "llm_reason", "event": "llm_reply_generated"})
 
     return {"reply": reply, "trace": trace}
