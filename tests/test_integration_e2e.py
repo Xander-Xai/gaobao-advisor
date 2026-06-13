@@ -1,7 +1,20 @@
 """End-to-end integration tests for the full pipeline."""
 import pytest
+from unittest.mock import MagicMock, patch
 from httpx import AsyncClient, ASGITransport
 from server.main import app
+
+
+@pytest.fixture(autouse=True)
+def _mock_llm():
+    """Mock the LLM client so integration tests don't call the real API."""
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="根据你的信息，我建议……"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    with patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client):
+        yield
 
 
 @pytest.mark.asyncio

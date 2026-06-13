@@ -18,9 +18,9 @@ from server.routes.voice import router as voice_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
-    # Startup: initialize DB, load knowledge base, warm up embeddings
+    from db.database import init_db
+    init_db()
     yield
-    # Shutdown: cleanup
 
 
 app = FastAPI(
