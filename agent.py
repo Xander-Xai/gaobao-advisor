@@ -767,6 +767,13 @@ def should_search(msg):
 # ── 安全防御 ─────────────────────────────────────────
 
 # #4: Prompt Injection 检测与防御
+# Use the canonical implementation from server.middleware.security
+try:
+    from server.middleware.security import detect_injection as _detect_injection
+except ImportError:
+    _detect_injection = None
+
+# Fallback patterns (only used when security module is not importable)
 _INJECTION_PATTERNS = [
     r'(?i)ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|prompts|rules)',
     r'(?i)forget\s+(?:all\s+)?(?:previous|prior|above)',
@@ -790,7 +797,10 @@ _INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
 
 def detect_prompt_injection(msg: str) -> bool:
     """检测用户输入中的 prompt injection 攻击模式。"""
-    # 截断过长的输入（正常用户不太会发超长消息）
+    # Delegate to canonical implementation when available
+    if _detect_injection is not None:
+        return _detect_injection(msg)
+    # Fallback: use local patterns
     if len(msg) > 5000:
         return True
     for pattern in _INJECTION_RE:
