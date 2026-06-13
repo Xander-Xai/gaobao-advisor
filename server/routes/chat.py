@@ -34,7 +34,7 @@ async def _sse_generator(
         "messages": [],
         "trace": [],
     }
-    result = await asyncio.get_event_loop().run_in_executor(None, graph.invoke, initial_state)
+    result = await asyncio.to_thread(graph.invoke, initial_state)
 
     # Emit updated slots
     if result.get("slots"):
