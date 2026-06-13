@@ -6,8 +6,9 @@ anti_pattern_checker — 8 条决策反模式检测器
 """
 
 from __future__ import annotations
+
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

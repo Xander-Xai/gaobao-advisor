@@ -7,20 +7,20 @@ P2 功能测试 — 3+3 省份专项适配 / 方言友好
   - 口语化分数表达（五百八、差一本线N分、不到600）
   - 方言情绪检测
 """
+import os
+import sys
+
 import pytest
-import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent import (
-    extract_slots_from_message,
-    _expand_subject_combo,
-    _parse_oral_score,
-    _chinese_num_to_int,
     PROVINCES_33,
     SUBJECT_COMBOS_33,
+    _expand_subject_combo,
+    _parse_oral_score,
+    extract_slots_from_message,
 )
-
 
 # ── 辅助工厂 ──
 

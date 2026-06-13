@@ -27,20 +27,19 @@
   # 仅更新一分一段表（全量）
   python scripts/update_data.py --all --yi-fen-yi-duan
 """
+import argparse
 import os
 import sys
 import time
-import argparse
-import urllib.request
 import urllib.parse
-import json
+import urllib.request
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import init_db, get_session
-from db.models import School, AdmissionScore, YiFenYiDuan
-from scrapers.baidu_gaokao import _fetch_json, fetch_school_score, HEADERS, BASE_URL, DELAY
+from db.database import get_session, init_db
+from db.models import AdmissionScore, School, YiFenYiDuan
+from scrapers.baidu_gaokao import DELAY, _fetch_json, fetch_school_score
 from utils import safe_int
 
 # ── 31 个省份 ──
@@ -94,7 +93,7 @@ def update_admission_scores(db, province: str, year: int) -> dict:
     # 获取数据库中已有学校（至少需要有学校才能关联 school_id）
     schools = db.query(School).all()
     if not schools:
-        print(f"  [WARN] 数据库中无学校数据，请先运行 import_baidu_gaokao.py --schools-only")
+        print("  [WARN] 数据库中无学校数据，请先运行 import_baidu_gaokao.py --schools-only")
         return stats
 
     print(f"\n[录取数据] {province} {year}年 | {len(schools)} 所学校 × {len(curriculums)} 科类")
@@ -395,14 +394,14 @@ def main():
     print("=" * 60)
 
     if not only_yfdd:
-        print(f"  录取数据:")
+        print("  录取数据:")
         print(f"    新增:  {total_stats['adm_new']}")
         print(f"    跳过:  {total_stats['adm_skipped']}（已存在）")
         print(f"    错误:  {total_stats['adm_errors']}")
         print(f"    请求:  {total_stats['adm_requests']}")
 
     if only_yfdd or with_yfdd:
-        print(f"  一分一段表:")
+        print("  一分一段表:")
         print(f"    新增:  {total_stats['yfdd_new']}")
         print(f"    跳过:  {total_stats['yfdd_skipped']}（已存在）")
         print(f"    错误:  {total_stats['yfdd_errors']}")

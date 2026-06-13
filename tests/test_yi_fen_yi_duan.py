@@ -1,11 +1,13 @@
 """Tests for yi_fen_yi_duan import and query functionality."""
 import os
 import sqlite3
+
 import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys_path_dir = os.path.join(PROJECT_ROOT)
 import sys
+
 if sys_path_dir not in sys.path:
     sys.path.insert(0, sys_path_dir)
 

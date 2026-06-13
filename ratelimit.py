@@ -2,8 +2,8 @@
 限流模块 — 纯标准库实现的令牌桶。
 用于 gaobao-advisor 防止 API 滥用。
 """
-import time
 import threading
+import time
 
 
 class TokenBucket:

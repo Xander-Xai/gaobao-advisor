@@ -2,14 +2,12 @@
 测试数据年份标注 + 免责声明自动注入
 覆盖：ensure_disclaimer、ensure_year_label
 """
-import pytest
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import ensure_disclaimer, ensure_year_label, DATA_YEAR
-
+from agent import DATA_YEAR, ensure_disclaimer, ensure_year_label
 
 DISCLAIMER_TEXT = "以上数据仅供参考"
 

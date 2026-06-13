@@ -56,7 +56,7 @@ def _load_file(filename: str) -> str:
     path = os.path.join(_KNOWLEDGE_DIR, filename)
     if not os.path.exists(path):
         return ""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
     _FILE_CACHE[filename] = content
     return content

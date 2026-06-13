@@ -1,18 +1,17 @@
 """kb_retriever 模块的单元测试。"""
 import json
 import os
-import tempfile
 import sys
-
-import numpy as np
-import pytest
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from kb_retriever import (
-    KbRetriever, Chunk, QuoteEntry, RetrievalResult,
-    split_group, keyword_match_score, KeywordOnlyEmbedding,
-    GROUP_TRIGGERS,
+    KbRetriever,
+    KeywordOnlyEmbedding,
+    RetrievalResult,
+    keyword_match_score,
+    split_group,
 )
 
 

@@ -6,15 +6,16 @@ Usage:
   streamlit run app.py
 """
 
+import hmac
+import html
+import json as _json
+import logging
 import os
+import re as _re
 import sys
 import time
 import uuid
-import hmac
-import re as _re
-import logging
-import html
-import json as _json
+
 import streamlit as st
 
 # ── 页面配置（必须是第一个 st 命令）────────────────────
@@ -43,12 +44,12 @@ except Exception:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from agent import (
+    PROVINCES,
     GaokaoAdvisor,
     slots_summary,
-    PROVINCES,
 )
-from ratelimit import RateLimiter
 from onboarding import OnboardingState, render_onboarding
+from ratelimit import RateLimiter
 
 # 进程级限流器单例（解决多 tab 绕过限流的竞态问题）
 _GLOBAL_RATE_LIMITER = RateLimiter(
@@ -102,7 +103,7 @@ def _get_dynamic_quick_questions() -> list[str]:
 
     # 状态 1：已有 AI 推荐结果 → 提供追问选项
     if _mentioned_schools and _has_province and _has_score:
-        questions.append(f"📋 帮我生成冲稳保志愿表")
+        questions.append("📋 帮我生成冲稳保志愿表")
         questions.append(f"🔍 {_mentioned_schools[0]}的详细信息")
         if len(_mentioned_schools) >= 2:
             questions.append(f"⚖️ 对比{_mentioned_schools[0]}和{_mentioned_schools[1]}")
@@ -111,10 +112,10 @@ def _get_dynamic_quick_questions() -> list[str]:
 
     # 状态 2：省份+分数+选科都有 → 深入方向
     if _has_province and _has_score and _has_subject:
-        questions.append(f"🎯 帮我分析冲稳保各有哪些学校")
+        questions.append("🎯 帮我分析冲稳保各有哪些学校")
         questions.append("💼 什么专业好就业？")
         questions.append("📝 我想考公/考研，应该报什么？")
-        questions.append(f"🏙️ 我想去大城市读书")
+        questions.append("🏙️ 我想去大城市读书")
         return questions[:4]
 
     # 状态 3：省份+分数已知，选科未知
@@ -283,7 +284,6 @@ SENSITIVE_WARNING = (
 # 解析 agent 输出中的结构化数据标记 `<!--SCHOOL_DATA:...-->`
 # 渲染为可视化的冲/稳/保卡片
 import html as _html
-
 
 _SCHOOL_CARD_CSS = """
 .school-card {
@@ -797,8 +797,8 @@ MAX_MSG_PER_SESSION = 50    # 单 session 最大消息数
 def _try_restore_history():
     """从数据库恢复历史对话和槽位信息。"""
     try:
-        from db.database import get_session
         from db.crud import load_conversation_history, load_conversation_slots
+        from db.database import get_session
         db = get_session()
         try:
             history = load_conversation_history(db, st.session_state.session_id)
@@ -820,8 +820,8 @@ def _try_restore_history():
 def _save_message_to_db(role: str, content: str):
     """将一条消息保存到数据库（异步友好，失败不影响主流程）。"""
     try:
-        from db.database import get_session
         from db.crud import save_message, save_slots
+        from db.database import get_session
         db = get_session()
         try:
             save_message(db, st.session_state.session_id, role, content)
@@ -1255,7 +1255,7 @@ with st.sidebar:
             export_lines = []
             from datetime import datetime as _dt
             _now = _dt.now().strftime("%Y-%m-%d %H:%M")
-            export_lines.append(f"# 🎓 AI 高考志愿咨询报告")
+            export_lines.append("# 🎓 AI 高考志愿咨询报告")
             export_lines.append(f"**生成时间**: {_now}")
             export_lines.append(f"**会话 ID**: `{_sid}`\n")
             export_lines.append("---\n")
@@ -1327,7 +1327,7 @@ with st.sidebar:
                 from datetime import datetime as _dt_md
                 _now_md = _dt_md.now().strftime("%Y-%m-%d %H:%M")
                 _md_lines = []
-                _md_lines.append(f"# 高考志愿咨询对话记录")
+                _md_lines.append("# 高考志愿咨询对话记录")
                 _md_lines.append(f"**导出时间**: {_now_md}\n")
 
                 # 基本信息
@@ -1371,15 +1371,13 @@ with st.sidebar:
             st.markdown("**📄 导出志愿表 PDF**")
             if st.button("📄 生成 PDF 志愿表", use_container_width=True, key="gen_pdf_btn"):
                 try:
-                    from reportlab.lib.pagesizes import A4
                     from reportlab.lib import colors
+                    from reportlab.lib.pagesizes import A4
+                    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
                     from reportlab.lib.units import cm
-                    from reportlab.platypus import (
-                        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-                    )
-                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                     from reportlab.pdfbase import pdfmetrics
                     from reportlab.pdfbase.ttfonts import TTFont
+                    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
                     # 注册中文字体（尝试常见路径）
                     _font_paths = [
@@ -1542,8 +1540,8 @@ with st.sidebar:
             if st.button("📊 生成志愿表草案", use_container_width=True, type="primary"):
                 try:
                     from gaokao_data import (
-                        generate_volunteer_table,
                         format_volunteer_table,
+                        generate_volunteer_table,
                     )
                     # 解析分数
                     _score_text = _slots_now["score_rank"]["value"]
@@ -1568,12 +1566,12 @@ with st.sidebar:
     # 💬 历史对话列表（可切换会话）
     with st.expander("💬 历史对话", expanded=False):
         try:
-            from db.database import get_session as _hist_db
             from db.crud import (
                 list_user_conversations,
                 load_conversation_history,
                 load_conversation_slots,
             )
+            from db.database import get_session as _hist_db
             _db_h = _hist_db()
             try:
                 _histories = list_user_conversations(_db_h, limit=20)
@@ -1716,8 +1714,8 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                 _helpful_label = "👍 已赞" if _fb_val == "helpful" else "👍 有帮助"
                 if st.button(_helpful_label, key=f"helpful_{_fb_key}", disabled=(_fb_val == "helpful")):
                     try:
-                        from db.database import get_session as _gs
                         from db.crud import save_feedback as _sf
+                        from db.database import get_session as _gs
                         _db = _gs()
                         try:
                             _sf(_db, st.session_state.session_id, msg_idx, "helpful")
@@ -1731,8 +1729,8 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                 _unhelpful_label = "👎 已踩" if _fb_val == "not_helpful" else "👎 没帮助"
                 if st.button(_unhelpful_label, key=f"not_helpful_{_fb_key}", disabled=(_fb_val == "not_helpful")):
                     try:
-                        from db.database import get_session as _gs
                         from db.crud import save_feedback as _sf
+                        from db.database import get_session as _gs
                         _db = _gs()
                         try:
                             _sf(_db, st.session_state.session_id, msg_idx, "not_helpful")
@@ -2025,7 +2023,7 @@ if user_input:
                 reply = "".join(collected_chunks)
 
         except Exception as e:
-            import traceback, logging
+            import logging
             logging.error("advisor.chat_stream failed: %s: %s", type(e).__name__, e, exc_info=True)
             reply = (
                 "抱歉，AI 服务暂时遇到了问题，请稍后再试。\n\n"
@@ -2057,8 +2055,8 @@ if user_input:
             _helpful_new = "👍 已赞" if _fb_val_new == "helpful" else "👍 有帮助"
             if st.button(_helpful_new, key=f"helpful_new_{_new_fb_idx}", disabled=(_fb_val_new == "helpful")):
                 try:
-                    from db.database import get_session as _gs
                     from db.crud import save_feedback as _sf
+                    from db.database import get_session as _gs
                     _db = _gs()
                     try:
                         _sf(_db, st.session_state.session_id, _new_fb_idx, "helpful")
@@ -2072,8 +2070,8 @@ if user_input:
             _unhelpful_new = "👎 已踩" if _fb_val_new == "not_helpful" else "👎 没帮助"
             if st.button(_unhelpful_new, key=f"not_helpful_new_{_new_fb_idx}", disabled=(_fb_val_new == "not_helpful")):
                 try:
-                    from db.database import get_session as _gs
                     from db.crud import save_feedback as _sf
+                    from db.database import get_session as _gs
                     _db = _gs()
                     try:
                         _sf(_db, st.session_state.session_id, _new_fb_idx, "not_helpful")

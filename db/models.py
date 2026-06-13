@@ -1,10 +1,12 @@
 """
-ORM 模型 — 5 张核心表（移植自上游项目）
+ORM 模型 — 10 张表（院校/专业/分数线/招生计划/学科排名/对话/消息/位次/金句/反馈）
 """
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint, Index, DateTime
-from sqlalchemy.orm import relationship
-from db.database import Base
 import datetime
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import relationship
+
+from db.database import Base
 
 
 class School(Base):

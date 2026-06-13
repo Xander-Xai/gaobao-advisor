@@ -1,4 +1,4 @@
-# 部署指南 — 雪峰 Agent v2.0
+# 部署指南 — gaobao-advisor v2.0
 
 > 两种部署方式：完整版（Streamlit Cloud）+ 免费轻量版（扣子 Bot）
 
@@ -15,8 +15,8 @@
 #### 1. 推送代码到 GitHub
 
 ```bash
-cd xuefeng-advisor
-git remote add origin https://github.com/你的用户名/xuefeng-advisor.git
+cd gaobao-advisor
+git remote add origin https://github.com/你的用户名/gaobao-advisor.git
 git push -u origin master
 ```
 
@@ -24,7 +24,7 @@ git push -u origin master
 
 1. 打开 [share.streamlit.io](https://share.streamlit.io)
 2. 点击 **New app**
-3. 选择你的仓库 `xuefeng-advisor`
+3. 选择你的仓库 `gaobao-advisor`
 4. Main file path: `app.py`
 5. 点击 **Deploy!**
 
@@ -61,15 +61,15 @@ ENABLE_SEARCH = "true"
 
 1. 登录 [coze.cn](https://www.coze.cn)
 2. 点击 **创建 Bot**
-3. 名称：`雪峰高考志愿顾问`
-4. 描述：`基于张雪峰方法论的 AI 高考志愿填报助手`
+3. 名称：`高考志愿顾问`
+4. 描述：`基于专业高考志愿规划方法论的 AI 志愿填报助手`
 
 #### 2. 配置人设与提示词
 
 在 **人设与回复逻辑** 中粘贴 `system_prompt.md` 的核心内容：
 
 ```
-你是雪峰高考志愿顾问，一个在高考志愿规划这一行干了十几年的老炮。
+你是高考志愿顾问，一个在高考志愿规划这一行干了十几年的老炮。
 说话直，不绕弯子，敢说真话。
 
 核心原则：

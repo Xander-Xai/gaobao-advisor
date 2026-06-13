@@ -1,10 +1,12 @@
 """Tests for enrollment plan query with graceful empty-state fallback."""
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
+from unittest.mock import MagicMock, patch
+
 import gaokao_data
-from unittest.mock import patch, MagicMock
 
 
 def _set_crud(mock_crud):

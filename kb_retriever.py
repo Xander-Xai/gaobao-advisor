@@ -119,7 +119,7 @@ def load_all_groups(groups_dir: str) -> dict[str, list[Chunk]]:
             continue
         group_id = filename.removesuffix(".md")
         filepath = os.path.join(groups_dir, filename)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
         all_groups[group_id] = split_group(content, group_id)
     return all_groups
@@ -265,7 +265,7 @@ class KbRetriever:
         index_path = os.path.join(quotes_path, "_by_major.json")
         if not os.path.exists(index_path):
             return []
-        with open(index_path, "r", encoding="utf-8") as f:
+        with open(index_path, encoding="utf-8") as f:
             raw_index: dict = json.load(f)
         quotes: list[QuoteEntry] = []
         for major_key, quote_list in raw_index.items():

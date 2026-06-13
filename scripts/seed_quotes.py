@@ -15,9 +15,9 @@
 用法:
   python scripts/seed_quotes.py
 """
+import json
 import os
 import sys
-import json
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -49,7 +49,7 @@ def main():
             print(f"  [SKIP] {cat_id}.json 不存在")
             continue
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
         quotes = data.get("quotes", [])
@@ -81,7 +81,7 @@ def main():
     print(f"  可信度分布: {confidences}")
 
     # 输出样例
-    print(f"\n[样例] 随机展示 3 条语录:")
+    print("\n[样例] 随机展示 3 条语录:")
     import random
     random.seed(42)
     for q in random.sample(all_quotes, min(3, len(all_quotes))):

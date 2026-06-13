@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import numpy as np
 
 from kb_retriever import (
-    KbRetriever, KeywordOnlyEmbedding, RetrievalResult,
-    load_all_groups, GROUP_TRIGGERS,
+    GROUP_TRIGGERS,
+    KbRetriever,
+    KeywordOnlyEmbedding,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))

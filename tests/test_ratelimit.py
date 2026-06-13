@@ -1,9 +1,11 @@
 """限流器单元测试 — 先写测试，验证行为，再实现。"""
+import os
+import sys
 import time
-import pytest
-import sys, os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ratelimit import TokenBucket
+
 
 def test_token_bucket_initial_allow():
     """新桶首次请求应该被允许。"""

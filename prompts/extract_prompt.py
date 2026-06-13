@@ -14,7 +14,6 @@
 """
 
 import argparse
-import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -61,7 +60,7 @@ def archive_system_prompt(content: str, version: str, note: str = ""):
         else:
             content_new = existing[:insert_pos] + entry + existing[insert_pos:]
         CHANGELOG.write_text(content_new, encoding="utf-8")
-    print(f"📝 已更新 CHANGELOG")
+    print("📝 已更新 CHANGELOG")
 
 
 def archive_session(name: str, content: str, note: str = ""):

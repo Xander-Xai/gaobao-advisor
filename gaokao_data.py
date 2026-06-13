@@ -3,9 +3,11 @@
 高考数据模块 v2.0 — 数据库优先 + 百度搜索兜底
 数据查询优先级: 本地数据库 → 百度高考 API → 百度搜索兜底
 """
-import os, json, logging
-from typing import Optional
+import json
+import logging
+import os
 from datetime import datetime
+
 from utils import safe_int as _safe_int
 
 log = logging.getLogger(__name__)
@@ -84,8 +86,8 @@ def _ensure_db():
     if HAS_DB:
         return True
     try:
-        from db.database import init_db, SessionLocal
         from db import crud as _crud_mod
+        from db.database import SessionLocal, init_db
         init_db()
         _SessionFactory = SessionLocal
         _crud = _crud_mod
@@ -576,7 +578,7 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
         return {"chong": [], "wen": [], "bao": [], "major_name": major_name, "total": 0}
 
     try:
-        from db.models import Major, EnrollmentPlan, AdmissionScore, School
+        from db.models import AdmissionScore, EnrollmentPlan, Major, School
 
         # Step 1: 找到匹配的专业
         safe_major = _crud._escape_like(major_name)
@@ -884,7 +886,7 @@ def get_db_stats():
     if not db:
         return {"status": "数据库不可用"}
     try:
-        from db.models import School, Major, AdmissionScore, SubjectRanking
+        from db.models import AdmissionScore, Major, School, SubjectRanking
         return {
             "schools": db.query(School).count(),
             "majors": db.query(Major).count(),
@@ -903,7 +905,7 @@ def get_db_stats():
 
 def check_user_subject_compatibility(
     user_subjects: list[str],
-    major_name: Optional[str] = None,
+    major_name: str | None = None,
 ) -> dict:
     """
     检查用户选科对指定专业（或查询所有专业）的匹配情况。
@@ -925,7 +927,6 @@ def check_user_subject_compatibility(
     """
     from db.crud import (
         check_subject_compatibility,
-        get_majors_by_subject_compatibility,
     )
 
     if not user_subjects:

@@ -6,9 +6,9 @@ model_selector — 模型选择矩阵（思维框架调度器）
 """
 
 from __future__ import annotations
-from typing import Any
-from dataclasses import dataclass
 
+from dataclasses import dataclass
+from typing import Any
 
 # ── 5 大心智模型 ────────────────────────────────────────────
 

@@ -9,15 +9,17 @@
   python scripts/seed_data.py --api    # 尝试从 API 补充更多数据
   python scripts/seed_data.py --reset  # 清空重建
 """
-import os, sys, json, argparse, time
+import argparse
+import os
+import sys
+import time
 
 # 确保项目根目录在 path 中
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import init_db, get_session
-from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking
-
+from db.database import get_session, init_db
+from db.models import AdmissionScore, Major, School, SubjectRanking
 
 # ══════════════════════════════════════════════════════════
 # 第一部分：985/211/双一流 院校基础数据
@@ -653,7 +655,7 @@ def seed_subject_rankings(db):
 def try_seed_from_api(db):
     """尝试从掌上高考 API 补充更多数据"""
     try:
-        from scrapers.zhiyuan import fetch_school_list, fetch_admission_scores
+        from scrapers.zhiyuan import fetch_admission_scores, fetch_school_list
     except ImportError:
         print("  [跳过] 采集器不可用")
         return 0
@@ -718,7 +720,7 @@ def try_seed_from_api(db):
                 total_api += 1
             db.commit()
             time.sleep(0.3)
-        except Exception as e:
+        except Exception:
             continue
 
     print(f"  API 补充: {total_api} 条")
@@ -737,7 +739,6 @@ def main():
 
     # 初始化数据库
     if args.reset:
-        import shutil
         db_dir = os.path.join(PROJECT_ROOT, "data")
         db_file = os.path.join(db_dir, "gaokao.db")
         if os.path.exists(db_file):

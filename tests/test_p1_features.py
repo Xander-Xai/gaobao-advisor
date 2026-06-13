@@ -1,14 +1,13 @@
 """
 P1 功能测试：多轮对话上下文压缩 + 多数据源置信度评分
 """
-import pytest
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import GaokaoAdvisor, PROVINCES, SLOTS
+from agent import GaokaoAdvisor
 from gaokao_data import format_admission_info
-
 
 # ── 辅助工厂 ──
 
@@ -58,8 +57,8 @@ class TestCompressHistory:
         adv = _make_advisor()
         # 填充 42 条对话（21 轮）
         for i in range(21):
-            adv.conversation.append({"role": "user", "content": f"我是山东考生，考了580分"})
-            adv.conversation.append({"role": "assistant", "content": f"推荐你武汉大学"})
+            adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
+            adv.conversation.append({"role": "assistant", "content": "推荐你武汉大学"})
         assert len(adv.conversation) == 42
         adv._compress_history()
         # 压缩后应有 1 条摘要 + 20 条保留 = 21 条

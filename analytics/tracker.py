@@ -5,7 +5,7 @@ import os
 import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 # 事件类型常量
 EVENT_SESSION_START = "session_start"
@@ -72,7 +72,7 @@ class EventTracker:
         self,
         session_id: str,
         event_type: str,
-        event_data: Dict[str, Any] | None = None,
+        event_data: dict[str, Any] | None = None,
     ) -> None:
         """记录一条用户行为事件。
 
@@ -90,7 +90,7 @@ class EventTracker:
         )
         self._conn.commit()
 
-    def get_stats(self, days: int = 7) -> Dict[str, Any]:
+    def get_stats(self, days: int = 7) -> dict[str, Any]:
         """返回最近 N 天的运营统计。"""
         since = datetime.utcnow() - timedelta(days=days)
         since_str = since.strftime("%Y-%m-%d %H:%M:%S")
@@ -109,7 +109,7 @@ class EventTracker:
             "SELECT event_type, COUNT(*) FROM events WHERE created_at >= ? GROUP BY event_type",
             (since_str,),
         )
-        event_counts: Dict[str, int] = {row[0]: row[1] for row in cur.fetchall()}
+        event_counts: dict[str, int] = {row[0]: row[1] for row in cur.fetchall()}
 
         # 情绪分布
         emotion_dist = {"🟢": 0, "🟡": 0, "🔴": 0}
@@ -153,7 +153,7 @@ class EventTracker:
 
     def _top_from_event(
         self, event_type: str, key: str, since_str: str, limit: int = 10
-    ) -> List[Tuple[str, int]]:
+    ) -> list[tuple[str, int]]:
         """从 event_data JSON 中提取列表字段，统计频次，返回 top-N。"""
         cur = self._conn.cursor()
         cur.execute(

@@ -7,16 +7,15 @@
 用法:
   python scripts/import_majors_taxonomy.py
 """
+import json
 import os
 import sys
-import json
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import init_db, get_session
+from db.database import get_session, init_db
 from db.models import Major
-
 
 # ══════════════════════════════════════════════════════════
 # 教育部本科专业目录（2024 年版）
@@ -293,7 +292,7 @@ def main():
 
         print(f"\n[完成] 新增 {new_count} / 更新 {update_count} / 数据库共 {total} 个专业")
         print(f"  热门专业: {hot_count} 个")
-        print(f"  覆盖学科门类: 12 个（哲学/经济学/法学/教育学/文学/历史学/理学/工学/农学/医学/军事学/管理学）")
+        print("  覆盖学科门类: 12 个（哲学/经济学/法学/教育学/文学/历史学/理学/工学/农学/医学/军事学/管理学）")
 
     finally:
         db.close()
