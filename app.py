@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+# >>> DEPRECATED — This file is kept for legacy Streamlit mode. <<<
+# >>> Use `server/main.py` (FastAPI) as the primary entry point.   <<<
+# >>> Run: uvicorn server.main:app --port 8000                     <<<
 高报Agent · AI 高考志愿顾问 — Streamlit Web 前端
 复用 agent.py 的核心逻辑，提供移动端友好的聊天界面。
 Usage:
