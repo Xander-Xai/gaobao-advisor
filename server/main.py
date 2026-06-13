@@ -1,4 +1,5 @@
 """FastAPI application entry point."""
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,13 +31,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS first (will be innermost = last to process response)
+# CORS: lock down for production, dev-friendly defaults
+_cors_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3080,http://localhost:8501,http://localhost:8000",
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 # Security (middle)
 app.add_middleware(SecurityMiddleware)
