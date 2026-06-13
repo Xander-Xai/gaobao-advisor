@@ -25,7 +25,7 @@
 | 专业就业数据 | **792 个本科专业** | 12大学科门类完整就业方向+薪资 |
 | 院校数据 | **2,600+ 所高校** | 覆盖985/211/双非/专科全层次 |
 | 行业联盟分类 | **20+ 个** | C9/国防七子/五院四系/两电一邮等 |
-| 知识库模块 | **17 个** | 方法论/选科/专业/学校/考研/就业/专科/趋势 |
+| 知识库模块 | **17+ 个** | 方法论/选科/专业/学校/考研/就业/专科/AI时代趋势 |
 
 一句话：**把志愿填报领域能找到的系统性知识，全塞进去了。**
 
@@ -43,7 +43,7 @@
 | 本科专业 | 教育部 2024 专业目录 | **193 个**（12 学科门类，含就业率/薪资） | T1 |
 | 录取分数线 | 百度高考 API（gaokao.baidu.com） | **7,000+ 条**（2024年，覆盖20个省份） | T2 |
 | 行业语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
-| 知识库 | Eric-Yibo-Shen/zhangxuefeng-skillset | **20 个模块**（含 AI 时代校正） | T2 |
+| 知识库 | 公开方法论整理 | **20 个模块**（含 AI 时代校正） | T2 |
 
 > 数据采集脚本：`python scripts/import_baidu_gaokao.py --top-n 80` 可扩展到万级分数线
 
@@ -59,7 +59,7 @@
 | **情绪 SOP** | 5 阶段情绪危机处理（接住→稳定→转场→方案→收尾） |
 | **多轮状态** | 4 阶段对话流程（探测→定向→推荐→风险审查） |
 
-### 知识库模块（20 个）
+### 知识库模块（20+ 个）
 
 ```
 knowledge_base.md         # 主知识库（838 行，17 个核心模块）
@@ -67,7 +67,9 @@ knowledge/
 ├── 00_ai_era_correction.md    # AI 时代校正框架（红/黄/绿区）
 ├── 06_university_life_planning.md  # 大学在校 4 年规划
 ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-└── quotes/                    # 行业专家语录库（105 条）
+├── 08_vocational_strategy.md  # 专科策略
+├── groups/                     # RAG 知识组
+└── quotes/                     # 行业专家语录库（105 条）
     ├── _index.json            # 全量索引
     ├── _by_major.json         # 按专业反查索引（74 个专业）
     ├── zhuanye.json           # 专业选择（28 条）
@@ -363,9 +365,13 @@ knowledge/
 ① 意图识别 → 自动判断你是否在咨询志愿问题
 ② 结构化采集 → 省份+分数+兴趣+家庭资源+就业诉求，缺啥问啥
 ③ 冲稳保匹配 → 位次法 + 家庭资源禀赋 + 专业就业前景
-④ 敢说真话 → 不适合你的专业直接告诉你
-⑤ 实时搜索 → 最新政策、分数线变化自动查
-⑥ 模型无关 → OpenAI 兼容协议，换模型改一行配置
+④ RAG 知识检索 → 17+ 知识库模块 + 105 条专家语录
+⑤ 多源数据 → 本地DB + 百度高考API + 搜索引擎三级数据链
+⑥ 质量控制 → 情绪检测 / 交叉验证 / 反模式检查 / AI时代风险评估
+⑦ 会话持久化 → SQLite 持久化，关闭页面不丢失
+⑧ 敢说真话 → 不适合你的专业直接告诉你
+⑨ 模型无关 → OpenAI 兼容协议，换模型改一行配置
+⑩ 多端部署 → CLI / Web / REST API，Docker 一键启动
 ```
 
 ---
@@ -378,7 +384,7 @@ knowledge/
 
 ```bash
 # 1. 安装依赖
-pip install openai pywin32
+pip install -r requirements.txt
 
 # 2. 配置 API Key
 cp .env.example .env
@@ -388,6 +394,8 @@ cp .env.example .env
 python agent.py
 ```
 
+> API 接口模式需额外安装：`pip install -r requirements-api.txt`
+
 Windows 用户直接双击 **`启动.bat`**。
 
 ### 🌐 Web 版（推荐）
@@ -395,8 +403,8 @@ Windows 用户直接双击 **`启动.bat`**。
 > 不想装 Python？Web 版直接在浏览器里用，还能在微信中分享！
 
 ```bash
-# 安装依赖（比命令行版多一个 streamlit）
-pip install openai pywin32 streamlit
+# 安装依赖（已含 CLI 版所需的所有包）
+pip install -r requirements.txt
 
 # 启动 Web 版
 streamlit run app.py
@@ -405,7 +413,7 @@ streamlit run app.py
 浏览器自动打开 `http://localhost:8501`，支持：
 - 📱 移动端友好的聊天界面
 - 🔄 实时显示信息采集进度
-- 🆓 免费3次体验 + 付费升级提示
+- 💬 对话持久化（关闭页面不丢失）
 - ⚡ 快速提问按钮，一键开始对话
 
 Windows 用户也可以双击 **`启动Web版.bat`**。
@@ -545,13 +553,14 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 用户输入 → 意图检测 → 槽位提取 → LLM 推理 → 冲稳保输出
               │            │           │
               ▼            ▼           ▼
-         知识库检索    实时搜索    OpenAI兼容API
-         (17模块)    (最新数据)   (任意模型)
+         RAG 知识检索   实时搜索    OpenAI兼容API
+         (17+模块+语录) (最新数据)   (任意模型)
 ```
 
 - **模型无关**：任何 OpenAI 兼容 API 都可以
-- **独立部署**：一个 Python 文件，不依赖任何特定平台
-- **本地知识库**：Markdown 格式，可随时修改扩充
+- **RAG 增强**：混合向量+关键词检索，6 个知识组，105 条专家语录
+- **安全防护**：提示词注入检测、SSRF 防御、XSS 消毒、限流
+- **多端部署**：CLI / Streamlit Web / FastAPI REST API / Docker
 
 ---
 
@@ -571,33 +580,70 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 ## 项目结构
 
 ```
-├── agent.py              # ⭐ 核心 Agent（槽位采集 + 搜索链 + LLM 对话）
-├── app.py                # Streamlit Web 前端
+├── agent.py              # ⭐ 核心 Agent（槽位采集 + RAG检索 + 搜索链 + LLM 对话）
+├── app.py                # Streamlit Web 前端（2092 行）
+├── api_server.py         # FastAPI REST API（SSE 流式对话，供 H5/小程序调用）
 ├── admin.py              # 📊 运营看板（密码保护，独立启动）
 ├── gaokao_data.py        # 数据查询层（DB→百度API→搜索 三级链路）
-├── system_prompt.md      # v2.0 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP）
-├── knowledge_base.md     # 主知识库（20 模块，850+ 行）
-├── requirements.txt      # 依赖（SQLAlchemy + Streamlit + OpenAI）
+├── kb_retriever.py       # RAG 知识检索引擎（混合向量+关键词，6 个知识组）
+├── onboarding.py         # 3 步引导流程（省份→分数→选科）
+├── ratelimit.py          # Token Bucket 限流器（20次/小时，40次/天/IP）
+├── constants.py          # 共享常量
+├── utils.py              # SSRF 防御 + HTML 消毒
+├── logger.py             # 结构化日志
+├── system_prompt.md      # v2.7 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP）
+├── knowledge_base.md     # 主知识库（838 行，17 个核心模块）
+├── requirements.txt      # CLI + Web 依赖
+├── requirements-api.txt  # API 服务依赖（FastAPI + Uvicorn）
+├── requirements-dev.txt  # 开发依赖（pytest, ruff）
+├── pyproject.toml        # 项目元数据 + 工具配置
+├── Makefile              # 构建/测试/Lint 命令
 ├── .env.example          # 配置模板
 ├── db/                   # 数据库 ORM 层
 │   ├── database.py       # SQLite 连接（零依赖，开箱即用）
-│   ├── models.py         # 5 张表（院校/专业/分数线/招生计划/学科排名）
+│   ├── models.py         # 10 张表（院校/专业/分数线/招生计划/学科排名/对话/反馈等）
 │   └── crud.py           # CRUD + 位次法匹配算法
 ├── scrapers/             # 数据采集器
 │   ├── baidu_gaokao.py   # ⭐ 百度高考 API 采集（结构化 JSON，公开无认证）
 │   ├── baidu.py          # 百度搜索爬虫（兜底 T4 级）
-│   └── zhiyuan.py        # 掌上高考 API（备选 T2 级）
+│   ├── zhiyuan.py        # 掌上高考 API（备选 T2 级）
+│   ├── provinces.py      # 30 省份 + 课程模式映射
+│   └── checkpoint.py     # 导入断点续传
+├── quality/              # 质量控制模块
+│   ├── emotion_detector.py     # 情绪检测（危机/焦虑/正常 三级）
+│   ├── cross_validator.py      # 多源数据交叉验证
+│   ├── ai_era_risk.py          # AI 时代专业风险评估
+│   ├── decision_framework.py   # 8 大决策启发式
+│   ├── anti_pattern_checker.py # 8 种反模式检测
+│   ├── model_selector.py       # 心智模型选择矩阵
+│   └── knowledge_loader.py     # 上下文知识加载器
+├── analytics/            # 事件追踪
+│   └── tracker.py        # SQLite 事件追踪器
 ├── scripts/              # 数据导入脚本
-│   ├── import_baidu_gaokao.py      # ⭐ 主采集（院校 + 分数线，约 30 分钟）
+│   ├── import_baidu_gaokao.py      # ⭐ 主采集（院校 + 分数线）
 │   ├── import_majors_taxonomy.py   # 专业分类体系（193 个专业）
-│   ├── import_yi_fen_yi_duan.py    # 一分一段表查询（位次法核心）
+│   ├── import_yi_fen_yi_duan.py    # 一分一段表（位次法核心）
 │   ├── seed_data.py               # 种子数据（985/211 硬编码）
-│   └── seed_quotes.py             # 语录库索引生成（105 条）
-├── knowledge/            # 扩展知识库（v2.0 新增）
+│   ├── seed_quotes.py             # 语录库索引生成
+│   ├── update_data.py             # 增量数据更新
+│   ├── validate_data.py           # 数据校验
+│   ├── precompute_embeddings.py   # 向量预计算
+│   ├── backup_db.sh               # 数据库备份
+│   └── auto_update.sh             # 自动更新脚本
+├── knowledge/            # 扩展知识库
 │   ├── 00_ai_era_correction.md    # AI 时代校正框架
 │   ├── 06_university_life_planning.md  # 大学在校规划
 │   ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-│   └── quotes/                    # 行业专家语录库（105 条，6 个分类）
+│   ├── 08_vocational_strategy.md  # 专科策略
+│   ├── groups/            # RAG 知识组
+│   └── quotes/            # 行业专家语录库（105 条，6 个分类）
+├── prompts/              # 提示词版本管理
+│   ├── system/            # 系统提示词版本存档（v2.0-v2.8）
+│   ├── templates/         # 可复用提示词模板（14 个）
+│   └── sessions/          # 会话归档
+├── h5/                   # H5 移动端前端
+│   └── index.html         # 独立聊天页面（供微信 H5/小程序嵌入）
+├── tests/                # 测试套件（20 个测试文件）
 ├── content_scripts/      # 抖音内容脚本（55 条）
 ├── docs/
 ├── examples/
@@ -612,13 +658,50 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 
 欢迎提 Issue 和 PR：
 
-- [ ] Web 界面（Gradio/Streamlit）
-- [ ] 更多省份录取数据
-- [ ] 语音输入
 - [ ] 微信/Telegram Bot 接入
+- [ ] 更多省份录取数据覆盖
+- [ ] 语音输入
+- [ ] 多人场景（家庭协同查看）
+- [ ] 志愿表自动排序 + 调剂风险评估
 
 ---
 
 ## 开源协议
 
 MIT License — 自由使用、修改、分发。
+
+---
+
+## 数据管线
+
+### 快速导入
+
+```bash
+# 全量导入（3000+校 × 30省 × 3年）
+python scripts/import_baidu_gaokao.py --full --provinces ALL --top-n 3000
+
+# 仅双一流
+python scripts/import_baidu_gaokao.py --layer 1 --provinces ALL
+
+# 断点续传
+python scripts/import_baidu_gaokao.py --full --provinces ALL --resume
+
+# 监控进度
+bash scripts/monitor_import.sh
+
+# 数据验证
+python scripts/validate_data.py
+```
+
+### 数据来源
+
+- **T1 本地数据库**: 置信度 90 分
+- **T2 百度高考 API**: 置信度 70 分（gaokao.baidu.com）
+- **T3 百度搜索**: 置信度 40 分（仅供参考）
+
+### 省份覆盖
+
+30/30 省份（西藏除外），支持：
+- 3+3 综合：北京、天津、上海、山东、海南、浙江
+- 物理类/历史类：15 省（3+1+2 新高考）
+- 理科/文科：9 省（传统文理分科）
