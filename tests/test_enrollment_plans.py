@@ -6,7 +6,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 import gaokao_data
+
+
+@pytest.fixture(autouse=True)
+def _restore_crud():
+    """Save and restore gaokao_data._crud after each test to prevent cross-test pollution."""
+    original = gaokao_data._crud
+    yield
+    gaokao_data._crud = original
 
 
 def _set_crud(mock_crud):
