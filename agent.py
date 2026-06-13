@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+# >>> DEPRECATED — This file is kept for legacy Streamlit mode. <<<
+# >>> Use `server/main.py` (FastAPI) as the primary entry point.   <<<
+# >>> Run: uvicorn server.main:app --port 8000                     <<<
 高考志愿顾问 Agent — 模型无关、支持实时搜索、结构化槽位采集。
 Usage:
   python agent.py                    # 交互式对话
