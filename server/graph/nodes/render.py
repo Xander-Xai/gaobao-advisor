@@ -18,12 +18,13 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     security_scan), pass it through unchanged.  Otherwise, assemble
     a reply from the structured result and reasoning.
     """
-    # If reply already set (question or security), keep it
+    # If reply already set (LLM, question, or security), append disclaimer
     existing_reply = state.get("reply", "")
     if existing_reply:
+        final_reply = existing_reply + _DISCLAIMER
         trace = list(state.get("trace", []))
-        trace.append({"node": "render_reply", "event": "pass_through"})
-        return {"trace": trace}
+        trace.append({"node": "render_reply", "event": "llm_reply_with_disclaimer"})
+        return {"reply": final_reply, "trace": trace}
 
     scene = state.get("scene", "general")
     slots = state.get("slots", {})

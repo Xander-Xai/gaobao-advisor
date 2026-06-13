@@ -15,6 +15,7 @@ from server.graph.nodes.data_nodes import data_query_node
 from server.graph.nodes.rag_node import rag_retrieve_node
 from server.graph.nodes.reason import reason_node
 from server.graph.nodes.structure import structure_output_node
+from server.graph.nodes.llm_node import llm_node
 from server.graph.nodes.render import render_reply_node
 from server.graph.nodes.memory import memory_update_node
 
@@ -47,6 +48,7 @@ def build_advisor_graph():
     graph.add_node("rag_retrieve", rag_retrieve_node)
     graph.add_node("reason", reason_node)
     graph.add_node("structure_output", structure_output_node)
+    graph.add_node("llm_reason", llm_node)
     graph.add_node("render_reply", render_reply_node)
     graph.add_node("memory_update", memory_update_node)
 
@@ -78,7 +80,8 @@ def build_advisor_graph():
     graph.add_edge("data_query", "rag_retrieve")
     graph.add_edge("rag_retrieve", "reason")
     graph.add_edge("reason", "structure_output")
-    graph.add_edge("structure_output", "render_reply")
+    graph.add_edge("structure_output", "llm_reason")
+    graph.add_edge("llm_reason", "render_reply")
 
     # ── Converge: render → memory → END ───────────────────────
     graph.add_edge("render_reply", "memory_update")
