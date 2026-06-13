@@ -79,6 +79,12 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None  # 可选，用于恢复对话
 
+    def model_post_init(self, __context) -> None:
+        if self.session_id is not None:
+            import re
+            if not re.match(r"^[a-zA-Z0-9_\-]{4,64}$", self.session_id):
+                raise ValueError("session_id 格式无效：4-64位字母数字下划线连字符")
+
 
 class ChatResponse(BaseModel):
     reply: str
@@ -88,6 +94,11 @@ class ChatResponse(BaseModel):
 
 class ResetRequest(BaseModel):
     session_id: str
+
+    def model_post_init(self, __context) -> None:
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\-]{4,64}$", self.session_id):
+            raise ValueError("session_id 格式无效：4-64位字母数字下划线连字符")
 
 
 # ── 全局 advisor 池（按 session_id 管理）──
