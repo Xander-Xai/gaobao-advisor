@@ -45,9 +45,9 @@
 
 | 数据 | 来源 | 规模 | 等级 |
 |------|------|------|------|
-| 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,003 所**（985/211/双一流/普通） | T2 |
-| 本科专业 | 教育部 2024 专业目录 | **193 个**（12 学科门类，含就业率/薪资） | T1 |
-| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **7,000+ 条**（2024年，覆盖20个省份） | T2 |
+| 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,016 所**（985/211/双一流/普通） | T2 |
+| 本科专业 | 教育部 2024 专业目录 | **215 个**（12 学科门类，含就业率/薪资） | T1 |
+| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **70,000+ 条**（2022-2024年，覆盖30个省份） | T2 |
 | 行业语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
 | 知识库 | 公开方法论整理 | **20 个模块**（含 AI 时代校正） | T2 |
 
@@ -570,11 +570,13 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 | 指标 | 数据 |
 |------|------|
 | 院校覆盖 | 3,016 所 |
-| 录取分数线 | 53,000+ 条 |
+| 录取分数线 | 70,000+ 条 |
 | 省份覆盖 | 30/30 |
 | 年份跨度 | 2022-2024 |
 | 知识库模块 | 17+ |
 | 专家语录 | 105 条 |
+| 测试用例 | 333 个（全部通过） |
+| 核心代码 | 7,000+ 行 Python |
 
 ---
 
@@ -674,11 +676,23 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 │   └── sessions/          # 会话归档
 ├── h5/                   # H5 移动端前端
 │   └── index.html         # 独立聊天页面（供微信 H5/小程序嵌入）
-├── tests/                # 测试套件（20 个测试文件）
-├── content_scripts/      # 抖音内容脚本（55 条）
-├── docs/
+├── tests/                # 测试套件（333 个测试，20 个测试文件）
+├── content_scripts/      # 内容脚本库
+│   ├── 抖音内容脚本库.md     # 55 条短视频脚本（5 种爆款模板）
+│   └── 首批抖音脚本-可直接录制.md  # 3 条可直接录制的脚本
+├── docs/                 # 项目文档
+│   ├── next-phase-plan.md       # 总体执行计划（Phase 5-8）
+│   ├── coze-bot-setup.md        # 扣子 Bot 设置指南
+│   ├── content-calendar.md      # 2 周内容排期表
+│   ├── community-ops-handbook.md # 私域社群运营手册
+│   ├── course-outlines.md       # 知识付费课程大纲
+│   ├── lead-magnet-*.md         # PDF 引流品（提问模板 + 选科指南）
+│   ├── blog-rag-gaokao.md       # 知乎技术博客
+│   ├── development-plan.md      # 用户体验升级计划
+│   ├── deploy-checklist.md      # 生产部署清单
+│   └── user-experience-audit.md # 用户体验审计报告
 ├── examples/
-├── data/gaokao.db        # SQLite 数据库（自动创建）
+├── data/gaokao.db        # SQLite 数据库（70,000+ 条分数线）
 ├── 启动.bat              # Windows 命令行版
 └── 启动Web版.bat          # Windows Web版
 ```
