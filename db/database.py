@@ -4,7 +4,7 @@ SQLite 数据库连接 — 零依赖外部服务，开箱即用
 import os
 import stat
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -54,6 +54,20 @@ def _lock_db_permissions(db_path: str):
                 os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
             except OSError:
                 pass
+
+
+def is_db_connected() -> bool:
+    """Check database engine connectivity.
+
+    Returns:
+        True if the engine can execute a simple query, False otherwise.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
 
 
 def init_db():
