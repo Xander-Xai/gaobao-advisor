@@ -55,6 +55,16 @@ def test_rejects_input_over_max_length():
     result = sanitize_input(long_text)
     assert len(result) <= INPUT_MAX_LENGTH
 
+def test_detect_injection_rejects_oversized_input():
+    """detect_injection should block input exceeding INPUT_MAX_LENGTH."""
+    long_text = "A" * (INPUT_MAX_LENGTH + 1)
+    assert detect_injection(long_text) is True
+
+def test_detect_injection_allows_input_under_max_length():
+    """detect_injection should not block based on length alone when under the limit."""
+    text = "A" * INPUT_MAX_LENGTH
+    assert detect_injection(text) is False
+
 def test_preserves_short_input():
     text = "北京 620 计算机"
     result = sanitize_input(text)
@@ -102,3 +112,7 @@ SAFE_URLS = [
 @pytest.mark.parametrize("url", SAFE_URLS)
 def test_allows_safe_urls(url):
     assert check_ssrf(url) is False
+
+def test_malformed_url_no_hostname_blocked():
+    """URLs without a hostname are suspicious and should be blocked."""
+    assert check_ssrf("not-a-url") is True

@@ -24,13 +24,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(SecurityMiddleware)
-
+# CORS first (will be innermost = last to process response)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Security second (will be outermost = first to inspect request)
+app.add_middleware(SecurityMiddleware)
 
 app.include_router(health_router)

@@ -46,8 +46,8 @@ _INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
 
 def detect_injection(text: str) -> bool:
     """Return True if input contains prompt injection patterns."""
-    # Reject oversized input (matches agent.py > 5000 heuristic)
-    if len(text) > 5000:
+    # Length check first — use the canonical threshold
+    if len(text) > INPUT_MAX_LENGTH:
         return True
     # English patterns
     for pattern in _INJECTION_RE:
@@ -134,8 +134,11 @@ def check_ssrf(url: str) -> bool:
         except ValueError:
             # Not an IP address; hostname is a domain name — safe
             return False
+    except ValueError:
+        # Malformed URL — let it fail elsewhere, don't silently block
+        return False
     except Exception:
-        return True
+        return True  # other errors = block for safety
 
 
 # --- FastAPI Middleware ---
@@ -153,6 +156,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 message = body.get("message", "")
                 if detect_injection(message):
                     raise HTTPException(status_code=400, detail="输入内容包含不允许的指令")
+                # Sanitize: strip HTML tags and enforce length limit
+                sanitized = sanitize_input(message)
+                body["message"] = sanitized
+                # Re-encode the modified body so downstream handlers see sanitized input
+                import json as _json
+                raw_body = _json.dumps(body).encode("utf-8")
+                request._body = raw_body
             except HTTPException:
                 raise
             except Exception:
