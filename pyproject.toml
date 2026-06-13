@@ -46,6 +46,7 @@ Issues = "https://github.com/gaobao-ai/gaobao-advisor/issues"
 
 [tool.setuptools.packages.find]
 include = [
+    "server*",
     "agent*",
     "db*",
     "quality*",
@@ -53,6 +54,7 @@ include = [
     "analytics*",
     "scripts*",
     "prompts*",
+    "tests",
 ]
 
 [tool.pytest.ini_options]
