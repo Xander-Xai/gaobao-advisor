@@ -1,346 +1,194 @@
 {
-  "金融学": {
-    "risk_zone": "🔴",
-    "risk_score": 85,
-    "ai_impact": "基础研究员、数据整理等入门岗位被AI大幅压缩，普通院校金融本科就业路径收窄",
-    "recommendation": "非顶尖院校回避，需叠加AI操作能力或转向金融科技方向",
-    "salary_trend": "基础岗薪资下行，高端岗维持",
-    "source": "WEF 2025未来就业报告 / 智联招聘"
-  },
   "会计学": {
-    "risk_zone": "🔴",
-    "risk_score": 80,
-    "ai_impact": "做账、报表、凭证整理等基础财务工作正被AI工具快速替代，53.6%从业者已使用AI",
-    "recommendation": "本科传统就业路径压缩，需叠加CPA资质与AI操作能力",
-    "salary_trend": "基础岗持续下行，CPA持证者维持",
-    "source": "前程无忧2025职场AI应用趋势报告"
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "财务岗位AI渗透率53.6%，基础做账/报表/凭证整理已被显著压缩，替代焦虑超70%",
+    "surviving_roles": "税务筹划、CFO决策支持、复杂并购财务",
+    "recommendation": "本科会计传统就业路径（四大基础岗、银行会计）正在被压缩。考CPA仍有护城河，但学制内必须叠加AI操作能力",
+    "confidence": "高",
+    "data_source": "智联招聘2025职场AI应用趋势报告"
   },
-  "新闻学": {
-    "risk_zone": "🔴",
-    "risk_score": 88,
-    "ai_impact": "内容生产、图文编辑已被AI显著替代，基础采访整理正在被压缩",
-    "recommendation": "强烈回避，行业萎缩叠加AI冲击双重打击",
-    "salary_trend": "持续下行",
-    "source": "WEF 2025未来就业报告"
+  "财务管理": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "与会计学类似，基础财务岗位受AI冲击严重",
+    "surviving_roles": "财务分析、预算管理、CFO决策支持",
+    "recommendation": "必须考CPA/CMA走高端路线，基础岗位前景堪忧",
+    "confidence": "高",
+    "data_source": "智联招聘2025职场AI应用趋势报告"
   },
-  "英语": {
-    "risk_zone": "🔴",
-    "risk_score": 75,
-    "ai_impact": "AI翻译工具已达到实用水平，基础翻译、外贸跟单等入门岗位大幅萎缩",
-    "recommendation": "纯英语专业缺乏竞争力，需叠加其他专业技能形成复合优势",
-    "salary_trend": "持续下行",
-    "source": "WEF 2025未来就业报告"
+  "审计学": {
+    "risk_zone": "🟡 中风险",
+    "ai_impact": "基础审计底稿工作被AI压缩，但复杂审计判断和职业判断仍需人工",
+    "surviving_roles": "复杂审计、内控咨询、风险管理",
+    "recommendation": "四大审计仍有需求，但入门层竞争加剧。建议叠加数据分析能力",
+    "confidence": "中",
+    "data_source": "行业趋势分析"
   },
-  "土木工程": {
-    "risk_zone": "🔴",
-    "risk_score": 78,
-    "ai_impact": "房地产行业深度调整叠加BIM/AI辅助设计压缩初级岗位需求",
-    "recommendation": "传统基建方向需求萎缩，关注智能建造等新兴方向需慎重评估",
-    "salary_trend": "下行，行业周期底部",
-    "source": "智联招聘2025"
-  },
-  "建筑学": {
-    "risk_zone": "🔴",
-    "risk_score": 82,
-    "ai_impact": "AI辅助设计工具快速成熟，基础方案设计、施工图绘制岗位需求缩减",
-    "recommendation": "行业下行周期叠加AI替代，短期就业前景不乐观",
-    "salary_trend": "持续下行",
-    "source": "智联招聘2025"
+  "行政管理": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "行政支持岗位AI工具渗透率72.3%，会议纪要/报告撰写/日程管理已被大幅替代",
+    "surviving_roles": "高级行政管理、战略协调",
+    "recommendation": "公共管理、行政管理本科就业基本面持续恶化，叠加考公竞争加剧，容错率极低的家庭应回避",
+    "confidence": "高",
+    "data_source": "Anthropic 2026 AI替代风险报告"
   },
   "工商管理": {
-    "risk_zone": "🔴",
-    "risk_score": 72,
-    "ai_impact": "行政支持类岗位AI工具渗透率达72.3%，基础管理事务被自动化替代",
-    "recommendation": "缺乏专业壁垒，建议转向有明确技能方向的细分领域",
-    "salary_trend": "基础岗下行",
-    "source": "前程无忧2025职场AI应用趋势报告"
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "管理类基础岗位（运营助理、数据分析助理）被AI工具显著压缩",
+    "surviving_roles": "战略管理、高级运营",
+    "recommendation": "家里没企业不要选，不学也能干。需要有实践经验才有价值",
+    "confidence": "高",
+    "data_source": "行业趋势分析"
   },
-  "市场营销": {
-    "risk_zone": "🔴",
-    "risk_score": 73,
-    "ai_impact": "AI内容生成、自动化投放、数据分析工具替代大量初级营销执行岗",
-    "recommendation": "需掌握数据分析与AI营销工具，纯文案/策划岗位风险极高",
-    "salary_trend": "基础岗下行，数据营销岗维持",
-    "source": "WEF 2025未来就业报告"
+  "新闻学": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "内容生产（已发生）、图文编辑（已发生）、基础采访整理（进行中），叠加行业本身萎缩",
+    "surviving_roles": "深度调查、评论写作、媒体管理",
+    "recommendation": "风险较原评估进一步上升，维持强烈回避建议",
+    "confidence": "高",
+    "data_source": "Anthropic 2026 + 行业趋势"
   },
-  "化学": {
-    "risk_zone": "🔴",
-    "risk_score": 70,
-    "ai_impact": "基础实验操作、常规分析检测岗位被自动化设备与AI辅助分析压缩",
-    "recommendation": "纯化学本科就业面窄，建议向化工应用或材料交叉方向延伸",
-    "salary_trend": "基础岗平稳偏下行",
-    "source": "WEF 2025未来就业报告"
+  "传播学": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "与新闻学类似，内容生产层受AI冲击严重",
+    "surviving_roles": "品牌策略、危机公关、媒体管理",
+    "recommendation": "非顶尖院校强烈不推荐",
+    "confidence": "高",
+    "data_source": "行业趋势分析"
   },
-  "生物科学": {
-    "risk_zone": "🔴",
-    "risk_score": 74,
-    "ai_impact": "基础实验岗被自动化设备替代，AI在药物筛选、基因分析中加速渗透",
-    "recommendation": "本科就业面极窄，必须读研，建议结合生物信息学等交叉方向",
-    "salary_trend": "本科岗下行，博士级维持",
-    "source": "WEF 2025未来就业报告"
+  "金融学": {
+    "risk_zone": "🔴 极高风险",
+    "ai_impact": "券商/投行入门职位正迅速减少，AI几分钟完成以前10个实习生的工作，只需2人审核",
+    "surviving_roles": "投研分析、风控建模、量化交易",
+    "recommendation": "普通院校金融本科底层就业岗位受冲击最重。家里没资源别硬刚，金融圈是资源圈",
+    "confidence": "高",
+    "data_source": "Anthropic 2026 + 行业调研"
   },
-  "环境科学": {
-    "risk_zone": "🔴",
-    "risk_score": 71,
-    "ai_impact": "环境监测、数据分析等基础工作被AI和自动化设备压缩",
-    "recommendation": "就业市场供过于求，建议谨慎选择或转向环境工程等应用方向",
-    "salary_trend": "平稳偏下行",
-    "source": "WEF 2025未来就业报告"
+  "金融工程": {
+    "risk_zone": "🟡 中风险",
+    "ai_impact": "量化金融和AI融合度高，但需要强数学/编程基础",
+    "surviving_roles": "量化策略开发、AI风控、金融科技",
+    "recommendation": "比纯金融好，但需要数学/编程基础扎实。适合有量化兴趣的学生",
+    "confidence": "中",
+    "data_source": "行业趋势分析"
   },
-  "材料科学与工程": {
-    "risk_zone": "🔴",
-    "risk_score": 70,
-    "ai_impact": "AI材料发现平台加速研发流程，基础实验和表征岗需求缩减",
-    "recommendation": "传统材料方向就业一般，新能源/半导体材料方向有机会但竞争激烈",
-    "salary_trend": "传统方向下行，新兴材料方向上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "哲学": {
-    "risk_zone": "🔴",
-    "risk_score": 76,
-    "ai_impact": "缺乏直接对口就业方向，AI写作工具进一步削弱文字类基础岗位",
-    "recommendation": "就业对口率极低，除非以学术为目标或走考公路线，否则回避",
-    "salary_trend": "无明确对口薪资",
-    "source": "智联招聘2025"
-  },
-  "历史学": {
-    "risk_zone": "🔴",
-    "risk_score": 76,
-    "ai_impact": "对口岗位稀缺，基础研究辅助工作可被AI工具部分替代",
-    "recommendation": "就业对口率极低，考公或学术路径外需提前规划转行方向",
-    "salary_trend": "无明确对口薪资",
-    "source": "智联招聘2025"
-  },
-  "公共管理": {
-    "risk_zone": "🔴",
-    "risk_score": 73,
-    "ai_impact": "行政事务性工作AI渗透率超70%，基础行政管理岗位需求持续缩减",
-    "recommendation": "考公是主要出路，但竞争加剧，容错率低的家庭应回避",
-    "salary_trend": "体制内稳定，体制外下行",
-    "source": "前程无忧2025职场AI应用趋势报告"
-  },
-  "物流管理": {
-    "risk_zone": "🔴",
-    "risk_score": 72,
-    "ai_impact": "智能仓储、路径优化、需求预测等环节被AI深度渗透，基础调度岗减少",
-    "recommendation": "需向供应链优化、智能物流系统方向升级，纯操作管理岗风险高",
-    "salary_trend": "基础岗下行，技术岗维持",
-    "source": "WEF 2025未来就业报告"
-  },
-  "电子商务": {
-    "risk_zone": "🔴",
-    "risk_score": 71,
-    "ai_impact": "AI驱动的自动化运营、智能客服、精准营销压缩大量基础电商运营岗",
-    "recommendation": "技术门槛低导致供过于求，需叠加数据分析或AI运营能力",
-    "salary_trend": "基础岗下行",
-    "source": "WEF 2025未来就业报告"
-  },
-  "计算机科学与技术": {
-    "risk_zone": "🟡",
-    "risk_score": 45,
-    "ai_impact": "基础编码、简单功能开发等初级岗位被AI压缩，但系统架构与AI基础设施需求增长",
-    "recommendation": "仍是性价比最高的方向，但需叠加AI能力，不能只会写代码",
-    "salary_trend": "初级岗承压，AI相关岗上升",
-    "source": "WEF 2025未来就业报告 / 智联招聘"
-  },
-  "软件工程": {
-    "risk_zone": "🟡",
-    "risk_score": 45,
-    "ai_impact": "AI代码生成工具压缩基础开发岗，但复杂系统设计、DevOps等高阶需求增长",
-    "recommendation": "方向仍佳，需向系统架构、AI工程化应用等高阶方向发展",
-    "salary_trend": "初级岗承压，高阶岗上升",
-    "source": "WEF 2025未来就业报告"
+  "英语": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "AI翻译工具已接近专业翻译水平，基础翻译/口译岗位被严重替代",
+    "surviving_roles": "同声传译、跨文化沟通、英语教育",
+    "recommendation": "除非北外/上外层次，否则不建议。英语是工具不是专业",
+    "confidence": "高",
+    "data_source": "Anthropic 2026"
   },
   "法学": {
-    "risk_zone": "🟡",
-    "risk_score": 55,
-    "ai_impact": "合同审查、法律文书、案例检索等年轻律师基础工作被AI显著压缩",
-    "recommendation": "五院四系仍值得，但入门层经验积累通道变窄，草根学生影响更大",
-    "salary_trend": "入门岗承压，资深律师维持",
-    "source": "WEF 2025未来就业报告"
+    "risk_zone": "🟡 中风险",
+    "ai_impact": "合同审查、法律文书起草、案例检索被AI冲击，但出庭辩护/谈判/司法裁量抗冲击",
+    "surviving_roles": "出庭辩护、谈判斡旋、司法裁量、复杂诉讼",
+    "recommendation": "五院四系仍值得，但年轻律师积累经验的通道变窄。法考通过率约10%，门槛更高了",
+    "confidence": "中",
+    "data_source": "Anthropic 2026 + 行业分析"
   },
-  "机械工程": {
-    "risk_zone": "🟡",
-    "risk_score": 40,
-    "ai_impact": "基础绘图、简单工艺设计被AI工具替代，但高端制造、精密加工仍需人工经验",
-    "recommendation": "向智能制造、机器人方向延伸，传统机械制造方向需谨慎",
-    "salary_trend": "传统方向平稳，智能制造方向上升",
-    "source": "智联招聘2025"
+  "计算机科学与技术": {
+    "risk_zone": "🟡 中风险",
+    "ai_impact": "基础代码审查/简单功能开发/文档编写被压缩（初级工程师主要工作），但系统架构/AI基础设施增长",
+    "surviving_roles": "系统架构、AI基础设施、模型训练与评估",
+    "recommendation": "仍是普通家庭性价比最高的方向，但'会写代码'已不够，需要'能驾驭AI工具解决复杂问题'。选学校重视AI/大模型课程资源",
+    "confidence": "中",
+    "data_source": "智联招聘 + 领英2025报告"
   },
-  "药学": {
-    "risk_zone": "🟡",
-    "risk_score": 50,
-    "ai_impact": "AI在药物筛选中加速渗透，但药剂师执业资格和临床药学有强护城河",
-    "recommendation": "学制长但就业确定性较高，临床药学方向优于基础药学研究",
-    "salary_trend": "临床药学稳定，基础研究一般",
-    "source": "WEF 2025未来就业报告"
-  },
-  "车辆工程": {
-    "risk_zone": "🟡",
-    "risk_score": 50,
-    "ai_impact": "智能驾驶技术快速发展重塑行业，传统车辆设计岗缩减，软件定义汽车需求上升",
-    "recommendation": "需向智能驾驶、新能源三电方向转型，纯机械方向前景受限",
-    "salary_trend": "传统方向下行，智能驾驶方向上升",
-    "source": "智联招聘2025"
-  },
-  "心理学": {
-    "risk_zone": "🟡",
-    "risk_score": 42,
-    "ai_impact": "AI心理咨询工具出现，但深度心理治疗、临床干预的护城河较强",
-    "recommendation": "临床心理咨询有需求，但需读研+考证，纯本科就业面窄",
-    "salary_trend": "临床方向稳定，非临床方向一般",
-    "source": "WEF 2025未来就业报告"
-  },
-  "数字媒体技术": {
-    "risk_zone": "🟡",
-    "risk_score": 55,
-    "ai_impact": "AI在图形渲染、视频编辑、3D建模中快速渗透，基础设计执行岗承压",
-    "recommendation": "需向交互设计、技术美术等复合方向发展，纯执行层风险较高",
-    "salary_trend": "基础岗承压，创意技术岗上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "人工智能": {
-    "risk_zone": "🟢",
-    "risk_score": 15,
-    "ai_impact": "AI是技术革命本身，算法工程师职位增速高达110%，行业人才需求爆发",
-    "recommendation": "高需求方向，但需强数学基础，建议读研提升竞争力",
-    "salary_trend": "持续上升，平均年薪29万+",
-    "source": "智联招聘2025 / WEF 2025未来就业报告"
-  },
-  "电气工程及其自动化": {
-    "risk_zone": "🟢",
-    "risk_score": 10,
-    "ai_impact": "AI时代算力中心电力需求爆发，智能电网和新能源并网创造大量岗位",
-    "recommendation": "AI时代反成更稀缺资源，体制内岗位AI替代风险极低，强烈推荐",
-    "salary_trend": "稳定上升",
-    "source": "智联招聘2025"
+  "软件工程": {
+    "risk_zone": "🟡 中风险",
+    "ai_impact": "初级码农过剩，AI辅助编程工具（Copilot等）大幅提升个人产出，减少初级岗位需求",
+    "surviving_roles": "系统架构师、DevOps、AI工程化",
+    "recommendation": "名校+深造，普通院校慎选。40人毕业生仅1人拿到大厂offer",
+    "confidence": "中",
+    "data_source": "智联招聘 + 行业报告"
   },
   "电子信息工程": {
-    "risk_zone": "🟢",
-    "risk_score": 20,
-    "ai_impact": "AI芯片、IoT传感器、通信终端等硬件设计需求持续增长",
-    "recommendation": "硬件方向受AI替代影响小，建议向芯片设计或嵌入式AI方向发展",
-    "salary_trend": "稳定上升",
-    "source": "WEF 2025未来就业报告"
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "国家战略重点（芯片/半导体），物理属性强，AI替代风险低",
+    "surviving_roles": "芯片设计、嵌入式开发、通信系统",
+    "recommendation": "持续看好，芯片方向是最稳妥的硬科技",
+    "confidence": "高",
+    "data_source": "国家战略 + 行业数据"
   },
-  "通信工程": {
-    "risk_zone": "🟢",
-    "risk_score": 18,
-    "ai_impact": "5G/6G基础设施建设持续，通信协议与系统设计不易被AI替代",
-    "recommendation": "核心技术岗需求稳定，建议关注卫星通信、物联网等新兴方向",
-    "salary_trend": "稳定",
-    "source": "WEF 2025未来就业报告"
+  "电气工程及其自动化": {
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "AI时代关键基础设施（算力中心用电需求爆发、智能电网、新能源并网），体制内岗位AI替代风险极低",
+    "surviving_roles": "电网工程师、新能源系统设计、自动化控制",
+    "recommendation": "上调推荐。电气工程在AI时代反而成为更稀缺的资源。进国家电网仍是很好的选择",
+    "confidence": "高",
+    "data_source": "00_ai_era_correction.md 框架分析"
   },
   "临床医学": {
-    "risk_zone": "🟢",
-    "risk_score": 12,
-    "ai_impact": "AI辅助诊断是工具而非替代，执业资格、临床操作和医患沟通构成强护城河",
-    "recommendation": "学制长但就业确定性高，医疗健康领域预计新增800万岗位",
-    "salary_trend": "持续上升",
-    "source": "WEF 2025未来就业报告"
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "AI冲击集中在影像诊断/辅助诊断，但执业资格/临床操作/医患关系是强护城河",
+    "surviving_roles": "临床诊疗、手术操作、医患沟通",
+    "recommendation": "学制长是主要障碍（5年本科+3年规培），但就业确定性高。35岁以前基本不赚钱",
+    "confidence": "高",
+    "data_source": "世界经济论坛2025就业报告"
   },
   "口腔医学": {
-    "risk_zone": "🟢",
-    "risk_score": 10,
-    "ai_impact": "口腔操作的精细手工属性和医患互动构成天然护城河，AI难以替代",
-    "recommendation": "就业前景优秀，私立诊所创业路径清晰，强烈推荐",
-    "salary_trend": "持续上升",
-    "source": "WEF 2025未来就业报告"
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "口腔操作高度依赖手工技能，AI替代风险极低",
+    "surviving_roles": "口腔诊疗、正畸、种植",
+    "recommendation": "适合女生、不想太累的学生。就业确定性高，收入可观",
+    "confidence": "高",
+    "data_source": "行业趋势"
   },
   "护理学": {
-    "risk_zone": "🟢",
-    "risk_score": 15,
-    "ai_impact": "老龄化加速推高护理需求，物理操作和情感关怀构成AI替代免疫壁垒",
-    "recommendation": "需求爆发式增长，大城市三甲医院薪资正在提升，推荐",
-    "salary_trend": "上升",
-    "source": "WEF 2025未来就业报告"
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "人口老龄化加速，养老护理员需求爆发式增长，对AI替代能力最为免疫",
+    "surviving_roles": "临床护理、老年照护、护理管理",
+    "recommendation": "维持推荐。大城市三甲医院薪资正在提升。考编岗位多",
+    "confidence": "高",
+    "data_source": "行业趋势 + 人口数据"
+  },
+  "师范": {
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "教师工作的核心（教学互动、学生管理、情感支持）难以被AI替代",
+    "surviving_roles": "学科教学、班主任、教研",
+    "recommendation": "稳定但累，双减后有影响。公费师范生是最优路径",
+    "confidence": "中",
+    "data_source": "行业趋势"
   },
   "汉语言文学": {
-    "risk_zone": "🟢",
-    "risk_score": 25,
-    "ai_impact": "基础文案岗受AI冲击，但考公、教师、编辑等方向有稳定需求",
-    "recommendation": "考公考编是主要稳定路径，需尽早明确职业方向",
-    "salary_trend": "考公稳定，企业文职一般",
-    "source": "智联招聘2025"
+    "risk_zone": "🟢 低风险",
+    "ai_impact": "考公岗位最多的专业之一，AI替代风险低（文字工作需要判断力和文化理解）",
+    "surviving_roles": "公务员、文秘、编辑、教师",
+    "recommendation": "考公大户，适合语文好、申论写作能力强的学生",
+    "confidence": "高",
+    "data_source": "公务员招录数据分析"
   },
-  "师范类": {
-    "risk_zone": "🟢",
-    "risk_score": 20,
-    "ai_impact": "教育的情感互动和个性化辅导不易被AI替代，教师资格构成准入壁垒",
-    "recommendation": "考编路径稳定，AI时代教育反而更需要人的情感引导能力",
-    "salary_trend": "体制内稳定",
-    "source": "WEF 2025未来就业报告"
+  "土木工程": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "房地产市场断崖式下行，行业整体萎缩。传统土木就业路径（设计院/施工单位）持续收缩",
+    "surviving_roles": "基础设施建设（公路/桥梁/隧道）、市政工程",
+    "recommendation": "红利已经过去了。985也要去工地。成绩差的反而可以学（先解决生存）",
+    "confidence": "高",
+    "data_source": "行业数据 + 政策分析"
   },
-  "数据科学与大数据技术": {
-    "risk_zone": "🟢",
-    "risk_score": 22,
-    "ai_impact": "数据驱动决策需求持续增长，数据工程师和分析师是AI时代核心岗位",
-    "recommendation": "方向正确，需具备扎实统计学和编程基础，建议读研深造",
-    "salary_trend": "上升",
-    "source": "智联招聘2025"
+  "建筑学": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "房地产市场不景气，建筑设计行业持续萎缩。AI辅助设计工具进一步压缩入门层",
+    "surviving_roles": "城市规划、绿色建筑、既有建筑改造",
+    "recommendation": "市场不景气。顶尖院校（清华/东南/同济）的建筑仍有品牌价值",
+    "confidence": "高",
+    "data_source": "行业数据"
   },
-  "集成电路设计与集成系统": {
-    "risk_zone": "🟢",
-    "risk_score": 15,
-    "ai_impact": "芯片国产替代是国家战略，AI芯片设计人才极度稀缺",
-    "recommendation": "人才缺口大，薪资高，需强物理和数学基础，强烈推荐",
-    "salary_trend": "快速上升",
-    "source": "智联招聘2025"
+  "市场营销": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "AI营销工具（自动化投放/内容生成/用户分析）大幅替代基础营销岗位",
+    "surviving_roles": "品牌策略、市场研究、高级营销管理",
+    "recommendation": "没有任何壁垒，是个人都能做销售。不推荐",
+    "confidence": "高",
+    "data_source": "行业趋势"
   },
-  "自动化": {
-    "risk_zone": "🟢",
-    "risk_score": 15,
-    "ai_impact": "工业自动化、智能制造、机器人控制是AI时代核心基础设施",
-    "recommendation": "就业面广且抗AI替代，向具身智能/机器人方向延伸潜力巨大",
-    "salary_trend": "稳定上升",
-    "source": "智联招聘2025"
-  },
-  "信息安全": {
-    "risk_zone": "🟢",
-    "risk_score": 20,
-    "ai_impact": "AI带来新安全威胁的同时也催生安全防护需求，网络安全人才缺口持续扩大",
-    "recommendation": "攻防对抗本质不变，AI是工具不是替代，推荐",
-    "salary_trend": "上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "物联网工程": {
-    "risk_zone": "🟢",
-    "risk_score": 22,
-    "ai_impact": "万物互联趋势不可逆，边缘计算与IoT系统设计人才需求增长",
-    "recommendation": "方向有前景，需兼顾硬件和软件能力，关注车联网/工业互联网",
-    "salary_trend": "上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "统计学": {
-    "risk_zone": "🟢",
-    "risk_score": 25,
-    "ai_impact": "AI模型训练和验证需要扎实的统计学基础，数据驱动决策岗位需求增长",
-    "recommendation": "数学功底是核心竞争力，可向数据科学、精算、金融工程等方向延伸",
-    "salary_trend": "稳定上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "能源与动力工程": {
-    "risk_zone": "🟢",
-    "risk_score": 18,
-    "ai_impact": "算力中心散热、新能源发电、储能系统等方向需求旺盛",
-    "recommendation": "AI时代能源需求爆发，向新能源和储能方向发展机会大",
-    "salary_trend": "上升",
-    "source": "智联招聘2025"
-  },
-  "航空航天类": {
-    "risk_zone": "🟢",
-    "risk_score": 18,
-    "ai_impact": "航空航天系统复杂度极高，涉及国家安全，AI替代风险极低",
-    "recommendation": "国防需求稳定，技术门槛高，适合有物理和数学优势的学生",
-    "salary_trend": "稳定上升",
-    "source": "WEF 2025未来就业报告"
-  },
-  "生物医学工程": {
-    "risk_zone": "🟢",
-    "risk_score": 25,
-    "ai_impact": "医疗AI器械和可穿戴设备方向快速增长，但需要跨学科能力",
-    "recommendation": "交叉学科优势明显，建议结合AI医疗影像或康复工程方向",
-    "salary_trend": "上升",
-    "source": "WEF 2025未来就业报告"
+  "哲学": {
+    "risk_zone": "🔴 高风险",
+    "ai_impact": "无直接对口就业市场，AI对学术研究辅助反而增强了哲学的价值，但就业基本面不变",
+    "surviving_roles": "学术研究、党校/宣传部公务员、出版",
+    "recommendation": "可以当兴趣不能当饭吃。除非明确走学术/考公方向",
+    "confidence": "高",
+    "data_source": "就业数据分析"
   }
 }
