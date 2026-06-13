@@ -38,3 +38,15 @@ def test_risk_summary_format():
     summary = get_risk_summary("计算机科学与技术")
     assert summary is not None
     assert "风险" in summary or "建议" in summary
+
+
+def test_empty_string_returns_none():
+    """Empty string should return None, not match every major."""
+    risk = get_major_risk("")
+    assert risk is None
+
+
+def test_none_returns_none():
+    """None input should return None gracefully."""
+    risk = get_major_risk(None)
+    assert risk is None
