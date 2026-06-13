@@ -12,7 +12,13 @@ router = APIRouter(prefix="/api/v1", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(
+        ...,
+        min_length=4,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9_\-]+$",
+        description="会话ID：4-64位字母数字下划线连字符",
+    )
     scene: str = "gaokao"
     message: str = Field(..., min_length=1, max_length=3000)
     slots: dict | None = None
