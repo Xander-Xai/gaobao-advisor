@@ -1,11 +1,11 @@
 {
-  "last_run": "2026-06-13T09:44:17.515231",
-  "school_index": 270,
+  "last_run": "2026-06-13T10:01:50.483188",
+  "school_index": 290,
   "total_schools": 3000,
-  "current_school": "河南师范大学",
+  "current_school": "内蒙古农业大学",
   "stats": {
-    "requests": 32776,
-    "new_scores": 39074,
+    "requests": 36016,
+    "new_scores": 43142,
     "errors": 0
   }
 }
