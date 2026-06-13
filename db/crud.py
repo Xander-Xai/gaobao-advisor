@@ -399,9 +399,15 @@ def save_slots(db: Session, session_id: str, slots: dict) -> None:
     conv = get_or_create_conversation(db, session_id)
     conv.slots_json = json.dumps(slots, ensure_ascii=False)
     # 同步核心字段，方便查询
-    conv.province = slots.get("province", {}).get("value", "") or None
-    conv.score_rank = slots.get("score_rank", {}).get("value", "") or None
-    conv.subject = slots.get("subject", {}).get("value", "") or None
+    # 支持两种格式：扁平 {"province": "湖北"} 和嵌套 {"province": {"value": "湖北"}}
+    def _val(v):
+        if isinstance(v, dict):
+            return v.get("value", "") or None
+        return v or None
+
+    conv.province = _val(slots.get("province"))
+    conv.score_rank = _val(slots.get("score_rank") or slots.get("score"))
+    conv.subject = _val(slots.get("subject"))
     db.commit()
 
 

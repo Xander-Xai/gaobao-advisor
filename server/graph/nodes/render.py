@@ -22,7 +22,7 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     existing_reply = state.get("reply", "")
     if existing_reply:
         # LLM already generated the reply, just append disclaimer if not already present
-        if not existing_reply.rstrip().endswith("---"):
+        if "声明：以上分析基于" not in existing_reply:
             final_reply = existing_reply + _DISCLAIMER
         else:
             final_reply = existing_reply

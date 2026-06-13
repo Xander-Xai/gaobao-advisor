@@ -1,4 +1,4 @@
-"""LangGraph advisor graph — wires all 13 nodes into a compiled pipeline."""
+"""LangGraph advisor graph — wires all 14 nodes into a compiled pipeline."""
 from __future__ import annotations
 
 from langgraph.graph import StateGraph, END
@@ -36,7 +36,7 @@ def build_advisor_graph():
     """Build and compile the advisor StateGraph."""
     graph = StateGraph(AdvisorState)
 
-    # ── Register all 13 nodes ─────────────────────────────────
+    # ── Register all 14 nodes ─────────────────────────────────
     graph.add_node("security_scan", security_scan_node)
     graph.add_node("intent_detect", intent_detect_node)
     graph.add_node("scene_route", scene_route_node)
