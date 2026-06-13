@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server import __version__
+from server.middleware.security import SecurityMiddleware
 from server.routes.health import router as health_router
 
 
@@ -22,6 +23,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+app.add_middleware(SecurityMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
