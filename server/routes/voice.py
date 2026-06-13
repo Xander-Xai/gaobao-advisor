@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -9,6 +10,8 @@ from server.graph.graph import get_advisor_graph
 from server.services.voice import get_voice_service
 
 router = APIRouter(tags=["voice"])
+
+_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{4,64}$")
 
 
 @router.websocket("/ws/call")
@@ -27,6 +30,15 @@ async def voice_call(
     - Server sends: {"type": "tts_start"} / {"type": "tts_end"} for TTS lifecycle
     """
     await websocket.accept()
+
+    # Validate session_id
+    if not _SESSION_ID_RE.match(session_id):
+        await websocket.send_json(
+            {"type": "error", "message": "session_id 格式无效：4-64位字母数字下划线连字符"}
+        )
+        await websocket.close(code=4000, reason="invalid session_id")
+        return
+
     voice_service = get_voice_service()
     graph = get_advisor_graph()
     session_messages: list[dict[str, str]] = []
