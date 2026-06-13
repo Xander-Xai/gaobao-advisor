@@ -1,5 +1,5 @@
 """
-ORM 模型 — 10 张表（院校/专业/分数线/招生计划/学科排名/对话/消息/位次/金句/反馈）
+ORM 模型 — 13 张表（院校/专业/分数线/招生计划/学科排名/对话/消息/位次/金句/反馈/考研院校/考研分数线/职业趋势）
 """
 import datetime
 
@@ -232,4 +232,65 @@ class Feedback(Base):
 
     def __repr__(self):
         return f"<Feedback({self.session_id}, #{self.message_index}, {self.rating})>"
+
+
+# ── 考研相关 ──
+
+class GraduateProgram(Base):
+    """考研院校专业"""
+    __tablename__ = "graduate_program"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    school_name = Column(String(100), nullable=False, index=True)
+    school_level = Column(String(20))  # 985/211/双一流/普通
+    province = Column(String(20))
+    major_name = Column(String(100), nullable=False)
+    major_category = Column(String(50))
+    degree_type = Column(String(20))  # 学硕/专硕
+    acceptance_rate = Column(Float)  # 报录比
+    avg_score = Column(Integer)  # 平均录取分
+    plan_count = Column(Integer)  # 招生计划数
+
+    __table_args__ = (
+        Index("idx_grad_program_school_major", "school_name", "major_name"),
+    )
+
+    def __repr__(self):
+        return f"<GraduateProgram({self.school_name}, {self.major_name})>"
+
+
+class GraduateScore(Base):
+    """考研分数线"""
+    __tablename__ = "graduate_score"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    program_id = Column(Integer, ForeignKey("graduate_program.id"))
+    year = Column(Integer, nullable=False)
+    subject_type = Column(String(20))
+    total_score = Column(Integer)
+    politics_score = Column(Integer)
+    english_score = Column(Integer)
+    major_score = Column(Integer)
+
+    def __repr__(self):
+        return f"<GraduateScore(program={self.program_id}, year={self.year}, total={self.total_score})>"
+
+
+# ── 职业相关 ──
+
+class CareerTrend(Base):
+    """职业趋势数据"""
+    __tablename__ = "career_trend"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    major_name = Column(String(100), index=True)
+    industry = Column(String(100))
+    job_title = Column(String(100))
+    salary_median = Column(Integer)  # 月薪中位数（元）
+    employment_rate = Column(Float)  # 就业率
+    growth_rate = Column(Float)  # 增长率
+    year = Column(Integer)
+
+    def __repr__(self):
+        return f"<CareerTrend({self.major_name}, {self.job_title}, {self.salary_median})>"
 

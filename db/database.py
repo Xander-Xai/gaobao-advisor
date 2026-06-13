@@ -72,7 +72,7 @@ def is_db_connected() -> bool:
 
 def init_db():
     """创建所有表"""
-    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight  # noqa
+    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight, GraduateProgram, GraduateScore, CareerTrend  # noqa
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _lock_db_permissions(DB_PATH)
