@@ -1,10 +1,23 @@
 """Skill methodology service — loads skill files and builds strategy/context."""
 from __future__ import annotations
 
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+class Scene(str, Enum):
+    """Supported conversation scenes."""
+    GAOKAO = "gaokao"
+    KAO_YAN = "kaoyan"
+    CAREER = "career"
+    GENERAL = "general"
+
+
+# Maximum number of missing fields to display in prompts
+_MAX_DISPLAY_FIELDS = 3
 
 
 class SkillStrategy(BaseModel):
@@ -95,7 +108,7 @@ class SkillService:
     def build_strategy(self, scene: str) -> SkillStrategy:
         """Build a structured strategy for the given scene."""
         self.load_assets()
-        if scene == "gaokao":
+        if scene == Scene.GAOKAO:
             return SkillStrategy(
                 scene=scene,
                 heuristics=_GAOKAO_HEURISTICS,
@@ -113,7 +126,7 @@ class SkillService:
         if self._safety_rules:
             parts.append(self._safety_rules)
 
-        if scene == "gaokao":
+        if scene == Scene.GAOKAO:
             if self._mental_models:
                 parts.append(self._mental_models)
             if self._heuristics_text:
@@ -143,12 +156,12 @@ class SkillService:
         }
 
         lead = {
-            "gaokao": "你先别急着让我直接报学校。",
-            "kaoyan": "你先别急着定考研还是就业。",
-            "career": "你先别急着换方向。",
+            Scene.GAOKAO: "你先别急着让我直接报学校。",
+            Scene.KAO_YAN: "你先别急着定考研还是就业。",
+            Scene.CAREER: "你先别急着换方向。",
         }.get(scene, "你先别急着下结论。")
 
-        labels = [field_labels.get(f, f) for f in missing_fields[:3]]
+        labels = [field_labels.get(f, f) for f in missing_fields[:_MAX_DISPLAY_FIELDS]]
         if not labels:
             return f"{lead} 你先把情况说说，我帮你看看。"
 
