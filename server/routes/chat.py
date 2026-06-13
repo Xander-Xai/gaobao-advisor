@@ -1,4 +1,5 @@
 """Chat endpoint with SSE streaming — backed by LangGraph workflow."""
+import asyncio
 import json
 
 from fastapi import APIRouter
@@ -33,7 +34,7 @@ async def _sse_generator(
         "messages": [],
         "trace": [],
     }
-    result = graph.invoke(initial_state)
+    result = await asyncio.get_event_loop().run_in_executor(None, graph.invoke, initial_state)
 
     # Emit updated slots
     if result.get("slots"):

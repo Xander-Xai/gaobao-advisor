@@ -17,7 +17,7 @@ from server.graph.nodes.reason import reason_node
 from server.graph.nodes.structure import structure_output_node
 from server.graph.nodes.llm_node import llm_node
 from server.graph.nodes.render import render_reply_node
-from server.graph.nodes.memory import memory_update_node
+from server.graph.nodes.memory import memory_node as memory_update_node
 
 
 def _profile_has_data(state: AdvisorState) -> str:

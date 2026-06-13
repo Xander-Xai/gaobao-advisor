@@ -21,7 +21,11 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     # If reply already set (LLM, question, or security), append disclaimer
     existing_reply = state.get("reply", "")
     if existing_reply:
-        final_reply = existing_reply + _DISCLAIMER
+        # LLM already generated the reply, just append disclaimer if not already present
+        if not existing_reply.rstrip().endswith("---"):
+            final_reply = existing_reply + _DISCLAIMER
+        else:
+            final_reply = existing_reply
         trace = list(state.get("trace", []))
         trace.append({"node": "render_reply", "event": "llm_reply_with_disclaimer"})
         return {"reply": final_reply, "trace": trace}
