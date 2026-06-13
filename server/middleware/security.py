@@ -155,7 +155,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 body = await request.json()
                 message = body.get("message", "")
                 if detect_injection(message):
-                    raise HTTPException(status_code=400, detail="输入内容包含不允许的指令")
+                    from starlette.responses import JSONResponse
+                    return JSONResponse(status_code=400, content={"detail": "输入内容包含不允许的指令"})
                 # Sanitize: strip HTML tags and enforce length limit
                 sanitized = sanitize_input(message)
                 body["message"] = sanitized
@@ -163,8 +164,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 import json as _json
                 raw_body = _json.dumps(body).encode("utf-8")
                 request._body = raw_body
-            except HTTPException:
-                raise
             except Exception:
                 pass
         response = await call_next(request)
