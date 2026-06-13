@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server import __version__
+from server.middleware.ratelimit import RateLimitMiddleware
 from server.middleware.security import SecurityMiddleware
 from server.routes.health import router as health_router
 
@@ -32,7 +33,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Security second (will be outermost = first to inspect request)
+# Security (middle)
 app.add_middleware(SecurityMiddleware)
+# Rate limit (outermost = first to inspect request)
+app.add_middleware(RateLimitMiddleware, rate=20, capacity=40)
 
 app.include_router(health_router)
