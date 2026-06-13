@@ -7,6 +7,7 @@
       <MessageInput />
     </div>
     <AppRightPanel class="w-80 border-l border-gray-200" />
+    <VoiceModal :visible="voiceStore.showModal" />
   </div>
 </template>
 <script setup>
@@ -15,4 +16,7 @@ import AppHeader from '../components/layout/AppHeader.vue'
 import ChatArea from '../components/chat/ChatArea.vue'
 import MessageInput from '../components/chat/MessageInput.vue'
 import AppRightPanel from '../components/layout/AppRightPanel.vue'
+import VoiceModal from '../components/voice/VoiceModal.vue'
+import { useVoiceStore } from '../stores/voice'
+const voiceStore = useVoiceStore()
 </script>

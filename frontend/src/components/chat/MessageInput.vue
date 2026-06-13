@@ -5,6 +5,11 @@
         placeholder="请输入您的省份、分数和兴趣方向..."
         class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         rows="1" :disabled="chat.isStreaming" />
+      <button @click="voiceStore.open()"
+        class="rounded-xl bg-gray-100 px-4 py-3 text-gray-600 hover:bg-gray-200 transition-colors text-xl"
+        title="语音模式">
+        🎤
+      </button>
       <button @click="send" :disabled="!input.trim() || chat.isStreaming"
         class="rounded-xl bg-blue-600 px-5 py-3 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
         发送
@@ -16,7 +21,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useChatStore } from '../../stores/chat'
+import { useVoiceStore } from '../../stores/voice'
 const chat = useChatStore()
+const voiceStore = useVoiceStore()
 const input = ref('')
 async function send() {
   const text = input.value.trim()
