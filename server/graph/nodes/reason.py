@@ -10,7 +10,7 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
 
     This node builds a structured reasoning string that captures the
     key facts, data, and knowledge to inform the final response.
-    In a full LLM pipeline, this would feed into the generation prompt.
+    Includes skill methodology context when available.
     """
     slots = state.get("slots", {})
     data = state.get("data_query_results", {})
@@ -45,10 +45,10 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
         if rank_info:
             parts.append(f"分数位次: {rank_info}")
 
-    # Knowledge context
+    # Knowledge context (includes skill methodology)
     if knowledge:
-        truncated = knowledge[:500]
-        parts.append(f"知识库: {truncated}")
+        truncated = knowledge[:800]
+        parts.append(f"方法论与知识:\n{truncated}")
 
     # Expert quotes
     if quotes:

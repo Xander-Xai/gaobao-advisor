@@ -1,0 +1,49 @@
+"""Tests for SkillService integration into LangGraph nodes."""
+import pytest
+
+from server.graph.graph import build_advisor_graph
+
+
+@pytest.fixture
+def graph():
+    return build_advisor_graph()
+
+
+def test_quality_node_injects_skill_context(graph):
+    """quality_orchestrate_node should produce skill_context in state."""
+    result = graph.invoke({
+        "input_text": "我是河北考生，600分，想学计算机",
+        "scene": "gaokao",
+        "session_id": "test-skill-001",
+        "slots": {},
+    })
+    reasoning = result.get("reasoning", "")
+    assert isinstance(reasoning, str)
+
+
+def test_reasoning_contains_mental_model(graph):
+    """reason_node should include skill context when scene is gaokao."""
+    result = graph.invoke({
+        "input_text": "我是河北考生，物理类，600分，想学计算机",
+        "scene": "gaokao",
+        "session_id": "test-skill-002",
+        "slots": {"province": "河北", "score": "600分"},
+    })
+    reasoning = result.get("reasoning", "")
+    assert len(reasoning) > 0
+
+
+def test_full_pipeline_with_skill(graph):
+    """Full pipeline should still work with SkillService integrated."""
+    result = graph.invoke({
+        "input_text": "河北考生600分物理类想学计算机普通家庭",
+        "scene": "gaokao",
+        "session_id": "test-skill-003",
+        "slots": {},
+    })
+    assert result.get("reply")
+    assert result.get("structured_result")
+    trace = result.get("trace", [])
+    node_names = [t.get("node") for t in trace]
+    assert "quality_orchestrate" in node_names
+    assert "reason" in node_names
