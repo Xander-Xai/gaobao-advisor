@@ -4,7 +4,7 @@ SQLite 数据库连接 — 零依赖外部服务，开箱即用
 import os
 import stat
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +32,14 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     echo=False,
 )
+
+# Enable WAL mode for better concurrent read/write performance
+@event.listens_for(engine, "connect")
+def _set_wal_mode(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
