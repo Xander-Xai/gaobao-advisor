@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from server.graph.graph import get_advisor_graph
+from server.graph.nodes.llm_node import llm_node_stream
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -30,7 +31,12 @@ async def _sse_generator(
     message: str,
     existing_slots: dict | None,
 ):
-    """Yield SSE events for a chat response via the LangGraph pipeline."""
+    """Yield SSE events for a chat response via the LangGraph pipeline.
+
+    Two-phase streaming:
+    1. Run graph up to LLM node (yields metadata: slots, emotion, structured)
+    2. Stream LLM tokens in real-time via llm_node_stream
+    """
     graph = get_advisor_graph()
     initial_state = {
         "session_id": session_id,
@@ -40,6 +46,8 @@ async def _sse_generator(
         "messages": [],
         "trace": [],
     }
+
+    # Phase 1: Run graph (synchronous, offloaded to thread)
     result = await asyncio.to_thread(graph.invoke, initial_state)
 
     # Emit updated slots
@@ -50,16 +58,25 @@ async def _sse_generator(
     if result.get("emotion_state"):
         yield f"data: {json.dumps({'type': 'emotion', 'state': result['emotion_state']})}\n\n"
 
-    # Stream reply text in chunks
-    reply = result.get("reply", "抱歉，暂时无法处理您的请求。")
-    chunk_size = 20
-    for i in range(0, len(reply), chunk_size):
-        chunk = reply[i : i + chunk_size]
-        yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
-
     # Emit structured result if present
     if result.get("structured_result"):
         yield f"data: {json.dumps({'type': 'structured', 'result': result['structured_result']})}\n\n"
+
+    # Phase 2: Stream LLM tokens in real-time
+    if result.get("reply"):
+        # Non-LLM reply (security block, question generation): emit in chunks
+        reply = result["reply"]
+        chunk_size = 20
+        for i in range(0, len(reply), chunk_size):
+            chunk = reply[i : i + chunk_size]
+            yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+    else:
+        # LLM reply: stream tokens one by one
+        full_reply = []
+        for token in llm_node_stream(result):
+            full_reply.append(token)
+            yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+        result["reply"] = "".join(full_reply)
 
     yield f"data: {json.dumps({'type': 'done', 'message_id': f'{session_id}-response'})}\n\n"
 

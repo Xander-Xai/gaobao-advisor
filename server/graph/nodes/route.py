@@ -6,7 +6,7 @@ from typing import Any
 # Required slot keys for each scene
 SCENE_CONFIGS: dict[str, dict[str, list[str]]] = {
     "gaokao": {
-        "required_slots": ["province", "score", "subject", "interest"],
+        "required_slots": ["province", "score_rank", "subject", "interest"],
     },
     "kaoyan": {
         "required_slots": ["interest", "goal"],

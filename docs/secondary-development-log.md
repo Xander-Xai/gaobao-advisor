@@ -273,3 +273,65 @@ cdcfb29 feat: 增强专业红黑名单条件化推理 + 决策树
 3. **前端结构化卡片展示**：在 Streamlit 或 Vue3 前端中展示 StructuredPlanningCard 的 facts/suggestions/risks/next_actions
 4. **语音通话**：待高考数据层做到极致后，可考虑引入 EduAgent 的语音实现
 5. **多场景扩展**：先建设考研数据层（院校/专业/分数线），再扩展场景
+
+---
+
+# 第三轮整合 — zhangxuefeng-skill-merged 金句溯源 + 叙事知识 + 硬规则
+
+## 日期
+
+2026-06-14
+
+## 背景
+
+zhangxuefeng-skill-merged 项目（1184 行 Markdown / 8 文件）是一个张雪峰 persona 技能包。经过深度代码级分析发现：
+
+- 其方法论内容（5 模型/8 启发/8 反模式/3 档情绪/9 故障自愈）**已被 gaobao-advisor 在 v2.6-v2.10 完全吸收**
+- 真实缺口仅 3 块，本次方案据此重写为 3 Phase
+
+## 整合内容
+
+### Phase 1: 金句溯源
+
+将 zhangxuefeng 50 句原版金句（带出处、年份、来源详情）写入 RAG：
+
+- 文件：`knowledge/quotes/zhangxuefeng_originals.json`
+- 代码层：扩展 `QuoteEntry` 增加 `source`/`year` 字段
+- 检索：`_select_top_quotes` 增加 ZX 触发词额外 +0.5 召回提升
+- 触发词：张雪峰/雪峰/演说家/综艺/直播里讲/主播说/讲座说过
+- 测试：13 个，全部通过
+
+### Phase 2: 叙事知识入 RAG
+
+将 zhangxuefeng 的 5 个研究文件（5 本书/15 采访/11 决策/4 盲点/24 年时间线）整合为 G9 知识组：
+
+- 文件：`knowledge/groups/G9_zhangxuefeng_methodology_origin.md`（7 节，精简整合，<100 行/节）
+- 触发词：张雪峰/方法论溯源/为什么这么说/批评/盲点/演说家/决策/时空
+- 测试：15 个，全部通过
+
+### Phase 3: 数据来源标注硬规则
+
+将 zhangxuefeng-skill-merged SKILL.md 的 6 条来源标注格式升级为代码层后处理：
+
+- 新增 `server/graph/nodes/source_attribution.py`：`validate_source_attribution` 函数
+- 集成到 `render.py`：两个路径（LLM 回复 + 系统组装回复）都过后处理
+- Prompt 层：`system_prompt.md` 新增"数据来源标注硬规则"章节
+- 安全数字豁免：年份/序号/月份/第 N/免责声明
+- 测试：20 个，全部通过
+
+## 总览
+
+| 维度 | 数值 |
+|------|------|
+| 新增文件 | 6 个 |
+| 修改文件 | 4 个 + CHANGELOG |
+| 新增测试 | 48 个（3 文件） |
+| 全量测试 | 538 通过，0 失败 |
+| system_prompt | v2.7 → v2.11 |
+
+## 核心决策
+
+1. **不做张雪峰 persona 模式** — 只吸收方法论和调研资料，不引入角色切换
+2. **金句走 RAG 检索** — 不注入 system_prompt，top-3-5 按场景召回
+3. **硬规则做正则后处理** — 不依赖 LLM 自觉遵守规则
+

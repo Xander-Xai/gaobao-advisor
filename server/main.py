@@ -21,6 +21,20 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     from db.database import init_db
     init_db()
+
+    # Initialize RAG with knowledge base paths
+    from server.services.rag import configure as configure_rag
+    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _groups_dir = os.path.join(_project_root, "knowledge", "groups")
+    _quotes_dir = os.path.join(_project_root, "knowledge", "quotes")
+    if os.path.isdir(_groups_dir):
+        configure_rag(groups_dir=_groups_dir, quotes_path=_quotes_dir)
+    else:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Knowledge groups dir not found: %s — RAG disabled", _groups_dir
+        )
+
     yield
 
 

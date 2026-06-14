@@ -7,7 +7,7 @@ from typing import Any
 QUESTION_BANK: dict[str, dict[str, str]] = {
     "gaokao": {
         "province": "请问您是哪个省的考生呢？",
-        "score": "请问您的高考分数是多少分？",
+        "score_rank": "请问您的高考分数是多少分？",
         "subject": "请问您是文科还是理科？或者新高考选科组合是什么？",
         "interest": "请问您对哪些专业方向比较感兴趣呢？",
         "region": "您对学校所在地区有什么偏好吗？",

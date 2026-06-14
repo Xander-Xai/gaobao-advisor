@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from server.graph.nodes.source_attribution import validate_source_attribution
+
 # Disclaimer suffix appended to all advice
 _DISCLAIMER = (
     "\n\n---\n"
@@ -18,10 +20,14 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     security_scan), pass it through unchanged.  Otherwise, assemble
     a reply from the structured result and reasoning.
     """
-    # If reply already set (LLM, question, or security), append disclaimer
+    # 如果 reply 已有,校验来源标注(在追加 disclaimer 前),然后追加 disclaimer
     existing_reply = state.get("reply", "")
     if existing_reply:
-        # LLM already generated the reply, just append disclaimer if not already present
+        try:
+            existing_reply = validate_source_attribution(existing_reply)
+        except Exception:
+            # 校验失败不阻塞流程
+            pass
         if "声明：以上分析基于" not in existing_reply:
             final_reply = existing_reply + _DISCLAIMER
         else:
@@ -79,7 +85,14 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
         if reasoning:
             parts.append(reasoning[:500])
 
-    reply = "\n".join(parts) + _DISCLAIMER
+    # Phase 3: 先校验来源标注,再追加 disclaimer(避免 disclaimer 干扰标注)
+    reply = "\n".join(parts)
+    try:
+        reply = validate_source_attribution(reply)
+    except Exception:
+        # 校验失败不阻塞流程
+        pass
+    reply = reply + _DISCLAIMER
 
     trace = list(state.get("trace", []))
     trace.append({"node": "render_reply", "event": "reply_built"})
