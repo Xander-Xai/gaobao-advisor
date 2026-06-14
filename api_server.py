@@ -3,6 +3,7 @@
 提供 RESTful 接口供 H5/小程序调用。
 启动方式: uvicorn api_server:app --host 0.0.0.0 --port 8000
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ async def rate_limit_middleware(request, call_next):
         )
     return await call_next(request)
 
+
 # CORS 支持（H5 页面跨域调用）
 # 允许来源由 ALLOWED_ORIGINS 环境变量控制，默认为空（仅同源）
 # 生产环境应设置为: http://your-h5-domain.com 或 https://your-domain.com
@@ -73,7 +75,9 @@ async def root():
         return FileResponse(index_path)
     return {"message": "高报Agent API 已启动", "docs": "/docs", "health": "/api/health"}
 
+
 # ── 请求/响应模型 ──
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -82,6 +86,7 @@ class ChatRequest(BaseModel):
     def model_post_init(self, __context) -> None:
         if self.session_id is not None:
             import re
+
             if not re.match(r"^[a-zA-Z0-9_\-]{4,64}$", self.session_id):
                 raise ValueError("session_id 格式无效：4-64位字母数字下划线连字符")
 
@@ -97,6 +102,7 @@ class ResetRequest(BaseModel):
 
     def model_post_init(self, __context) -> None:
         import re
+
         if not re.match(r"^[a-zA-Z0-9_\-]{4,64}$", self.session_id):
             raise ValueError("session_id 格式无效：4-64位字母数字下划线连字符")
 
@@ -118,9 +124,7 @@ def _get_advisor(session_id: str) -> GaokaoAdvisor:
     now = time.time()
 
     # 淘汰所有超时的会话（TTL 过期）
-    expired = [
-        sid for sid, ts in _session_timestamps.items() if now - ts > SESSION_TTL
-    ]
+    expired = [sid for sid, ts in _session_timestamps.items() if now - ts > SESSION_TTL]
     for sid in expired:
         _advisors.pop(sid, None)
         _session_timestamps.pop(sid, None)
@@ -143,6 +147,7 @@ def _get_advisor(session_id: str) -> GaokaoAdvisor:
 
 
 # ── 接口 ──
+
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
@@ -172,12 +177,15 @@ async def chat_stream(req: ChatRequest):
     def event_stream():
         for chunk in advisor.chat_stream(req.message):
             if chunk.startswith("|||FINAL|||"):
-                final_reply = chunk[len("|||FINAL|||"):]
-                done_payload = json.dumps({
-                    "done": True,
-                    "reply": final_reply,
-                    "slots": advisor.slots,
-                }, ensure_ascii=False)
+                final_reply = chunk[len("|||FINAL|||") :]
+                done_payload = json.dumps(
+                    {
+                        "done": True,
+                        "reply": final_reply,
+                        "slots": advisor.slots,
+                    },
+                    ensure_ascii=False,
+                )
                 yield f"data: {done_payload}\n\n"
             else:
                 yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"

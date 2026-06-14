@@ -1,5 +1,4 @@
 """Tests for the AI-era risk assessment data module."""
-import pytest
 
 from quality.ai_era_risk import get_major_risk, get_risk_summary
 

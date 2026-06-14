@@ -5,6 +5,7 @@
 支持 6 个知识组的按需检索和语录语义匹配，
 通过环境变量 ENABLE_RAG_KB 控制开关。
 """
+
 from __future__ import annotations
 
 import json
@@ -23,6 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 @dataclass
 class Chunk:
     """一个语义完整的知识片段。"""
+
     text: str
     group_id: str
     embedding: np.ndarray | None = None
@@ -33,66 +35,153 @@ class Chunk:
 @dataclass
 class QuoteEntry:
     """一条语录及其元数据。"""
+
     id: str
     text: str
-    major: str           # 所属专业关键词（JSON key）
+    major: str  # 所属专业关键词（JSON key）
     tags: list[str] = field(default_factory=list)
     category: str = ""
     sentiment: str = ""
     embedding: np.ndarray | None = None
-    source: str = ""     # 出处（节目/直播/讲座）
-    year: int = 0        # 发表年份（0=长期/未知）
+    source: str = ""  # 出处（节目/直播/讲座）
+    year: int = 0  # 发表年份（0=长期/未知）
 
 
 @dataclass
 class RetrievalResult:
     """检索结果。"""
-    groups: list[str]         # 选中的知识组 ID 列表
+
+    groups: list[str]  # 选中的知识组 ID 列表
     group_chunks: list[Chunk] = field(default_factory=list)
     quotes: list[QuoteEntry] = field(default_factory=list)
 
 
 GROUP_TRIGGERS: dict[str, list[str]] = {
     "G1_core_method": [
-        "志愿", "填报", "冲稳保", "冲一冲", "稳一稳", "保一保",
-        "位次", "投档", "滑档", "退档", "灵魂拷问", "咨询风格",
+        "志愿",
+        "填报",
+        "冲稳保",
+        "冲一冲",
+        "稳一稳",
+        "保一保",
+        "位次",
+        "投档",
+        "滑档",
+        "退档",
+        "灵魂拷问",
+        "咨询风格",
     ],
     "G2_major_school": [
-        "专业", "学校", "985", "211", "双一流", "院校",
-        "学科评估", "天坑", "推荐专业", "就业率", "薪资", "转专业",
-        "选专业", "报学校",
+        "专业",
+        "学校",
+        "985",
+        "211",
+        "双一流",
+        "院校",
+        "学科评估",
+        "天坑",
+        "推荐专业",
+        "就业率",
+        "薪资",
+        "转专业",
+        "选专业",
+        "报学校",
     ],
     "G3_career_future": [
-        "就业", "前景", "AI",
-        "人工智能", "大模型", "毕业", "出路",
-        "行业", "趋势", "市场", "薪资",
-        "体制内", "考公", "考编",
+        "就业",
+        "前景",
+        "AI",
+        "人工智能",
+        "大模型",
+        "毕业",
+        "出路",
+        "行业",
+        "趋势",
+        "市场",
+        "薪资",
+        "体制内",
+        "考公",
+        "考编",
     ],
     "G4_life_planning": [
-        "城市", "地域", "北上广", "专科", "高中规划",
-        "选科", "新高考", "实习", "发展空间",
+        "城市",
+        "地域",
+        "北上广",
+        "专科",
+        "高中规划",
+        "选科",
+        "新高考",
+        "实习",
+        "发展空间",
     ],
     "G5_data_format": [
-        "数据", "可信度", "格式", "模板",
+        "数据",
+        "可信度",
+        "格式",
+        "模板",
     ],
     "G6_quick_ref": [
-        "速查", "一览", "对照", "快速",
+        "速查",
+        "一览",
+        "对照",
+        "快速",
     ],
     "G7_employment_paths": [
-        "教师", "医生", "公务员", "考公", "考编", "国企", "央企",
-        "电网", "铁路", "烟草", "军工", "航天", "银行", "编制",
-        "稳定就业", "铁饭碗", "央国企", "石油", "就业路径",
+        "教师",
+        "医生",
+        "公务员",
+        "考公",
+        "考编",
+        "国企",
+        "央企",
+        "电网",
+        "铁路",
+        "烟草",
+        "军工",
+        "航天",
+        "银行",
+        "编制",
+        "稳定就业",
+        "铁饭碗",
+        "央国企",
+        "石油",
+        "就业路径",
     ],
     "G8_graduate_and_vocational": [
-        "考研", "研究生", "专硕", "学硕", "研招", "二战", "读研",
-        "专科", "双高", "高职", "专升本", "升本率",
+        "考研",
+        "研究生",
+        "专硕",
+        "学硕",
+        "研招",
+        "二战",
+        "读研",
+        "专科",
+        "双高",
+        "高职",
+        "专升本",
+        "升本率",
     ],
     "G9_zhangxuefeng_methodology_origin": [
-        "张雪峰", "雪峰", "方法论溯源", "为什么这么说",
-        "张雪峰的故事", "张雪峰的经历", "他的人生",
-        "他者视角", "批评", "盲点", "局限",
-        "访谈", "说过", "行为模式", "决策",
-        "《演说家》", "综艺", "直播", "讲座", "雪峰蔚来",
+        "张雪峰",
+        "雪峰",
+        "方法论溯源",
+        "为什么这么说",
+        "张雪峰的故事",
+        "张雪峰的经历",
+        "他的人生",
+        "他者视角",
+        "批评",
+        "盲点",
+        "局限",
+        "访谈",
+        "说过",
+        "行为模式",
+        "决策",
+        "《演说家》",
+        "综艺",
+        "直播",
+        "讲座",
+        "雪峰蔚来",
     ],
 }
 
@@ -100,8 +189,14 @@ GROUP_TRIGGERS: dict[str, list[str]] = {
 # 张雪峰原版金句触发词——提及这些时优先召回 zhangxuefeng 金句
 # 谨慎选择:只保留"非他不可"的强信号,避免"他说的""综艺"等宽泛词误触
 _ZX_TRIGGERS: list[str] = [
-    "张雪峰", "雪峰", "演说家", "直播里讲", "主播说",
-    "讲座说过", "他者视角", "盲点",
+    "张雪峰",
+    "雪峰",
+    "演说家",
+    "直播里讲",
+    "主播说",
+    "讲座说过",
+    "他者视角",
+    "盲点",
 ]
 
 
@@ -115,12 +210,14 @@ def split_group(content: str, group_id: str) -> list[Chunk]:
     for i, line in enumerate(content.split("\n"), start=1):
         if line.startswith("## "):
             if current_text.strip():
-                chunks.append(Chunk(
-                    text=current_text.strip(),
-                    group_id=group_id,
-                    start_line=start_line,
-                    section_title=current_title,
-                ))
+                chunks.append(
+                    Chunk(
+                        text=current_text.strip(),
+                        group_id=group_id,
+                        start_line=start_line,
+                        section_title=current_title,
+                    )
+                )
             current_title = line[3:].strip()
             current_text = line + "\n"
             start_line = i
@@ -128,12 +225,14 @@ def split_group(content: str, group_id: str) -> list[Chunk]:
             current_text += line + "\n"
 
     if current_text.strip():
-        chunks.append(Chunk(
-            text=current_text.strip(),
-            group_id=group_id,
-            start_line=start_line,
-            section_title=current_title,
-        ))
+        chunks.append(
+            Chunk(
+                text=current_text.strip(),
+                group_id=group_id,
+                start_line=start_line,
+                section_title=current_title,
+            )
+        )
 
     return chunks
 
@@ -174,15 +273,17 @@ def keyword_exact_match(user_msg: str, keyword: str) -> bool:
 
 class EmbeddingProvider:
     """Embedding API 的抽象接口。"""
+
     def embed(self, texts: list[str]) -> list[np.ndarray]:
         raise NotImplementedError
 
 
 class OpenAIEmbedding(EmbeddingProvider):
     """通过 OpenAI 兼容 API 计算 embedding。"""
-    def __init__(self, model: str = "text-embedding-3-small",
-                 api_key: str | None = None, base_url: str | None = None):
+
+    def __init__(self, model: str = "text-embedding-3-small", api_key: str | None = None, base_url: str | None = None):
         from openai import OpenAI
+
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
 
@@ -194,19 +295,18 @@ class OpenAIEmbedding(EmbeddingProvider):
         # the input array length at 32 per request.
         batch_size = 32
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+            batch = texts[i : i + batch_size]
             resp = self._client.embeddings.create(model=self._model, input=batch)
-            all_embeddings.extend(
-                np.array(item.embedding, dtype=np.float32) for item in resp.data
-            )
+            all_embeddings.extend(np.array(item.embedding, dtype=np.float32) for item in resp.data)
         return all_embeddings
 
 
 class OllamaEmbedding(EmbeddingProvider):
     """通过 Ollama 本地 API 计算 embedding。"""
-    def __init__(self, model: str = "bge-m3",
-                 base_url: str = "http://localhost:11434"):
+
+    def __init__(self, model: str = "bge-m3", base_url: str = "http://localhost:11434"):
         import urllib.request as _req
+
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._req = _req
@@ -217,7 +317,7 @@ class OllamaEmbedding(EmbeddingProvider):
         results: list[np.ndarray] = []
         batch_size = 200
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+            batch = texts[i : i + batch_size]
             payload = json.dumps({"model": self._model, "input": batch}).encode()
             req = self._req.Request(
                 f"{self._base_url}/api/embed",
@@ -233,6 +333,7 @@ class OllamaEmbedding(EmbeddingProvider):
 
 class KeywordOnlyEmbedding(EmbeddingProvider):
     """纯关键词模式（降级用）— 返回全零向量。"""
+
     def __init__(self, dim: int = 1536):
         self._dim = dim
 
@@ -240,9 +341,7 @@ class KeywordOnlyEmbedding(EmbeddingProvider):
         return [np.zeros(self._dim, dtype=np.float32) for _ in range(len(texts))]
 
 
-def create_embedding_provider(provider: str = "openai",
-                              model: str | None = None,
-                              **kwargs: Any) -> EmbeddingProvider:
+def create_embedding_provider(provider: str = "openai", model: str | None = None, **kwargs: Any) -> EmbeddingProvider:
     """工厂函数：根据 provider 名称创建 embedding 提供者。"""
     if provider == "openai":
         return OpenAIEmbedding(
@@ -305,30 +404,34 @@ class KbRetriever:
                 raw_index: dict = json.load(f)
             for major_key, quote_list in raw_index.items():
                 for q in quote_list:
-                    quotes.append(QuoteEntry(
-                        id=q.get("id", ""),
-                        text=q["text"],
-                        major=major_key,
-                        tags=q.get("tags", []),
-                        category=q.get("category", ""),
-                        sentiment=q.get("sentiment", ""),
-                    ))
+                    quotes.append(
+                        QuoteEntry(
+                            id=q.get("id", ""),
+                            text=q["text"],
+                            major=major_key,
+                            tags=q.get("tags", []),
+                            category=q.get("category", ""),
+                            sentiment=q.get("sentiment", ""),
+                        )
+                    )
         # 张雪峰原版金句（带出处/年份）—独立加载,不依赖主索引
         zx_path = os.path.join(quotes_path, "zhangxuefeng_originals.json")
         if os.path.exists(zx_path):
             with open(zx_path, encoding="utf-8") as f:
                 zx_raw: list[dict] = json.load(f)
             for q in zx_raw:
-                quotes.append(QuoteEntry(
-                    id=q["id"],
-                    text=q["text"],
-                    major=q.get("major", "zhangxuefeng"),
-                    tags=q.get("tags", []),
-                    category=q.get("category", ""),
-                    sentiment=q.get("sentiment", ""),
-                    source=q.get("source", ""),
-                    year=q.get("year", 0),
-                ))
+                quotes.append(
+                    QuoteEntry(
+                        id=q["id"],
+                        text=q["text"],
+                        major=q.get("major", "zhangxuefeng"),
+                        tags=q.get("tags", []),
+                        category=q.get("category", ""),
+                        sentiment=q.get("sentiment", ""),
+                        source=q.get("source", ""),
+                        year=q.get("year", 0),
+                    )
+                )
         return quotes
 
     def _init_embeddings(self) -> None:
@@ -350,7 +453,8 @@ class KbRetriever:
             except Exception as e:
                 logger.warning(
                     "Embedding init failed (%s: %s) — falling back to keyword search only",
-                    type(e).__name__, e,
+                    type(e).__name__,
+                    e,
                 )
                 embeddings = [None] * len(combined_texts)
             for idx, (group_id, chunk_idx) in enumerate(all_refs):
@@ -396,9 +500,9 @@ class KbRetriever:
         return scores
 
     def _select_top_groups(self, scores: list[tuple[str, float]]) -> list[str]:
-        selected = [g for g, s in scores if s > self._group_threshold][:self._max_groups]
+        selected = [g for g, s in scores if s > self._group_threshold][: self._max_groups]
         if not selected:
-            selected = [g for g, _ in scores[:self._max_groups]]
+            selected = [g for g, _ in scores[: self._max_groups]]
         return selected
 
     def _select_top_chunks(self, group_ids: list[str], query_emb: np.ndarray | None) -> list[Chunk]:

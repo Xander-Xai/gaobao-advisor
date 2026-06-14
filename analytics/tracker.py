@@ -151,9 +151,7 @@ class EventTracker:
     # 内部方法
     # ------------------------------------------------------------------
 
-    def _top_from_event(
-        self, event_type: str, key: str, since_str: str, limit: int = 10
-    ) -> list[tuple[str, int]]:
+    def _top_from_event(self, event_type: str, key: str, since_str: str, limit: int = 10) -> list[tuple[str, int]]:
         """从 event_data JSON 中提取列表字段，统计频次，返回 top-N。"""
         cur = self._conn.cursor()
         cur.execute(

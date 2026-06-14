@@ -4,6 +4,7 @@
 Run: python3 scripts/verify_rag_siliconflow.py
 Exits 0 on success, 1 on failure. Prints what was actually retrieved.
 """
+
 import os
 import sys
 import time
@@ -77,9 +78,11 @@ if sample.embedding is None:
 if not sample.embedding.any():
     print("ERROR: chunk embedding is all-zero — provider is in keyword fallback mode", file=sys.stderr)
     sys.exit(1)
-print(f"  Sample chunk embedding: shape={sample.embedding.shape}, "
-      f"norm={float((sample.embedding ** 2).sum() ** 0.5):.4f}, "
-      f"non-zero={int((sample.embedding != 0).sum())}/{sample.embedding.size}")
+print(
+    f"  Sample chunk embedding: shape={sample.embedding.shape}, "
+    f"norm={float((sample.embedding**2).sum() ** 0.5):.4f}, "
+    f"non-zero={int((sample.embedding != 0).sum())}/{sample.embedding.size}"
+)
 print()
 
 print("=" * 60)

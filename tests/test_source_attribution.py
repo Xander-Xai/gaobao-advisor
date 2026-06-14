@@ -1,4 +1,5 @@
 """数据来源标注硬规则后处理测试。"""
+
 from __future__ import annotations
 
 import os
@@ -182,6 +183,7 @@ class TestExceptionSafety:
     def test_render_node_does_not_crash_on_emoji(self) -> None:
         """render 节点不应因特殊字符崩溃。"""
         from server.graph.nodes.render import render_reply_node
+
         state = {
             "reply": "你的分数是 580 分,可以上武汉理工。🎉",
             "trace": [],
@@ -193,6 +195,7 @@ class TestExceptionSafety:
     def test_render_node_with_empty_state(self) -> None:
         """空状态应不崩。"""
         from server.graph.nodes.render import render_reply_node
+
         result = render_reply_node({})
         assert "reply" in result
         assert "声明" in result["reply"]
@@ -204,6 +207,7 @@ class TestRenderIntegration:
     def test_render_node_imports_source_attribution(self) -> None:
         """确认 render 节点已集成 source_attribution。"""
         from server.graph.nodes.render import render_reply_node
+
         # 模拟一个 LLM 已生成 reply 的状态
         state = {
             "reply": "你的分数是 580 分,可以上武汉理工。",
@@ -216,6 +220,7 @@ class TestRenderIntegration:
     def test_render_node_with_source_no_extra_annotation(self) -> None:
         """带来源的回复不应被重复标注。"""
         from server.graph.nodes.render import render_reply_node
+
         state = {
             "reply": "580 分（来源：湖北省考试院 2024 年）",
             "trace": [],

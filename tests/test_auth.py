@@ -1,5 +1,8 @@
 """Tests for session HMAC token authentication."""
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server.auth import create_session_token, verify_session_token

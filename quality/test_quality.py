@@ -111,10 +111,12 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_consistent(self):
         """2 sources with scores 600/598 → confidence="高"."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 600, "min_rank": 1000},
-            {"source": "API", "min_score": 598, "min_rank": 1005},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 600, "min_rank": 1000},
+                {"source": "API", "min_score": 598, "min_rank": 1005},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "高")
         self.assertEqual(result["note"], "")
@@ -122,19 +124,23 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_inconsistent(self):
         """2 sources with scores 600/580 → confidence="中", note contains diff info."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 600, "min_rank": 1000},
-            {"source": "Search", "min_score": 580, "min_rank": 1200},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 600, "min_rank": 1000},
+                {"source": "Search", "min_score": 580, "min_rank": 1200},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "中")
         self.assertIn("差异", result["note"])
 
     def test_cross_validate_single_source(self):
         """1 source → confidence="低"."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 590, "min_rank": 800},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 590, "min_rank": 800},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "低")
         self.assertIn("仅单源", result["note"])
@@ -145,10 +151,14 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_no_scores(self):
         """Sources without min_score → None."""
-        self.assertIsNone(cross_validate_admission([
-            {"source": "DB", "min_score": None, "min_rank": 1000},
-            {"source": "API", "min_score": None, "min_rank": 1200},
-        ]))
+        self.assertIsNone(
+            cross_validate_admission(
+                [
+                    {"source": "DB", "min_score": None, "min_rank": 1000},
+                    {"source": "API", "min_score": None, "min_rank": 1200},
+                ]
+            )
+        )
 
 
 class TestAiEraRisk(unittest.TestCase):

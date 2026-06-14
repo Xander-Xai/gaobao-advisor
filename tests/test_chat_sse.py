@@ -1,4 +1,5 @@
 """Tests for the chat SSE endpoint structured card output."""
+
 import json
 
 import pytest
@@ -30,7 +31,7 @@ async def test_chat_sse_emits_structured_card():
     # Find the structured card event
     structured_found = False
     for event in events:
-        payload = json.loads(event[len("data: "):])
+        payload = json.loads(event[len("data: ") :])
         if payload.get("type") == "structured":
             structured_found = True
             result = payload.get("result", {})

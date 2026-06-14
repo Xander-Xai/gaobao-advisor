@@ -1,14 +1,13 @@
 """G9 张雪峰方法论溯源知识组测试。"""
+
 from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from kb_retriever import KbRetriever, KeywordOnlyEmbedding, GROUP_TRIGGERS
-
+from kb_retriever import GROUP_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
 
 _QUOTES_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "quotes")
 _GROUPS_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "groups")
@@ -60,8 +59,7 @@ class TestG9Triggers:
 
     def test_g9_triggers_cover_life_events(self) -> None:
         triggers = GROUP_TRIGGERS["G9_zhangxuefeng_methodology_origin"]
-        assert "他的人生" in triggers or "张雪峰的经历" in triggers, \
-            "应包含人物经历类触发词"
+        assert "他的人生" in triggers or "张雪峰的经历" in triggers, "应包含人物经历类触发词"
 
 
 class TestG9Retrieval:
@@ -71,8 +69,7 @@ class TestG9Retrieval:
         """'张雪峰'应召回 G9。"""
         r = _make_retriever()
         result = r.search("张雪峰是怎么走到今天的？", {})
-        assert "G9_zhangxuefeng_methodology_origin" in result.groups, \
-            f"Expected G9 in {result.groups}"
+        assert "G9_zhangxuefeng_methodology_origin" in result.groups, f"Expected G9 in {result.groups}"
 
     def test_zhangxuefeng_methodology_question(self) -> None:
         """'张雪峰的方法论'应召回 G9。"""
@@ -102,8 +99,7 @@ class TestG9Retrieval:
         ]
         for query in queries:
             result = r.search(query, {})
-            assert "G9_zhangxuefeng_methodology_origin" not in result.groups, \
-                f"Unexpected G9 in normal query: {query}"
+            assert "G9_zhangxuefeng_methodology_origin" not in result.groups, f"Unexpected G9 in normal query: {query}"
 
 
 class TestG9ContentQuality:
@@ -119,13 +115,32 @@ class TestG9ContentQuality:
                 # 该段可能在切分时没有"张雪峰"字样，但仍应是关于他的内容
                 # （行为模式/盲点/决策/方法论都是关于张雪峰）
                 related_signals = [
-                    "张雪峰", "雪峰", "他的", "张子彪", "峰学蔚来",
-                    "考研辅导", "新闻学", "生化环材", "齐齐哈尔", "郑州大学",
-                    "苏州", "争议", "流量", "IP", "教育", "言论", "直播",
-                    "演说家", "阶层", "就业", "选择", "努力",
+                    "张雪峰",
+                    "雪峰",
+                    "他的",
+                    "张子彪",
+                    "峰学蔚来",
+                    "考研辅导",
+                    "新闻学",
+                    "生化环材",
+                    "齐齐哈尔",
+                    "郑州大学",
+                    "苏州",
+                    "争议",
+                    "流量",
+                    "IP",
+                    "教育",
+                    "言论",
+                    "直播",
+                    "演说家",
+                    "阶层",
+                    "就业",
+                    "选择",
+                    "努力",
                 ]
-                assert any(sig in c.text for sig in related_signals), \
+                assert any(sig in c.text for sig in related_signals), (
                     f"G9 chunk should be about 张雪峰: {c.section_title}"
+                )
 
 
 class TestG9NoRegression:
@@ -135,17 +150,20 @@ class TestG9NoRegression:
         """G1-G8 应仍能被加载。"""
         r = _make_retriever()
         expected = {
-            "G1_core_method", "G2_major_school", "G3_career_future",
-            "G4_life_planning", "G5_data_format", "G6_quick_ref",
-            "G7_employment_paths", "G8_graduate_and_vocational",
+            "G1_core_method",
+            "G2_major_school",
+            "G3_career_future",
+            "G4_life_planning",
+            "G5_data_format",
+            "G6_quick_ref",
+            "G7_employment_paths",
+            "G8_graduate_and_vocational",
         }
-        assert expected.issubset(set(r._groups.keys())), \
-            f"Missing: {expected - set(r._groups.keys())}"
+        assert expected.issubset(set(r._groups.keys())), f"Missing: {expected - set(r._groups.keys())}"
 
     def test_g9_does_not_break_normal_rag(self) -> None:
         """普通 RAG 检索流程不应被 G9 干扰。"""
         r = _make_retriever()
         result = r.search("985 大学有哪些", {})
         # 应至少召回 G2（专业/学校）
-        assert "G2_major_school" in result.groups, \
-            f"Normal RAG broken: {result.groups}"
+        assert "G2_major_school" in result.groups, f"Normal RAG broken: {result.groups}"

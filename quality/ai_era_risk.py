@@ -1,6 +1,7 @@
 """
 AI时代专业风险评估模块 — 结构化风险数据查询。
 """
+
 import json
 import os
 

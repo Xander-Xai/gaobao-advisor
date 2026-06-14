@@ -1,4 +1,5 @@
 """Render reply node — builds the final text response."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,11 +7,7 @@ from typing import Any
 from server.graph.nodes.source_attribution import validate_source_attribution
 
 # Disclaimer suffix appended to all advice
-_DISCLAIMER = (
-    "\n\n---\n"
-    "声明：以上分析基于公开数据和AI模型，仅供参考。"
-    "最终志愿填报请以各省教育考试院官方发布信息为准。"
-)
+_DISCLAIMER = "\n\n---\n声明：以上分析基于公开数据和AI模型，仅供参考。最终志愿填报请以各省教育考试院官方发布信息为准。"
 
 
 def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:

@@ -7,6 +7,7 @@ Phase 2.2/3 增强测试 — 学校卡片趋势 / 咨询报告 / 移动端
   - Phase 3.4: 移动端 CSS 增强
   - Phase 3.1: 历史对话列表
 """
+
 import os
 import sys
 
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # ══════════════════════════════════════════════════════
 #  Phase 2.2: 学校卡片趋势指示器
 # ══════════════════════════════════════════════════════
+
 
 class TestSchoolCardTrend:
     """验证学校卡片支持 trend 趋势字段和 note 字段。"""
@@ -60,6 +62,7 @@ class TestSchoolCardTrend:
 # ══════════════════════════════════════════════════════
 #  Phase 3.2: 完整咨询报告
 # ══════════════════════════════════════════════════════
+
 
 class TestConsultationReport:
     """验证完整咨询报告生成逻辑。"""
@@ -114,6 +117,7 @@ class TestConsultationReport:
 #  Phase 3.4: 移动端增强
 # ══════════════════════════════════════════════════════
 
+
 class TestMobileEnhancements:
     """验证移动端 CSS 增强。"""
 
@@ -157,6 +161,7 @@ class TestMobileEnhancements:
 #  Phase 3.1: 历史对话列表
 # ══════════════════════════════════════════════════════
 
+
 class TestConversationHistory:
     """验证历史对话列表功能。"""
 
@@ -198,6 +203,7 @@ class TestConversationHistory:
 # ══════════════════════════════════════════════════════
 #  Phase 2.2: 院校详情查询面板
 # ══════════════════════════════════════════════════════
+
 
 class TestSchoolDetailPanel:
     """验证院校详情查询面板（3个tab：趋势/排名/就业）。"""

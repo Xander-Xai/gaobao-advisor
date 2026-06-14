@@ -4,6 +4,7 @@
 将原来 agent.py 中 300+ 行的 extract_slots_from_message() 拆分为独立模块，
 支持不可变模式（返回新副本而非修改原始状态）和情绪检测扩展。
 """
+
 from __future__ import annotations
 
 import copy
@@ -22,7 +23,6 @@ from slots.patterns import (
     INTEREST_NEGATIVE_PATTERN,
     INTEREST_POSITIVE_PATTERN,
     LINE_SCORE_PATTERNS,
-    MAJOR_NAMES_PATTERN,
     RANK_PATTERNS,
     REGION_KEYWORDS,
     SCORE_PATTERNS,
@@ -38,38 +38,54 @@ try:
     from constants import SUBJECT_COMBOS_33, SUBJECT_SINGLE_33
 except ImportError:
     SUBJECT_COMBOS_33 = [
-        "物化生", "物化政", "物化地", "物生政", "物生地", "物政地",
-        "化生政", "化生地", "化政地", "生政地",
-        "物化史", "物生史", "物政史", "物地史",
-        "化生史", "化政史", "化地史",
-        "生政史", "生地史", "政地史",
+        "物化生",
+        "物化政",
+        "物化地",
+        "物生政",
+        "物生地",
+        "物政地",
+        "化生政",
+        "化生地",
+        "化政地",
+        "生政地",
+        "物化史",
+        "物生史",
+        "物政史",
+        "物地史",
+        "化生史",
+        "化政史",
+        "化地史",
+        "生政史",
+        "生地史",
+        "政地史",
     ]
     SUBJECT_SINGLE_33 = ["物理", "化学", "生物", "政治", "历史", "地理"]
 
 # ── 选科组合正则 ──
 _SUBJECT_COMBO_33_RE = re.compile(
-    r'(物化生|物化政|物化地|物生政|物生地|物政地|'
-    r'化生政|化生地|化政地|生政地|'
-    r'物化史|物生史|物政史|物地史|'
-    r'化生史|化政史|化地史|'
-    r'生政史|生地史|政地史)'
+    r"(物化生|物化政|物化地|物生政|物生地|物政地|"
+    r"化生政|化生地|化政地|生政地|"
+    r"物化史|物生史|物政史|物地史|"
+    r"化生史|化政史|化地史|"
+    r"生政史|生地史|政地史)"
 )
 
 
 def _create_default_slots() -> dict[str, dict[str, Any]]:
     """创建默认的空槽位字典。"""
     return {
-        "province":   {"label": "省份", "filled": False, "value": ""},
+        "province": {"label": "省份", "filled": False, "value": ""},
         "score_rank": {"label": "分数/位次", "filled": False, "value": ""},
-        "subject":    {"label": "选科", "filled": False, "value": ""},
-        "interest":   {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
-        "region":     {"label": "地域偏好", "filled": False, "value": ""},
-        "family":     {"label": "家庭资源", "filled": False, "value": ""},
-        "goal":       {"label": "核心诉求", "filled": False, "value": ""},
+        "subject": {"label": "选科", "filled": False, "value": ""},
+        "interest": {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
+        "region": {"label": "地域偏好", "filled": False, "value": ""},
+        "family": {"label": "家庭资源", "filled": False, "value": ""},
+        "goal": {"label": "核心诉求", "filled": False, "value": ""},
     }
 
 
 # ── 辅助函数 ──
+
 
 def chinese_num_to_int(text: str) -> int | None:
     """将中文数字（如'五百八十'）转换为整数。支持到万位。"""
@@ -112,7 +128,7 @@ def parse_oral_score(msg: str) -> int | None:
       六百 → 600
     """
     # 匹配 "X百Y" 模式（Y 可选，省略"十"）
-    m = re.search(r'([一二三四五六七八九两])百([一二三四五六七八九零])?(?:出头|左右)?', msg)
+    m = re.search(r"([一二三四五六七八九两])百([一二三四五六七八九零])?(?:出头|左右)?", msg)
     if m:
         bai = CHINESE_DIGIT_MAP.get(m.group(1), 0) * 100
         shi = CHINESE_DIGIT_MAP.get(m.group(2), 0) * 10 if m.group(2) else 0
@@ -120,7 +136,7 @@ def parse_oral_score(msg: str) -> int | None:
         if 100 <= val <= 750:
             return val
     # 匹配 "X百" 纯百位
-    m2 = re.search(r'([一二三四五六七八九两])百(?:出头|左右)?(?:\s|$|，|,|。)', msg)
+    m2 = re.search(r"([一二三四五六七八九两])百(?:出头|左右)?(?:\s|$|，|,|。)", msg)
     if m2:
         val = CHINESE_DIGIT_MAP.get(m2.group(1), 0) * 100
         if 100 <= val <= 750:
@@ -131,11 +147,11 @@ def parse_oral_score(msg: str) -> int | None:
 # ── 情绪检测 ──
 
 _EMOTION_PATTERNS: list[tuple[str, str]] = [
-    (r'急|着急|马上|来不及|快|赶紧|焦虑|慌', "急躁"),
-    (r'迷茫|不知道|没方向|纠结|犹豫|不懂|不清楚|困惑', "迷茫"),
-    (r'担心|害怕|怕|焦虑|紧张|不安|忧', "焦虑"),
-    (r'自信|稳了|肯定|没问题|随便|一定|必上', "自信"),
-    (r'崩溃|绝望|完了|没戏|算了|放弃|不读了', "崩溃"),
+    (r"急|着急|马上|来不及|快|赶紧|焦虑|慌", "急躁"),
+    (r"迷茫|不知道|没方向|纠结|犹豫|不懂|不清楚|困惑", "迷茫"),
+    (r"担心|害怕|怕|焦虑|紧张|不安|忧", "焦虑"),
+    (r"自信|稳了|肯定|没问题|随便|一定|必上", "自信"),
+    (r"崩溃|绝望|完了|没戏|算了|放弃|不读了", "崩溃"),
 ]
 
 
@@ -153,6 +169,7 @@ def detect_emotion(msg: str) -> str | None:
 
 # ── 核心提取器 ──
 
+
 class SlotExtractor:
     """模块化槽位提取器。
 
@@ -163,11 +180,11 @@ class SlotExtractor:
 
     def __init__(self):
         """初始化提取器，预编译所有正则表达式。"""
-        self._province_re = re.compile(r'(' + '|'.join(PROVINCES) + r')')
+        self._province_re = re.compile(r"(" + "|".join(PROVINCES) + r")")
         self._province_context_re = re.compile(
-            r'(?:在|到|去|来|我是|我家在|老家|籍贯|户籍)(?:的|了|位于|住在)?'
-            r'\s*(' + '|'.join(PROVINCES) + r')'
-            r'|(' + '|'.join(PROVINCES) + r')(?:考生|的|人|高考|参加高考|读高中|上的学)'
+            r"(?:在|到|去|来|我是|我家在|老家|籍贯|户籍)(?:的|了|位于|住在)?"
+            r"\s*(" + "|".join(PROVINCES) + r")"
+            r"|(" + "|".join(PROVINCES) + r")(?:考生|的|人|高考|参加高考|读高中|上的学)"
         )
         self._interest_negative_re = re.compile(INTEREST_NEGATIVE_PATTERN)
         self._interest_positive_re = re.compile(INTEREST_POSITIVE_PATTERN)
@@ -250,7 +267,7 @@ class SlotExtractor:
         # 2. 中文数字分数
         cn_score_match = None
         if not score_match:
-            cn_re = re.search(r'([一-鿿]{2,6})\s*分', msg)
+            cn_re = re.search(r"([一-鿿]{2,6})\s*分", msg)
             if cn_re:
                 cn_num = chinese_num_to_int(cn_re.group(1))
                 if cn_num and 100 <= cn_num <= 750:
@@ -285,9 +302,9 @@ class SlotExtractor:
             m = re.search(rp, msg)
             if m:
                 raw = m.group(1)
-                if '万' in rp and '.' in raw:
+                if "万" in rp and "." in raw:
                     rank_value = str(int(float(raw) * 10000))
-                elif '万' in rp:
+                elif "万" in rp:
                     rank_value = str(int(raw) * 10000)
                 else:
                     rank_value = raw
@@ -352,10 +369,10 @@ class SlotExtractor:
         if not matched_subj:
             all_subject_names = "|".join(SUBJECT_SINGLE_33)
             natural_33_re = re.search(
-                r'(?:选[的了考]?|选考)\s*(' + all_subject_names + r')\s*'
-                r'(' + all_subject_names + r')?\s*'
-                r'(' + all_subject_names + r')?',
-                msg
+                r"(?:选[的了考]?|选考)\s*(" + all_subject_names + r")\s*"
+                r"(" + all_subject_names + r")?\s*"
+                r"(" + all_subject_names + r")?",
+                msg,
             )
             if natural_33_re:
                 parts = [natural_33_re.group(i) for i in (1, 2, 3) if natural_33_re.group(i)]
@@ -365,10 +382,7 @@ class SlotExtractor:
         # 单科自然表达："选的物理"
         if not matched_subj:
             single_33 = "|".join(SUBJECT_SINGLE_33)
-            subj_natural_re = re.search(
-                r'(?:选[的了]?|学[的了]?|考[的了]?|方向)\s*(' + single_33 + r')',
-                msg
-            )
+            subj_natural_re = re.search(r"(?:选[的了]?|学[的了]?|考[的了]?|方向)\s*(" + single_33 + r")", msg)
             if subj_natural_re:
                 matched_subj = subj_natural_re.group(1)
 

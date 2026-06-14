@@ -1,10 +1,11 @@
 """
 SQLite 数据库连接 — 零依赖外部服务，开箱即用
 """
+
 import os
 import stat
 
-from sqlalchemy import create_engine, text, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,7 @@ engine = create_engine(
     echo=False,
 )
 
+
 # Enable WAL mode for better concurrent read/write performance
 @event.listens_for(engine, "connect")
 def _set_wal_mode(dbapi_conn, connection_record):
@@ -40,6 +42,7 @@ def _set_wal_mode(dbapi_conn, connection_record):
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -80,7 +83,19 @@ def is_db_connected() -> bool:
 
 def init_db():
     """创建所有表"""
-    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight, GraduateProgram, GraduateScore, CareerTrend  # noqa
+    from db.models import (
+        School,
+        Major,
+        AdmissionScore,
+        EnrollmentPlan,
+        SubjectRanking,
+        YiFenYiDuan,
+        Highlight,
+        GraduateProgram,
+        GraduateScore,
+        CareerTrend,
+    )  # noqa
+
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _lock_db_permissions(DB_PATH)

@@ -1,4 +1,5 @@
 """Tests for the LLM reasoning node."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -23,7 +24,9 @@ def test_llm_node_returns_generated_reply():
 
     mock_client = MagicMock()
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content="你这个情况我直接说——580分湖北物理类，你的最优解是……"))]
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content="你这个情况我直接说——580分湖北物理类，你的最优解是……"))
+    ]
     mock_client.chat.completions.create.return_value = mock_response
 
     with patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client):

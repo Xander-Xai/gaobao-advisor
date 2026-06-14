@@ -37,6 +37,7 @@ class QualityOrchestrator:
     def model_selector(self) -> Any:
         if not self._model_selector_initialized:
             from quality import model_selector
+
             self._model_selector = model_selector
             self._model_selector_initialized = True
         return self._model_selector
@@ -45,6 +46,7 @@ class QualityOrchestrator:
     def decision_framework(self) -> Any:
         if not self._decision_framework_initialized:
             from quality import decision_framework
+
             self._decision_framework = decision_framework
             self._decision_framework_initialized = True
         return self._decision_framework
@@ -53,6 +55,7 @@ class QualityOrchestrator:
     def anti_pattern_checker(self) -> Any:
         if not self._anti_pattern_checker_initialized:
             from quality import anti_pattern_checker
+
             self._anti_pattern_checker = anti_pattern_checker
             self._anti_pattern_checker_initialized = True
         return self._anti_pattern_checker
@@ -61,6 +64,7 @@ class QualityOrchestrator:
     def emotion_detector(self) -> Any:
         if not self._emotion_detector_initialized:
             from quality import emotion_detector
+
             self._emotion_detector = emotion_detector
             self._emotion_detector_initialized = True
         return self._emotion_detector
@@ -69,6 +73,7 @@ class QualityOrchestrator:
     def ai_era_risk(self) -> Any:
         if not self._ai_era_risk_initialized:
             from quality import ai_era_risk
+
             self._ai_era_risk = ai_era_risk
             self._ai_era_risk_initialized = True
         return self._ai_era_risk
@@ -77,6 +82,7 @@ class QualityOrchestrator:
     def cross_validator(self) -> Any:
         if not self._cross_validator_initialized:
             from quality import cross_validator
+
             self._cross_validator = cross_validator
             self._cross_validator_initialized = True
         return self._cross_validator
@@ -85,6 +91,7 @@ class QualityOrchestrator:
     def knowledge_loader(self) -> Any:
         if not self._knowledge_loader_initialized:
             from quality import knowledge_loader
+
             self._knowledge_loader = knowledge_loader
             self._knowledge_loader_initialized = True
         return self._knowledge_loader
@@ -203,9 +210,8 @@ class QualityOrchestrator:
         """
         anti_patterns = self.check_anti_patterns(ai_output, family_known)
         from quality.anti_pattern_checker import get_error_count
-        error_count = get_error_count(
-            self.anti_pattern_checker.check_anti_patterns(ai_output, family_known)
-        )
+
+        error_count = get_error_count(self.anti_pattern_checker.check_anti_patterns(ai_output, family_known))
 
         return {
             "anti_patterns": anti_patterns,

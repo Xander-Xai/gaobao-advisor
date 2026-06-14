@@ -11,6 +11,7 @@ API 端点（实测可用）：
 
 数据来源: 百度高考 (gaokao.baidu.com)，底层数据由中国教育在线提供
 """
+
 import json
 import os
 import sys
@@ -27,7 +28,7 @@ from utils import safe_int
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9",
     "Referer": "https://gaokao.baidu.com/",
@@ -49,7 +50,7 @@ def _fetch_json(url: str, retries: int = 3) -> dict | None:
             if attempt < retries - 1:
                 time.sleep(1.5 * (attempt + 1))
             else:
-                print(f"  [WARN] 请求失败 ({attempt+1}/{retries}): {url[:80]}... | {e}")
+                print(f"  [WARN] 请求失败 ({attempt + 1}/{retries}): {url[:80]}... | {e}")
                 return None
     return None
 
@@ -57,6 +58,7 @@ def _fetch_json(url: str, retries: int = 3) -> dict | None:
 # ══════════════════════════════════════════════════════════
 # 1. 院校列表采集
 # ══════════════════════════════════════════════════════════
+
 
 def fetch_school_list(page: int = 1, rn: int = PAGE_SIZE) -> dict | None:
     """获取院校列表（分页）"""
@@ -87,8 +89,8 @@ def iter_schools() -> Iterator[dict]:
 # 2. 录取分数线采集
 # ══════════════════════════════════════════════════════════
 
-def fetch_school_score(school: str, province: str, year: int = 2024,
-                       curriculum: str = "3+3综合") -> list[dict]:
+
+def fetch_school_score(school: str, province: str, year: int = 2024, curriculum: str = "3+3综合") -> list[dict]:
     """获取某学校在某省的录取分数线（不分页，最多20条）"""
     params = {
         "curriculum": curriculum,
@@ -108,8 +110,8 @@ def fetch_school_score(school: str, province: str, year: int = 2024,
 # 3. 专业分数线采集（分页）
 # ══════════════════════════════════════════════════════════
 
-def fetch_major_score(school: str, province: str, year: int = 2024,
-                      page: int = 1, rn: int = 50) -> list[dict]:
+
+def fetch_major_score(school: str, province: str, year: int = 2024, page: int = 1, rn: int = 50) -> list[dict]:
     """获取某学校在某省的专业录取分数线"""
     params = {
         "rn": rn,
@@ -130,13 +132,17 @@ def fetch_major_score(school: str, province: str, year: int = 2024,
 # 4. 招生计划采集
 # ══════════════════════════════════════════════════════════
 
-def fetch_enrollment_plan(school: str, province: str, year: int = 2024,
-                          page: int = 1, rn: int = 50) -> list[dict]:
+
+def fetch_enrollment_plan(school: str, province: str, year: int = 2024, page: int = 1, rn: int = 50) -> list[dict]:
     """获取某学校在某省的招生计划"""
     # 根据省份自动选 curriculum（百度 API 需要精确匹配）
     PROVINCE_CURRICULUM = {
-        "北京": "3+3综合", "天津": "3+3综合", "上海": "3+3综合",
-        "山东": "3+3综合", "海南": "3+3综合", "浙江": "3+3综合",
+        "北京": "3+3综合",
+        "天津": "3+3综合",
+        "上海": "3+3综合",
+        "山东": "3+3综合",
+        "海南": "3+3综合",
+        "浙江": "3+3综合",
     }
     curriculum = PROVINCE_CURRICULUM.get(province, "物理类")  # 其他省默认物理类
 
@@ -165,6 +171,7 @@ TAG_LEVEL_MAP = {
     "双一流": ("双一流", 0, 0, 1),
 }
 
+
 def parse_school_tags(tags: list) -> tuple:
     """从 tag 数组解析 level / is_985 / is_211 / is_dfc"""
     is_985 = is_211 = is_dfc = 0
@@ -186,8 +193,8 @@ def parse_school_tags(tags: list) -> tuple:
 # 6. 导入数据库
 # ══════════════════════════════════════════════════════════
 
-def import_schools_to_db(db_session, School, max_schools: int = None,
-                         skip_existing: bool = True) -> dict:
+
+def import_schools_to_db(db_session, School, max_schools: int = None, skip_existing: bool = True) -> dict:
     """导入院校列表到数据库。返回统计信息。
     skip_existing=True 时，只填充空字段（city, ranking, description），不覆盖已有数据。
     """
@@ -255,12 +262,18 @@ def import_schools_to_db(db_session, School, max_schools: int = None,
     return stats
 
 
-def import_scores_to_db(db_session, School, AdmissionScore,
-                        schools: list = None, provinces: list = None,
-                        years: list = None, max_per_school: int = 50,
-                        checkpoint_path: str = None,
-                        start_school_index: int = 0,
-                        on_progress: callable = None) -> dict:
+def import_scores_to_db(
+    db_session,
+    School,
+    AdmissionScore,
+    schools: list = None,
+    provinces: list = None,
+    years: list = None,
+    max_per_school: int = 50,
+    checkpoint_path: str = None,
+    start_school_index: int = 0,
+    on_progress: callable = None,
+) -> dict:
     """为指定学校采集录取分数线。
 
     Args:
@@ -293,20 +306,22 @@ def import_scores_to_db(db_session, School, AdmissionScore,
                 curriculums = PROVINCE_CURRICULUMS.get(province, ["物理类", "历史类"])
                 for curriculum in curriculums:
                     # 快速跳过：如果该校在此省份+年份+curriculum已有数据，跳过API调用
-                    existing_count = db_session.query(AdmissionScore).filter(
-                        AdmissionScore.school_id == school.id,
-                        AdmissionScore.province == province,
-                        AdmissionScore.year == year,
-                        AdmissionScore.subject_type == curriculum,
-                    ).count()
+                    existing_count = (
+                        db_session.query(AdmissionScore)
+                        .filter(
+                            AdmissionScore.school_id == school.id,
+                            AdmissionScore.province == province,
+                            AdmissionScore.year == year,
+                            AdmissionScore.subject_type == curriculum,
+                        )
+                        .count()
+                    )
                     if existing_count > 0:
                         stats["requests"] += 0  # 不计入请求统计
                         continue
 
                     try:
-                        scores = fetch_school_score(
-                            school.name, province, year, curriculum
-                        )
+                        scores = fetch_school_score(school.name, province, year, curriculum)
                         stats["requests"] += 1
                         if not scores:
                             time.sleep(DELAY / 2)
@@ -318,14 +333,18 @@ def import_scores_to_db(db_session, School, AdmissionScore,
                                 continue
                             min_rank = safe_int(s.get("minScoreOrder"))
 
-                            existing = db_session.query(AdmissionScore).filter(
-                                AdmissionScore.school_id == school.id,
-                                AdmissionScore.province == province,
-                                AdmissionScore.year == year,
-                                AdmissionScore.batch == s.get("batchName", "本科批"),
-                                AdmissionScore.subject_type == curriculum,
-                                AdmissionScore.major_id.is_(None),
-                            ).first()
+                            existing = (
+                                db_session.query(AdmissionScore)
+                                .filter(
+                                    AdmissionScore.school_id == school.id,
+                                    AdmissionScore.province == province,
+                                    AdmissionScore.year == year,
+                                    AdmissionScore.batch == s.get("batchName", "本科批"),
+                                    AdmissionScore.subject_type == curriculum,
+                                    AdmissionScore.major_id.is_(None),
+                                )
+                                .first()
+                            )
 
                             if not existing:
                                 as_rec = AdmissionScore(
@@ -360,29 +379,37 @@ def import_scores_to_db(db_session, School, AdmissionScore,
         # 定期保存断点
         if checkpoint_path and (idx + 1) % 10 == 0:
             from scrapers.checkpoint import save_checkpoint
-            save_checkpoint(checkpoint_path, {
-                "last_run": __import__("datetime").datetime.now().isoformat(),
-                "school_index": actual_idx + 1,
-                "total_schools": total,
-                "current_school": school.name,
-                "stats": stats,
-            })
+
+            save_checkpoint(
+                checkpoint_path,
+                {
+                    "last_run": __import__("datetime").datetime.now().isoformat(),
+                    "school_index": actual_idx + 1,
+                    "total_schools": total,
+                    "current_school": school.name,
+                    "stats": stats,
+                },
+            )
 
         if on_progress:
             on_progress(actual_idx + 1, total, stats)
         else:
-            print(f"  [{actual_idx+1}/{total}] {school.name}: {stats['new_scores']} 条新增")
+            print(f"  [{actual_idx + 1}/{total}] {school.name}: {stats['new_scores']} 条新增")
 
     # 最终保存断点
     if checkpoint_path:
         from scrapers.checkpoint import save_checkpoint
-        save_checkpoint(checkpoint_path, {
-            "last_run": __import__("datetime").datetime.now().isoformat(),
-            "school_index": start_school_index + total,
-            "total_schools": total,
-            "current_school": schools[-1].name if schools else "",
-            "stats": stats,
-        })
+
+        save_checkpoint(
+            checkpoint_path,
+            {
+                "last_run": __import__("datetime").datetime.now().isoformat(),
+                "school_index": start_school_index + total,
+                "total_schools": total,
+                "current_school": schools[-1].name if schools else "",
+                "stats": stats,
+            },
+        )
 
     print(f"[完成] 录取分数线: 新增 {stats['new_scores']} / 请求 {stats['requests']} / 错误 {stats['errors']}")
     return stats
@@ -394,6 +421,7 @@ def import_scores_to_db(db_session, School, AdmissionScore,
 
 if __name__ == "__main__":
     from db.database import get_session, init_db
+
     init_db()
     db = get_session()
 
@@ -419,4 +447,6 @@ if __name__ == "__main__":
         scores = fetch_school_score(name, "北京", 2024)
         print(f"  拉取到 {len(scores)} 条")
         for s in scores[:3]:
-            print(f"    - {s.get('batchName')}/{s.get('majorGroup')} minScore={s.get('minScore')} rank={s.get('minScoreOrder')}")
+            print(
+                f"    - {s.get('batchName')}/{s.get('majorGroup')} minScore={s.get('minScore')} rank={s.get('minScoreOrder')}"
+            )

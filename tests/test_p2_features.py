@@ -7,6 +7,7 @@ P2 功能测试 — 3+3 省份专项适配 / 方言友好
   - 口语化分数表达（五百八、差一本线N分、不到600）
   - 方言情绪检测
 """
+
 import os
 import sys
 
@@ -21,27 +22,31 @@ from agent import (
 )
 from slots.extractor import (
     expand_subject_combo as _expand_subject_combo,
+)
+from slots.extractor import (
     parse_oral_score as _parse_oral_score,
 )
 
 # ── 辅助工厂 ──
 
+
 def _make_slots():
     """创建干净的槽位副本，避免测试间污染。"""
     return {
-        "province":     {"label": "省份", "filled": False, "value": ""},
-        "score_rank":   {"label": "分数/位次", "filled": False, "value": ""},
-        "subject":      {"label": "选科", "filled": False, "value": ""},
-        "interest":     {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
-        "region":       {"label": "地域偏好", "filled": False, "value": ""},
-        "family":       {"label": "家庭资源", "filled": False, "value": ""},
-        "goal":         {"label": "核心诉求", "filled": False, "value": ""},
+        "province": {"label": "省份", "filled": False, "value": ""},
+        "score_rank": {"label": "分数/位次", "filled": False, "value": ""},
+        "subject": {"label": "选科", "filled": False, "value": ""},
+        "interest": {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
+        "region": {"label": "地域偏好", "filled": False, "value": ""},
+        "family": {"label": "家庭资源", "filled": False, "value": ""},
+        "goal": {"label": "核心诉求", "filled": False, "value": ""},
     }
 
 
 # ══════════════════════════════════════════════════════
 #  P2-2: 3+3 省份专项适配
 # ══════════════════════════════════════════════════════
+
 
 class Test33ProvinceSubjectCombos:
     """3+3 省份选科组合识别（20种组合 + 单科）"""
@@ -65,17 +70,27 @@ class Test33ProvinceSubjectCombos:
             parts = expanded.split("+")
             assert len(parts) == 3, f"组合 {combo} 展开后不是3个科目: {expanded}"
             for part in parts:
-                assert part in ["物理", "化学", "生物", "历史", "地理", "政治"], \
-                    f"展开后的科目名不合法: {part}"
+                assert part in ["物理", "化学", "生物", "历史", "地理", "政治"], f"展开后的科目名不合法: {part}"
 
     def test_33_combo_count(self):
         """确认 3+3 有 20 种组合"""
         assert len(SUBJECT_COMBOS_33) == 20
 
-    @pytest.mark.parametrize("combo", [
-        "物化生", "物化政", "物化地", "物生政", "物生地", "物政地",
-        "化生政", "化生地", "化政地", "生政地",
-    ])
+    @pytest.mark.parametrize(
+        "combo",
+        [
+            "物化生",
+            "物化政",
+            "物化地",
+            "物生政",
+            "物生地",
+            "物政地",
+            "化生政",
+            "化生地",
+            "化政地",
+            "生政地",
+        ],
+    )
     def test_33_combo_slot_extraction(self, combo):
         """3+3 组合能被 extract_slots_from_message 识别"""
         s = _make_slots()
@@ -129,6 +144,7 @@ class Test33ProvinceSubjectCombos:
 # ══════════════════════════════════════════════════════
 #  P2-5: 方言友好
 # ══════════════════════════════════════════════════════
+
 
 class TestDialectProvinceDetection:
     """方言→省份推测"""
@@ -221,6 +237,7 @@ class TestDialectEmotionDetection:
     def test_wan_du_zi(self):
         """'完犊子了' → 焦虑"""
         from quality.emotion_detector import detect_emotion
+
         result = detect_emotion("完犊子了，这次考砸了")
         assert result["score"] > 0
         assert "完犊子了" in result["matched_keywords"]
@@ -228,6 +245,7 @@ class TestDialectEmotionDetection:
     def test_zheng_bu_hui(self):
         """'整不会了' → 迷茫"""
         from quality.emotion_detector import detect_emotion
+
         result = detect_emotion("整不会了，不知道咋选")
         assert result["score"] > 0
         assert "整不会了" in result["matched_keywords"]
@@ -235,6 +253,7 @@ class TestDialectEmotionDetection:
     def test_ke_za_zheng(self):
         """'可咋整' → 焦虑"""
         from quality.emotion_detector import detect_emotion
+
         result = detect_emotion("可咋整啊，志愿还没填")
         assert result["score"] > 0
         assert "可咋整" in result["matched_keywords"]
@@ -242,6 +261,7 @@ class TestDialectEmotionDetection:
     def test_chou_si_le(self):
         """'愁死了' → 焦虑"""
         from quality.emotion_detector import detect_emotion
+
         result = detect_emotion("愁死了，选啥专业好")
         assert result["score"] > 0
         assert "愁死了" in result["matched_keywords"]
@@ -249,6 +269,7 @@ class TestDialectEmotionDetection:
     def test_mei_zi_zi(self):
         """'美滋滋' → 积极（被识别为关键词）"""
         from quality.emotion_detector import detect_emotion
+
         result = detect_emotion("美滋滋，考了650分")
         assert "美滋滋" in result["matched_keywords"]
 
@@ -256,6 +277,7 @@ class TestDialectEmotionDetection:
 # ══════════════════════════════════════════════════════
 #  综合集成测试
 # ══════════════════════════════════════════════════════
+
 
 class TestIntegration:
     """综合集成：方言 + 3+3 + 口语分数同时出现"""

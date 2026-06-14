@@ -13,22 +13,24 @@ from typing import Any
 # ── 5 大心智模型 ────────────────────────────────────────────
 
 MODELS = {
-    "sieve":        "社会筛子论",
+    "sieve": "社会筛子论",
     "choice_effort": "选择>努力",
-    "job_reverse":  "就业倒推法",
-    "class_real":   "阶层现实主义",
-    "controversy":  "争议即传播",
+    "job_reverse": "就业倒推法",
+    "class_real": "阶层现实主义",
+    "controversy": "争议即传播",
 }
 
 
 # ── 场景 → 模型矩阵 ────────────────────────────────────────
 
+
 @dataclass
 class ModelConfig:
     """场景对应的模型配置。"""
-    preferred: list[str]   # 首选模型
-    auxiliary: list[str]    # 辅助模型
-    banned: list[str]       # 禁用模型
+
+    preferred: list[str]  # 首选模型
+    auxiliary: list[str]  # 辅助模型
+    banned: list[str]  # 禁用模型
 
 
 SCENARIO_MODELS: dict[str, ModelConfig] = {
@@ -60,7 +62,7 @@ SCENARIO_MODELS: dict[str, ModelConfig] = {
     "情绪崩溃/高考失利": ModelConfig(
         preferred=["choice_effort"],  # 温和版：方向比努力更重要
         auxiliary=["job_reverse"],
-        banned=["controversy"],       # 不用极端表达
+        banned=["controversy"],  # 不用极端表达
     ),
     "纯教育理念讨论": ModelConfig(
         preferred=["sieve"],
@@ -101,9 +103,11 @@ PHASE_MODELS: dict[str, ModelConfig] = {
 
 # ── 降级触发器 ──────────────────────────────────────────────
 
+
 @dataclass
 class DowngradeTrigger:
     """降级触发信号。"""
+
     id: int
     signal: str
     action: str
@@ -145,6 +149,7 @@ _DOWNGRADE_TRIGGERS: list[DowngradeTrigger] = [
 
 # ── 场景推断 ─────────────────────────────────────────────────
 
+
 def infer_scenario(slots: dict[str, Any], user_input: str = "") -> str:
     """根据用户槽位和输入推断场景。
 
@@ -162,8 +167,7 @@ def infer_scenario(slots: dict[str, Any], user_input: str = "") -> str:
     combined = f"{goal} {interest} {user_input}"
 
     # 情绪信号优先检测
-    emotion_words = ["崩溃", "没希望", "想死", "完蛋", "不想活", "绝望",
-                     "考砸了", "考差了", "心态崩了", "废了"]
+    emotion_words = ["崩溃", "没希望", "想死", "完蛋", "不想活", "绝望", "考砸了", "考差了", "心态崩了", "废了"]
     if any(w in user_input for w in emotion_words):
         return "情绪崩溃/高考失利"
 
@@ -218,6 +222,7 @@ def infer_phase(slots: dict[str, Any], conversation_round: int = 1) -> str:
 
 # ── 主 API ──────────────────────────────────────────────────
 
+
 def select_models(
     slots: dict[str, Any],
     user_input: str = "",
@@ -265,22 +270,26 @@ def select_models(
     triggered_triggers = []
     for trigger in _DOWNGRADE_TRIGGERS:
         # 简单信号匹配
-        if trigger.id == 1 and slots.get("goal") and any(
-            w in (slots["goal"] or "") for w in ["学术", "公益", "艺术", "科研"]
+        if (
+            trigger.id == 1
+            and slots.get("goal")
+            and any(w in (slots["goal"] or "") for w in ["学术", "公益", "艺术", "科研"])
         ):
-            triggered_triggers.append({
-                "id": trigger.id,
-                "signal": trigger.signal,
-                "action": trigger.action,
-            })
-        elif trigger.id == 4 and any(
-            w in user_input for w in ["崩溃", "没希望", "绝望", "想死", "废了"]
-        ):
-            triggered_triggers.append({
-                "id": trigger.id,
-                "signal": trigger.signal,
-                "action": trigger.action,
-            })
+            triggered_triggers.append(
+                {
+                    "id": trigger.id,
+                    "signal": trigger.signal,
+                    "action": trigger.action,
+                }
+            )
+        elif trigger.id == 4 and any(w in user_input for w in ["崩溃", "没希望", "绝望", "想死", "废了"]):
+            triggered_triggers.append(
+                {
+                    "id": trigger.id,
+                    "signal": trigger.signal,
+                    "action": trigger.action,
+                }
+            )
 
     return {
         "scenario": scenario,

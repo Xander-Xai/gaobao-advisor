@@ -1,6 +1,8 @@
 """Token bucket rate limiter for FastAPI with TTL eviction."""
+
 import time
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Evict entries idle longer than this (seconds)
@@ -39,7 +41,8 @@ class TokenBucketLimiter:
     def _evict_idle(self, now: float) -> None:
         """Remove entries that have been idle (fully refilled) for too long."""
         idle_ips = [
-            ip for ip, (tokens, last) in self._buckets.items()
+            ip
+            for ip, (tokens, last) in self._buckets.items()
             if now - last > _MAX_IDLE_SECONDS and tokens >= self.capacity
         ]
         for ip in idle_ips:

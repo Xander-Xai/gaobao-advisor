@@ -7,6 +7,7 @@ Step 3: Subject type + interest
 
 Pure Python core (OnboardingState) with a Streamlit render_onboarding() function.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,20 +18,39 @@ from constants import INTERESTS, PROVINCE_MODES, PROVINCES, SUBJECT_TYPES
 # ── Province modes (UI display — extended with traditional mode) ──
 PROVINCE_MODES: dict[str, str] = {
     # 3+3 provinces
-    "北京": "3+3", "天津": "3+3", "上海": "3+3",
-    "山东": "3+3", "浙江": "3+3", "海南": "3+3",
+    "北京": "3+3",
+    "天津": "3+3",
+    "上海": "3+3",
+    "山东": "3+3",
+    "浙江": "3+3",
+    "海南": "3+3",
     # 3+1+2 provinces
-    "河北": "3+1+2", "辽宁": "3+1+2", "江苏": "3+1+2",
-    "福建": "3+1+2", "湖北": "3+1+2", "湖南": "3+1+2",
-    "广东": "3+1+2", "重庆": "3+1+2", "安徽": "3+1+2",
-    "江西": "3+1+2", "贵州": "3+1+2", "广西": "3+1+2",
-    "甘肃": "3+1+2", "黑龙江": "3+1+2", "吉林": "3+1+2",
+    "河北": "3+1+2",
+    "辽宁": "3+1+2",
+    "江苏": "3+1+2",
+    "福建": "3+1+2",
+    "湖北": "3+1+2",
+    "湖南": "3+1+2",
+    "广东": "3+1+2",
+    "重庆": "3+1+2",
+    "安徽": "3+1+2",
+    "江西": "3+1+2",
+    "贵州": "3+1+2",
+    "广西": "3+1+2",
+    "甘肃": "3+1+2",
+    "黑龙江": "3+1+2",
+    "吉林": "3+1+2",
     # Traditional provinces
-    "山西": "传统文理", "河南": "传统文理",
-    "四川": "传统文理", "云南": "传统文理",
-    "陕西": "传统文理", "内蒙古": "传统文理",
-    "西藏": "传统文理", "宁夏": "传统文理",
-    "新疆": "传统文理", "青海": "传统文理",
+    "山西": "传统文理",
+    "河南": "传统文理",
+    "四川": "传统文理",
+    "云南": "传统文理",
+    "陕西": "传统文理",
+    "内蒙古": "传统文理",
+    "西藏": "传统文理",
+    "宁夏": "传统文理",
+    "新疆": "传统文理",
+    "青海": "传统文理",
 }
 
 # ── Subject & interest options ────────────────────────────
@@ -87,12 +107,14 @@ class OnboardingState:
 
     def is_complete(self) -> bool:
         """Return True when all three steps are filled."""
-        return all([
-            self.province is not None,
-            self.score is not None,
-            self.subject is not None,
-            self.interest is not None,
-        ])
+        return all(
+            [
+                self.province is not None,
+                self.score is not None,
+                self.subject is not None,
+                self.interest is not None,
+            ]
+        )
 
     def should_skip(
         self,
@@ -202,7 +224,7 @@ def _render_step_province(state: OnboardingState) -> None:
     cols_per_row = 4
     provinces_sorted = sorted(PROVINCES)
     for row_start in range(0, len(provinces_sorted), cols_per_row):
-        row = provinces_sorted[row_start: row_start + cols_per_row]
+        row = provinces_sorted[row_start : row_start + cols_per_row]
         cols = st.columns(cols_per_row)
         for i, prov in enumerate(row):
             mode = PROVINCE_MODES.get(prov, "")

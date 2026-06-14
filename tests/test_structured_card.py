@@ -1,5 +1,5 @@
 """Tests for StructuredPlanningCard schema."""
-import pytest
+
 from server.domain.schemas import StructuredPlanningCard
 from server.graph.nodes.structure import structure_output_node
 

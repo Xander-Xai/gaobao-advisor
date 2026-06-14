@@ -1,15 +1,14 @@
 """张雪峰原版金句溯源测试。"""
+
 from __future__ import annotations
 
 import json
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from kb_retriever import KbRetriever, QuoteEntry, KeywordOnlyEmbedding, _ZX_TRIGGERS
-
+from kb_retriever import _ZX_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
 
 _QUOTES_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "quotes")
 _GROUPS_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "groups")
@@ -75,8 +74,9 @@ class TestZxQuoteSearch:
         zx_ids = [q.id for q in result.quotes if q.id.startswith("zx_")]
         assert len(zx_ids) >= 1, f"Expected ZX quotes in results, got: {[x.id for x in result.quotes]}"
         # ZX 金句应出现在前 2 位(用户明确问张雪峰)
-        assert result.quotes[0].id.startswith("zx_") or result.quotes[1].id.startswith("zx_"), \
+        assert result.quotes[0].id.startswith("zx_") or result.quotes[1].id.startswith("zx_"), (
             f"ZX quote not in top 2: {[x.id for x in result.quotes[:3]]}"
+        )
 
     def test_common_user_question_no_zx(self) -> None:
         """普通志愿问题不应错误召回 ZX 金句。"""
@@ -85,7 +85,7 @@ class TestZxQuoteSearch:
         zx_ids = [q.id for q in result.quotes if q.id.startswith("zx_")]
         # 普通问题不应该优先返回 ZX 金句（但可能因向量相似度误命中）
         # 检查是否排在 top-3 之外（即如果没有触发词，ZX 不应为主结果）
-        assert not zx_ids, f"Unexpected ZX quotes in normal query"
+        assert not zx_ids, "Unexpected ZX quotes in normal query"
 
     def test_triggers_covered(self) -> None:
         """确认 _ZX_TRIGGERS 覆盖常用触发场景。"""
@@ -114,16 +114,12 @@ class TestZxQuoteAttribution:
         """检索结果中的 ZX 金句应携带 source 和 year。"""
         r = _make_retriever()
         # 直接从内部列表找有出处的 ZX 金句
-        sourced_quotes = [
-            q for q in r._quotes
-            if q.id.startswith("zx_") and q.source
-        ]
+        sourced_quotes = [q for q in r._quotes if q.id.startswith("zx_") and q.source]
         assert len(sourced_quotes) >= 30, "Expected ≥30 ZX quotes with source"
 
     def test_top_quotes_serializable(self) -> None:
         """确认检索结果的 quotes 可序列化为 dict（兼容 RAG service）。"""
         r = _make_retriever()
-        from kb_retriever import RetrievalResult
         result = r.search("张雪峰怎么看计算机专业", {})
         for q in result.quotes:
             d = {
@@ -170,6 +166,7 @@ class TestZxQuoteEdgeCases:
         """CRITICAL 回归测试:ZX 文件加载不应依赖 _by_major.json。"""
         # 即使主索引不存在,ZX 文件也应被加载
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmp:
             # 只创建 ZX 文件,创建空的 quotes 目录(但放 ZX)
             os.makedirs(tmp, exist_ok=True)
@@ -186,5 +183,4 @@ class TestZxQuoteEdgeCases:
                 embedding_provider=KeywordOnlyEmbedding(),
             )
             zx_ids = [q.id for q in r._quotes if q.id.startswith("zx_")]
-            assert len(zx_ids) == 50, \
-                f"ZX file should load independently, got {len(zx_ids)}"
+            assert len(zx_ids) == 50, f"ZX file should load independently, got {len(zx_ids)}"
