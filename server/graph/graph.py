@@ -1,4 +1,11 @@
-"""LangGraph advisor graph — wires all 14 nodes into a compiled pipeline."""
+"""LangGraph advisor graph — wires nodes into a compiled pipeline.
+
+NOTE: The llm_reason node has been removed from the graph.
+LLM streaming is handled directly by the SSE handler in chat.py
+to avoid double LLM calls. The graph stops at structure_output
+(complete path) or question_generate (incomplete path),
+and the SSE handler streams tokens from llm_node_stream.
+"""
 from __future__ import annotations
 
 from langgraph.graph import StateGraph, END
@@ -15,7 +22,6 @@ from server.graph.nodes.data_nodes import data_query_node
 from server.graph.nodes.rag_node import rag_retrieve_node
 from server.graph.nodes.reason import reason_node
 from server.graph.nodes.structure import structure_output_node
-from server.graph.nodes.llm_node import llm_node
 from server.graph.nodes.render import render_reply_node
 from server.graph.nodes.memory import memory_node as memory_update_node
 
@@ -24,7 +30,6 @@ def _profile_has_data(state: AdvisorState) -> str:
     """Routing function: complete profile goes to quality pipeline,
     incomplete profile goes to question generation."""
     if state.get("reply"):
-        # Security scan or other node already set a reply — go to render
         return "has_reply"
     missing = state.get("missing_fields", [])
     if not missing:
@@ -36,7 +41,7 @@ def build_advisor_graph():
     """Build and compile the advisor StateGraph."""
     graph = StateGraph(AdvisorState)
 
-    # ── Register all 14 nodes ─────────────────────────────────
+    # ── Register nodes (llm_reason removed) ─────────────────────
     graph.add_node("security_scan", security_scan_node)
     graph.add_node("intent_detect", intent_detect_node)
     graph.add_node("scene_route", scene_route_node)
@@ -48,7 +53,6 @@ def build_advisor_graph():
     graph.add_node("rag_retrieve", rag_retrieve_node)
     graph.add_node("reason", reason_node)
     graph.add_node("structure_output", structure_output_node)
-    graph.add_node("llm_reason", llm_node)
     graph.add_node("render_reply", render_reply_node)
     graph.add_node("memory_update", memory_update_node)
 
@@ -75,13 +79,12 @@ def build_advisor_graph():
     # ── Question path converges to render → memory → END ───────
     graph.add_edge("question_generate", "render_reply")
 
-    # ── Full pipeline (complete profile) ──────────────────────
+    # ── Full pipeline: structure_output → render (no llm_reason) ──
     graph.add_edge("quality_orchestrate", "data_query")
     graph.add_edge("data_query", "rag_retrieve")
     graph.add_edge("rag_retrieve", "reason")
     graph.add_edge("reason", "structure_output")
-    graph.add_edge("structure_output", "llm_reason")
-    graph.add_edge("llm_reason", "render_reply")
+    graph.add_edge("structure_output", "render_reply")
 
     # ── Converge: render → memory → END ───────────────────────
     graph.add_edge("render_reply", "memory_update")
