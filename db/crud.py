@@ -3,7 +3,7 @@ CRUD 操作 — 数据库查询层
 """
 import json
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from db.models import (
     AdmissionScore,
@@ -77,7 +77,10 @@ def get_admission_scores(
     limit: int = 50,
 ) -> list[dict]:
     """多条件查询录取分数线"""
-    q = db.query(AdmissionScore).join(School, AdmissionScore.school_id == School.id)
+    q = db.query(AdmissionScore).options(
+        joinedload(AdmissionScore.school),
+        joinedload(AdmissionScore.major),
+    ).join(School, AdmissionScore.school_id == School.id)
     q = q.outerjoin(Major, AdmissionScore.major_id == Major.id)
 
     if school_id:
@@ -172,7 +175,7 @@ def query_admission_from_db(db: Session, school_name: str, province: str,
     scores = get_scores_by_school(db, school.id, province=province, year=year)
     results = []
     for s in scores:
-        major = db.query(Major).filter(Major.id == s.major_id).first() if s.major_id else None
+        major = s.major if s.major_id else None
         results.append({
             "school": school.name,
             "level": school.level,
