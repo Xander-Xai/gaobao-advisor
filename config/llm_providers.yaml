@@ -1,0 +1,46 @@
+# gaobao-advisor LLM Provider Configuration
+# 环境变量可覆盖此文件中的任何配置项
+# 用法: 设置 LLM_PROVIDER=deepseek 即可快速切换
+
+providers:
+  deepseek:
+    base_url: "https://api.deepseek.com"
+    model: "deepseek-chat"
+    temperature: 0.7
+    max_tokens: null
+
+  qwen:
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    model: "qwen-plus"
+    temperature: 0.7
+    max_tokens: null
+
+  glm:
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+    model: "glm-4"
+    temperature: 0.7
+    max_tokens: null
+
+  moonshot:
+    base_url: "https://api.moonshot.cn/v1"
+    model: "moonshot-v1-8k"
+    temperature: 0.7
+    max_tokens: null
+
+  openai:
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o"
+    temperature: 0.7
+    max_tokens: null
+
+  ollama:
+    base_url: "http://localhost:11434/v1"
+    model: "qwen2.5:7b"
+    temperature: 0.7
+    max_tokens: null
+
+defaults:
+  provider: "deepseek"
+  temperature: 0.7
+  enable_search: true
+  max_tokens: null

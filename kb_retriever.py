@@ -40,6 +40,8 @@ class QuoteEntry:
     category: str = ""
     sentiment: str = ""
     embedding: np.ndarray | None = None
+    source: str = ""     # 出处（节目/直播/讲座）
+    year: int = 0        # 发表年份（0=长期/未知）
 
 
 @dataclass
@@ -61,9 +63,10 @@ GROUP_TRIGGERS: dict[str, list[str]] = {
         "选专业", "报学校",
     ],
     "G3_career_future": [
-        "考公", "考编", "考研", "就业", "前景", "AI",
-        "人工智能", "大模型", "体制内", "国企", "教师",
-        "医生", "电网", "铁饭碗", "毕业", "出路",
+        "就业", "前景", "AI",
+        "人工智能", "大模型", "毕业", "出路",
+        "行业", "趋势", "市场", "薪资",
+        "体制内", "考公", "考编",
     ],
     "G4_life_planning": [
         "城市", "地域", "北上广", "专科", "高中规划",
@@ -75,7 +78,31 @@ GROUP_TRIGGERS: dict[str, list[str]] = {
     "G6_quick_ref": [
         "速查", "一览", "对照", "快速",
     ],
+    "G7_employment_paths": [
+        "教师", "医生", "公务员", "考公", "考编", "国企", "央企",
+        "电网", "铁路", "烟草", "军工", "航天", "银行", "编制",
+        "稳定就业", "铁饭碗", "央国企", "石油", "就业路径",
+    ],
+    "G8_graduate_and_vocational": [
+        "考研", "研究生", "专硕", "学硕", "研招", "二战", "读研",
+        "专科", "双高", "高职", "专升本", "升本率",
+    ],
+    "G9_zhangxuefeng_methodology_origin": [
+        "张雪峰", "雪峰", "方法论溯源", "为什么这么说",
+        "张雪峰的故事", "张雪峰的经历", "他的人生",
+        "他者视角", "批评", "盲点", "局限",
+        "访谈", "说过", "行为模式", "决策",
+        "《演说家》", "综艺", "直播", "讲座", "雪峰蔚来",
+    ],
 }
+
+
+# 张雪峰原版金句触发词——提及这些时优先召回 zhangxuefeng 金句
+# 谨慎选择:只保留"非他不可"的强信号,避免"他说的""综艺"等宽泛词误触
+_ZX_TRIGGERS: list[str] = [
+    "张雪峰", "雪峰", "演说家", "直播里讲", "主播说",
+    "讲座说过", "他者视角", "盲点",
+]
 
 
 def split_group(content: str, group_id: str) -> list[Chunk]:
@@ -163,12 +190,14 @@ class OpenAIEmbedding(EmbeddingProvider):
         if not texts:
             return []
         all_embeddings: list[np.ndarray] = []
-        batch_size = 200
+        # Batch size 32: SiliconFlow (and most OpenAI-compatible APIs) cap
+        # the input array length at 32 per request.
+        batch_size = 32
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             resp = self._client.embeddings.create(model=self._model, input=batch)
             all_embeddings.extend(
-                np.array(item["embedding"], dtype=np.float32) for item in resp.data
+                np.array(item.embedding, dtype=np.float32) for item in resp.data
             )
         return all_embeddings
 
@@ -227,6 +256,12 @@ def create_embedding_provider(provider: str = "openai",
             api_key=kwargs.get("api_key") or os.getenv("DASHSCOPE_API_KEY"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
+    elif provider == "siliconflow":
+        return OpenAIEmbedding(
+            model=model or "BAAI/bge-large-zh-v1.5",
+            api_key=kwargs.get("api_key") or os.getenv("SILICONFLOW_API_KEY"),
+            base_url=kwargs.get("base_url", "https://api.siliconflow.cn/v1"),
+        )
     elif provider == "ollama":
         return OllamaEmbedding(
             model=model or "bge-m3",
@@ -262,21 +297,37 @@ class KbRetriever:
         self._init_embeddings()
 
     def _load_quotes(self, quotes_path: str) -> list[QuoteEntry]:
-        index_path = os.path.join(quotes_path, "_by_major.json")
-        if not os.path.exists(index_path):
-            return []
-        with open(index_path, encoding="utf-8") as f:
-            raw_index: dict = json.load(f)
         quotes: list[QuoteEntry] = []
-        for major_key, quote_list in raw_index.items():
-            for q in quote_list:
+        # 主语录库（按专业索引）
+        index_path = os.path.join(quotes_path, "_by_major.json")
+        if os.path.exists(index_path):
+            with open(index_path, encoding="utf-8") as f:
+                raw_index: dict = json.load(f)
+            for major_key, quote_list in raw_index.items():
+                for q in quote_list:
+                    quotes.append(QuoteEntry(
+                        id=q.get("id", ""),
+                        text=q["text"],
+                        major=major_key,
+                        tags=q.get("tags", []),
+                        category=q.get("category", ""),
+                        sentiment=q.get("sentiment", ""),
+                    ))
+        # 张雪峰原版金句（带出处/年份）—独立加载,不依赖主索引
+        zx_path = os.path.join(quotes_path, "zhangxuefeng_originals.json")
+        if os.path.exists(zx_path):
+            with open(zx_path, encoding="utf-8") as f:
+                zx_raw: list[dict] = json.load(f)
+            for q in zx_raw:
                 quotes.append(QuoteEntry(
-                    id=q.get("id", ""),
+                    id=q["id"],
                     text=q["text"],
-                    major=major_key,
+                    major=q.get("major", "zhangxuefeng"),
                     tags=q.get("tags", []),
                     category=q.get("category", ""),
                     sentiment=q.get("sentiment", ""),
+                    source=q.get("source", ""),
+                    year=q.get("year", 0),
                 ))
         return quotes
 
@@ -290,9 +341,17 @@ class KbRetriever:
         quote_texts: list[str] = [q.text for q in self._quotes]
         combined_texts = all_texts + quote_texts
         if combined_texts:
+            # Truncate each text to ~500 chars to stay under the
+            # per-text token limit (bge-large-zh-v1.5 via SiliconFlow: ~512 tokens,
+            # but some 500-char Chinese strings still exceed it).
+            truncated = [t[:500] for t in combined_texts]
             try:
-                embeddings = self._embedder.embed(combined_texts)
-            except Exception:
+                embeddings = self._embedder.embed(truncated)
+            except Exception as e:
+                logger.warning(
+                    "Embedding init failed (%s: %s) — falling back to keyword search only",
+                    type(e).__name__, e,
+                )
                 embeddings = [None] * len(combined_texts)
             for idx, (group_id, chunk_idx) in enumerate(all_refs):
                 if embeddings[idx] is not None:
@@ -313,9 +372,11 @@ class KbRetriever:
 
     def _embed_query(self, text: str) -> np.ndarray | None:
         try:
-            results = self._embedder.embed([text])
+            # Truncate to ~500 chars to stay under embedding token limits
+            results = self._embedder.embed([text[:500]])
             return results[0] if results else None
-        except Exception:
+        except Exception as e:
+            logger.debug("Query embedding failed: %s", e)
             return None
 
     def _score_groups(self, user_msg: str, query_emb: np.ndarray | None) -> list[tuple[str, float]]:
@@ -353,12 +414,16 @@ class KbRetriever:
 
     def _select_top_quotes(self, user_msg: str, query_emb: np.ndarray | None) -> list[QuoteEntry]:
         scored: list[tuple[int, float]] = []
+        zx_triggered = any(t.lower() in user_msg.lower() for t in _ZX_TRIGGERS)
         for i, q in enumerate(self._quotes):
             vec_score = 0.0
             if query_emb is not None and q.embedding is not None:
                 vec_score = self._cosine_similarity(query_emb, q.embedding)
             kw_bonus = 0.3 if keyword_exact_match(user_msg, q.major) else 0.0
-            final = max(vec_score, kw_bonus) if kw_bonus else vec_score
+            # 张雪峰触发词加权,略高于 kw_bonus=0.3
+            # 当用户明确问张雪峰时,ZX 金句优先于同关键词其他金句
+            zx_bonus = 0.4 if zx_triggered and q.id.startswith("zx_") else 0.0
+            final = vec_score + kw_bonus + zx_bonus
             scored.append((i, final))
         scored.sort(key=lambda x: -x[1])
         selected: list[QuoteEntry] = []

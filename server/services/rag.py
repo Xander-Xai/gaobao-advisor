@@ -7,29 +7,60 @@ that exposes a clean interface for the server layer with lazy initialization.
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _retriever = None
 _groups_dir: str = ""
 _quotes_path: str = ""
+_active_provider: str = "unknown"
 
 
 def configure(groups_dir: str, quotes_path: str) -> None:
-    """Set paths for the RAG knowledge base. Call before first use."""
-    global _groups_dir, _quotes_path
+    """Set paths for the RAG knowledge base. Call before first use.
+
+    Embedding provider is selected from env var RAG_EMBEDDING_PROVIDER
+    (siliconflow | openai | dashscope | ollama | keyword). Defaults to
+    siliconflow if SILICONFLOW_API_KEY is set, otherwise keyword.
+    """
+    global _groups_dir, _quotes_path, _active_provider
     _groups_dir = groups_dir
     _quotes_path = quotes_path
+    _active_provider = os.getenv("RAG_EMBEDDING_PROVIDER", "").lower() or _default_provider()
+    logger.info("RAG configured: groups_dir=%s, provider=%s", groups_dir, _active_provider)
+
+
+def _default_provider() -> str:
+    """Pick a default provider based on which API key is available."""
+    if os.getenv("SILICONFLOW_API_KEY"):
+        return "siliconflow"
+    if os.getenv("OPENAI_API_KEY"):
+        return "openai"
+    if os.getenv("DASHSCOPE_API_KEY"):
+        return "dashscope"
+    return "keyword"
 
 
 def _get_retriever():
-    """Lazy-init the KbRetriever singleton."""
+    """Lazy-init the KbRetriever singleton with the configured provider."""
     global _retriever
     if _retriever is None:
-        from kb_retriever import KbRetriever, KeywordOnlyEmbedding
+        from kb_retriever import KbRetriever, create_embedding_provider
+        provider_name = _active_provider if _active_provider != "unknown" else _default_provider()
+        embedder = create_embedding_provider(provider_name)
         _retriever = KbRetriever(
             groups_dir=_groups_dir,
             quotes_path=_quotes_path,
-            embedding_provider=KeywordOnlyEmbedding(),
+            embedding_provider=embedder,
+        )
+        logger.info(
+            "KbRetriever initialized: provider=%s, groups=%d, quotes=%d",
+            provider_name,
+            len(_retriever._groups),
+            len(_retriever._quotes),
         )
     return _retriever
 
@@ -60,6 +91,8 @@ def search(user_msg: str, slots: dict | None = None) -> dict[str, Any]:
                 "tags": q.tags,
                 "category": q.category,
                 "sentiment": q.sentiment,
+                "source": q.source,
+                "year": q.year,
             }
             for q in result.quotes
         ],
