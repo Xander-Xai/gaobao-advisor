@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from server.auth import create_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
 
@@ -78,7 +79,7 @@ async def _sse_generator(
             yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
         result["reply"] = "".join(full_reply)
 
-    yield f"data: {json.dumps({'type': 'done', 'message_id': f'{session_id}-response'})}\n\n"
+    yield f"data: {json.dumps({'type': 'done', 'message_id': f'{session_id}-response', 'session_token': create_session_token(session_id)})}\n\n"
 
 
 @router.post("/chat")
