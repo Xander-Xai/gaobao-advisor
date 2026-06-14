@@ -1,4 +1,5 @@
 """Structure output node — builds a StructuredPlanningCard from gathered data."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -101,7 +102,7 @@ def _extract_facts(slots: dict, data: dict, reasoning: str) -> list[str]:
         name = major_info.get("name", "")
         emp = major_info.get("employment_rate")
         if name:
-            emp_str = f"，就业率{emp*100:.0f}%" if emp else ""
+            emp_str = f"，就业率{emp * 100:.0f}%" if emp else ""
             facts.append(f"专业信息：{name}{emp_str}")
 
     return facts
@@ -160,8 +161,7 @@ def _extract_next_actions(scene: str, slots: dict, data: dict) -> list[str]:
 
     missing = [k for k in MISSING_SLOT_KEYS if not slots.get(k)]
     if missing:
-        labels = {"province": "省份", "score": "分数", "subject": "选科",
-                  "interest": "专业意向", "goal": "核心诉求"}
+        labels = {"province": "省份", "score": "分数", "subject": "选科", "interest": "专业意向", "goal": "核心诉求"}
         action_text = "、".join(labels.get(m, m) for m in missing[:3])
         actions.append(f"补充{action_text}信息")
 

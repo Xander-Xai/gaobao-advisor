@@ -13,6 +13,7 @@
   - 通过学校名匹配现有 schools 表，未匹配的自动创建
   - 使用 UniqueConstraint 去重，不会产生重复记录
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,8 +21,6 @@ import gzip
 import os
 import shutil
 import sys
-import tempfile
-from collections import defaultdict
 
 # ── 路径设置 ──
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -110,6 +109,7 @@ def import_data(dry_run: bool = False, verbose: bool = False) -> None:
 
     # 2. 连接 xuefeng 数据库（只读）
     import sqlite3
+
     xuefeng_conn = sqlite3.connect(f"file:{xuefeng_db_path}?mode=ro", uri=True)
     xuefeng_conn.row_factory = sqlite3.Row
     cursor = xuefeng_conn.cursor()
@@ -155,8 +155,7 @@ def import_data(dry_run: bool = False, verbose: bool = False) -> None:
 
         while offset < total_rows:
             cursor.execute(
-                "SELECT province, school, major, score, rank, year "
-                "FROM admission LIMIT ? OFFSET ?",
+                "SELECT province, school, major, score, rank, year FROM admission LIMIT ? OFFSET ?",
                 (batch_size, offset),
             )
             rows = cursor.fetchall()

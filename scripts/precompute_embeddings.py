@@ -11,6 +11,7 @@
     knowledge/quotes/group_embeddings.npy — 知识组 chunks 向量矩阵
     knowledge/quotes/group_meta.json  — 知识组 chunks 元数据
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,12 +41,14 @@ def precompute_groups(groups_dir: str, embedder, output_dir: str) -> None:
     for group_id, chunks in all_groups.items():
         for i, chunk in enumerate(chunks):
             all_texts.append(chunk.text)
-            metadata.append({
-                "group_id": group_id,
-                "chunk_index": i,
-                "section_title": chunk.section_title,
-                "start_line": chunk.start_line,
-            })
+            metadata.append(
+                {
+                    "group_id": group_id,
+                    "chunk_index": i,
+                    "section_title": chunk.section_title,
+                    "start_line": chunk.start_line,
+                }
+            )
 
     if not all_texts:
         print("No group chunks found.")
@@ -81,14 +84,16 @@ def precompute_quotes(quotes_path: str, embedder) -> None:
     for major_key, quote_list in raw_index.items():
         for q in quote_list:
             all_texts.append(q["text"])
-            metadata.append({
-                "id": q.get("id", ""),
-                "text": q["text"],
-                "major": major_key,
-                "tags": q.get("tags", []),
-                "category": q.get("category", ""),
-                "sentiment": q.get("sentiment", ""),
-            })
+            metadata.append(
+                {
+                    "id": q.get("id", ""),
+                    "text": q["text"],
+                    "major": major_key,
+                    "tags": q.get("tags", []),
+                    "category": q.get("category", ""),
+                    "sentiment": q.get("sentiment", ""),
+                }
+            )
 
     if not all_texts:
         print("No quotes found.")
@@ -114,9 +119,12 @@ def precompute_quotes(quotes_path: str, embedder) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Precompute embeddings for knowledge retrieval")
-    parser.add_argument("--provider", default="openai",
-                        choices=["openai", "dashscope", "ollama"],
-                        help="Embedding provider (default: openai)")
+    parser.add_argument(
+        "--provider",
+        default="openai",
+        choices=["openai", "dashscope", "ollama"],
+        help="Embedding provider (default: openai)",
+    )
     parser.add_argument("--model", default=None, help="Embedding model name")
     args = parser.parse_args()
 

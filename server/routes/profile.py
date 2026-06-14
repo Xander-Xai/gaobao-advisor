@@ -5,13 +5,14 @@ Endpoints:
 - PUT  /api/v1/profile/{session_id}     → update single field
 - GET  /api/v1/profile/{session_id}/next-question → next question
 """
+
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from server.auth import verify_session_token
 from server.deps import get_soul_query_engine
 from server.soul_query import QueryState
-from server.user_profile import UserProfile, load_profile, save_profile
+from server.user_profile import load_profile, save_profile
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
 
@@ -62,9 +63,7 @@ async def get_profile(session_id: str, authorization: str | None = Header(None))
 
 
 @router.put("/profile/{session_id}", response_model=ProfileResponse)
-async def update_profile_field(
-    session_id: str, req: ProfileUpdateRequest, authorization: str | None = Header(None)
-):
+async def update_profile_field(session_id: str, req: ProfileUpdateRequest, authorization: str | None = Header(None)):
     """Update a single profile field."""
     _require_auth(session_id, authorization)
     profile = load_profile(session_id)
@@ -78,7 +77,7 @@ async def update_profile_field(
             val = int(req.value)
             if not (100 <= val <= 750):
                 raise ValueError
-            setattr(profile, "score", val)
+            profile.score = val
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Score must be integer between 100 and 750")
     else:
@@ -132,8 +131,8 @@ def _query_state_key(session_id: str) -> str:
 
 def _load_query_state(session_id: str) -> QueryState:
     """Load QueryState from the database."""
+    from db.crud import load_conversation_slots
     from db.database import get_session
-    from db.crud import load_conversation_slots, save_slots
 
     db = get_session()
     try:
@@ -146,6 +145,7 @@ def _load_query_state(session_id: str) -> QueryState:
         )
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).debug("Failed to load query state: %s", exc)
         return QueryState()
     finally:
@@ -154,20 +154,23 @@ def _load_query_state(session_id: str) -> QueryState:
 
 def _save_query_state(session_id: str, state: QueryState) -> None:
     """Save QueryState to the database."""
-    from db.database import get_session
     from db.crud import get_or_create_conversation, save_slots
+    from db.database import get_session
 
     db = get_session()
     try:
         conv = get_or_create_conversation(db, session_id)
-        slot_data = {"_query_state": {
-            "round_count": state.round_count,
-            "asked_fields": state.asked_fields,
-            "skipped_fields": state.skipped_fields,
-        }}
+        slot_data = {
+            "_query_state": {
+                "round_count": state.round_count,
+                "asked_fields": state.asked_fields,
+                "skipped_fields": state.skipped_fields,
+            }
+        }
         save_slots(db, session_id, slot_data)
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).warning("Failed to save query state: %s", exc)
     finally:
         db.close()

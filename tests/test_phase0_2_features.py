@@ -8,6 +8,7 @@ Phase 0-2 功能测试 — API Key 优化 / 动态快捷提问 / 年份标注 / 
   - Task 1.3: 选科兼容性注入到 data_hints
   - Task 2.4: 动态上下文感知快捷提问
 """
+
 import os
 import sys
 
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # ══════════════════════════════════════════════════════
 #  Task 0.1: API Key 友好维护提示
 # ══════════════════════════════════════════════════════
+
 
 class TestApiKeyMaintenanceMessage:
     """验证 API Key 不可用时显示维护页面，不暴露技术细节。"""
@@ -47,6 +49,7 @@ class TestApiKeyMaintenanceMessage:
 #  Task 0.3: 多阶段加载提示
 # ══════════════════════════════════════════════════════
 
+
 class TestLoadingPhases:
     """验证加载阶段定义正确。"""
 
@@ -67,14 +70,13 @@ class TestLoadingPhases:
 #  Task 1.2: 年份标注 + 免责声明规则
 # ══════════════════════════════════════════════════════
 
+
 class TestYearLabelAndDisclaimer:
     """验证 system_prompt 中的年份标注和免责声明规则。"""
 
     def test_agent_system_message_has_year_instructions(self):
         """agent.py _build_system_message 注入年份标注规则到系统消息。"""
-        prompt_path = os.path.join(
-            os.path.dirname(__file__), "..", "system_prompt.md"
-        )
+        prompt_path = os.path.join(os.path.dirname(__file__), "..", "system_prompt.md")
         with open(prompt_path, encoding="utf-8") as f:
             prompt = f.read()
         # system_prompt 中有年份标注要求
@@ -94,6 +96,7 @@ class TestYearLabelAndDisclaimer:
 # ══════════════════════════════════════════════════════
 #  Task 1.3: 选科兼容性注入
 # ══════════════════════════════════════════════════════
+
 
 class TestSubjectCompatibilityInjection:
     """验证选科兼容性信息被注入到 data_hints。"""
@@ -123,11 +126,11 @@ class TestSubjectCompatibilityInjection:
 #  Task 2.4: 动态快捷提问
 # ══════════════════════════════════════════════════════
 
+
 class TestDynamicQuickQuestions:
     """验证动态快捷提问生成器逻辑。"""
 
-    def _mock_session_state(self, province="", score="", subject="",
-                            schools_in_reply=None):
+    def _mock_session_state(self, province="", score="", subject="", schools_in_reply=None):
         """创建模拟的 session_state。"""
         state = {
             "slots": {
@@ -142,10 +145,12 @@ class TestDynamicQuickQuestions:
             "messages": [],
         }
         if schools_in_reply:
-            state["messages"] = [{
-                "role": "assistant",
-                "content": schools_in_reply,
-            }]
+            state["messages"] = [
+                {
+                    "role": "assistant",
+                    "content": schools_in_reply,
+                }
+            ]
         return state
 
     def test_app_has_dynamic_quick_questions_function(self):

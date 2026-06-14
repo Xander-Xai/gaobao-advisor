@@ -59,8 +59,7 @@ st.markdown(
 # 本地运行时则从 .env 文件加载（由 agent.py 的 dotenv 处理）
 try:
     if hasattr(st, "secrets") and st.secrets:
-        for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER",
-                    "ENABLE_SEARCH"]:
+        for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER", "ENABLE_SEARCH"]:
             val = st.secrets.get(key)
             if val:
                 os.environ[key] = str(val)
@@ -101,6 +100,7 @@ WELCOME_MSG = (
     "👇 直接打字或点下方快速提问："
 )
 
+
 # ── 动态快捷提问生成器（根据 slot 状态和对话上下文） ──
 def _get_dynamic_quick_questions() -> list[str]:
     """根据已收集的 slot 信息动态生成上下文感知的快捷提问。"""
@@ -109,21 +109,16 @@ def _get_dynamic_quick_questions() -> list[str]:
     _has_score = _slots["score_rank"]["filled"]
     _has_subject = _slots["subject"]["filled"]
     _province = _slots["province"]["value"] if _has_province else ""
-    _has_ai_reply = any(
-        m["role"] == "assistant" and len(m.get("content", "")) > 50
-        for m in st.session_state.messages
-    )
+    _has_ai_reply = any(m["role"] == "assistant" and len(m.get("content", "")) > 50 for m in st.session_state.messages)
 
     # 从最近的 AI 回复中提取学校名（用于追问按钮）
     _mentioned_schools = []
     if _has_ai_reply:
         import re as _re_qq
+
         for m in reversed(st.session_state.messages):
             if m["role"] == "assistant":
-                _school_hits = _re_qq.findall(
-                    r'([一-龥]{2,}(?:大学|学院|学校))',
-                    m.get("content", "")
-                )
+                _school_hits = _re_qq.findall(r"([一-龥]{2,}(?:大学|学院|学校))", m.get("content", ""))
                 _mentioned_schools = list(dict.fromkeys(_school_hits))[:3]
                 break
 
@@ -170,6 +165,7 @@ def _get_dynamic_quick_questions() -> list[str]:
         "❓ 我对志愿填报一无所知，从哪开始？",
     ]
 
+
 # 免责声明三件套之一：欢迎消息末尾的合规提示
 DISCLAIMER_BRIEF = (
     "⚠️ **免责声明**：本顾问基于公开数据与 AI 推理生成建议，"
@@ -192,51 +188,123 @@ TIPS = [
 
 # 身份证号（18位 / 15位，含地址码、生日码、顺序码、校验码）
 # 注意：中文 + 数字场景下 \b 不可靠，改用 (?<!\d)...(?!\d) 数字边界
-_RE_ID_CARD = _re.compile(
-    r'(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)'
-)
+_RE_ID_CARD = _re.compile(r"(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)")
 # 中国大陆手机号（11位，1开头，3-9 第二位）
-_RE_MOBILE = _re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)')
+_RE_MOBILE = _re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
 # 银行卡号（16-19位连续数字，宽松匹配，但需排除已命中的身份证号）
-_RE_BANK = _re.compile(r'(?<!\d)\d{16,19}(?!\d)')
+_RE_BANK = _re.compile(r"(?<!\d)\d{16,19}(?!\d)")
 # 真实姓名启发式关键词 + 高考常用词黑名单
 # 策略：捕获 2-3 个汉字（最多3字），后跟非汉字字符（如"580分"的"5"）
 # 这样"我是山东考生"里"我是"后紧跟"山东"（2字后跟"考"）→ 捕获"山东"
 #        而"我是李明，"里"我是"后跟"李明"（2字后跟"，"）→ 捕获"李明"
-_REAL_NAME_BLOCKLIST = frozenset({
-    "山东", "考生", "学生", "同学", "老师", "家长",
-    "父母", "父亲", "母亲", "姐妹", "兄弟", "高三", "今年",
-    "湖北", "河南", "河北", "湖南", "广东", "广西", "四川",
-    "浙江", "江苏", "安徽", "福建", "山西", "陕西", "江西",
-    "甘肃", "贵州", "云南", "海南", "吉林", "辽宁", "北京",
-    "上海", "天津", "重庆", "西藏", "宁夏", "新疆", "内蒙",
-    "黑龙江", "内蒙古", "青海",
-})
+_REAL_NAME_BLOCKLIST = frozenset(
+    {
+        "山东",
+        "考生",
+        "学生",
+        "同学",
+        "老师",
+        "家长",
+        "父母",
+        "父亲",
+        "母亲",
+        "姐妹",
+        "兄弟",
+        "高三",
+        "今年",
+        "湖北",
+        "河南",
+        "河北",
+        "湖南",
+        "广东",
+        "广西",
+        "四川",
+        "浙江",
+        "江苏",
+        "安徽",
+        "福建",
+        "山西",
+        "陕西",
+        "江西",
+        "甘肃",
+        "贵州",
+        "云南",
+        "海南",
+        "吉林",
+        "辽宁",
+        "北京",
+        "上海",
+        "天津",
+        "重庆",
+        "西藏",
+        "宁夏",
+        "新疆",
+        "内蒙",
+        "黑龙江",
+        "内蒙古",
+        "青海",
+    }
+)
 _RE_REAL_NAME = _re.compile(
-    r'(?:我叫|我是|我儿子叫|我女儿叫|我同学叫|我朋友叫|考生姓名|姓名)'
-    r'\s*([一-龥]{2,3}?)(?=[^一-龥]|$)',
-    _re.UNICODE
+    r"(?:我叫|我是|我儿子叫|我女儿叫|我同学叫|我朋友叫|考生姓名|姓名)"
+    r"\s*([一-龥]{2,3}?)(?=[^一-龥]|$)",
+    _re.UNICODE,
 )
 
 # QQ号（5-11位纯数字，一般以1开头；需排除已匹配的手机号和身份证号）
 # 先用宽泛模式匹配，再在检测函数中做排除
-_RE_QQ = _re.compile(r'(?<!\d)[1-9]\d{4,10}(?!\d)')
+_RE_QQ = _re.compile(r"(?<!\d)[1-9]\d{4,10}(?!\d)")
 # 微信号（6-20位，字母开头，可含字母、数字、减号、下划线）
-_RE_WECHAT = _re.compile(r'(?<![a-zA-Z0-9_-])[a-zA-Z][a-zA-Z0-9_-]{5,19}(?![a-zA-Z0-9_-])')
+_RE_WECHAT = _re.compile(r"(?<![a-zA-Z0-9_-])[a-zA-Z][a-zA-Z0-9_-]{5,19}(?![a-zA-Z0-9_-])")
 # 微信号常见误判单词黑名单（小写比较）
-_WECHAT_BLOCKLIST = frozenset({
-    "student", "teacher", "python", "select", "system",
-    "import", "export", "return", "string", "number", "default",
-    "update", "delete", "create", "insert", "global", "module",
-    "config", "output", "input", "error", "result", "object",
-    "thread", "server", "client", "master", "status", "format",
-    "button", "submit", "cancel", "search", "common", "normal",
-    "active", "static", "double", "simple", "single",
-})
+_WECHAT_BLOCKLIST = frozenset(
+    {
+        "student",
+        "teacher",
+        "python",
+        "select",
+        "system",
+        "import",
+        "export",
+        "return",
+        "string",
+        "number",
+        "default",
+        "update",
+        "delete",
+        "create",
+        "insert",
+        "global",
+        "module",
+        "config",
+        "output",
+        "input",
+        "error",
+        "result",
+        "object",
+        "thread",
+        "server",
+        "client",
+        "master",
+        "status",
+        "format",
+        "button",
+        "submit",
+        "cancel",
+        "search",
+        "common",
+        "normal",
+        "active",
+        "static",
+        "double",
+        "simple",
+        "single",
+    }
+)
 # 家庭住址（含路/街/小区/栋/单元/号/弄/巷/村等关键词 + 数字组合）
 _RE_ADDRESS = _re.compile(
-    r'(?:省|市|区|县|镇|乡|村|路|街|大道|小区|弄|巷|号|栋|单元|室|楼)'
-    r'\s*\d+'
+    r"(?:省|市|区|县|镇|乡|村|路|街|大道|小区|弄|巷|号|栋|单元|室|楼)"
+    r"\s*\d+"
 )
 
 
@@ -278,7 +346,7 @@ def detect_sensitive_info(text: str) -> list:
             if id_match and val == id_match.group():
                 continue
             # 排除银行卡号子串（16-19位 QQ号不可能这么长，但以防万一）
-            if len(val) == 11 and val.startswith('1') and val[1] in '3456789':
+            if len(val) == 11 and val.startswith("1") and val[1] in "3456789":
                 continue
             hits.append("QQ号")
             break
@@ -407,9 +475,7 @@ _SCHOOL_CARD_CSS = """
 """
 
 
-_SCHOOL_DATA_PATTERN = _re.compile(
-    r'<!--SCHOOL_DATA:(.*?)-->', _re.DOTALL
-)
+_SCHOOL_DATA_PATTERN = _re.compile(r"<!--SCHOOL_DATA:(.*?)-->", _re.DOTALL)
 
 
 def _render_school_card(school: dict) -> str:
@@ -426,11 +492,10 @@ def _render_school_card(school: dict) -> str:
     major = _html.escape(str(school.get("major", "院校线")))
     note = _html.escape(str(school.get("note", "")))
     group = str(school.get("group", "wen")).strip()  # chong/wen/bao
-    trend = str(school.get("trend", "")).strip()     # 上升/下降/稳定/波动
+    trend = str(school.get("trend", "")).strip()  # 上升/下降/稳定/波动
 
     # 趋势指示器映射
-    trend_icons = {"上升": "📈", "逐年上升": "📈", "下降": "📉", "逐年下降": "📉",
-                   "稳定": "➡️", "波动": "〰️"}
+    trend_icons = {"上升": "📈", "逐年上升": "📈", "下降": "📉", "逐年下降": "📉", "稳定": "➡️", "波动": "〰️"}
     trend_icon = trend_icons.get(trend, "")
 
     # 标签
@@ -472,10 +537,7 @@ def _render_school_card(school: dict) -> str:
     card_class = f"school-card school-card-{group}"
     tag_html = "".join(tags)
     meta_html = f'<div class="school-card-meta">{meta}</div>' if meta else ""
-    score_html = (
-        f'<div class="school-card-meta">{" | ".join(score_parts)}</div>'
-        if score_parts else ""
-    )
+    score_html = f'<div class="school-card-meta">{" | ".join(score_parts)}</div>' if score_parts else ""
     # note 样式：选科警告用红色，其他用灰色
     note_html = ""
     if note:
@@ -495,7 +557,7 @@ def _render_school_card(school: dict) -> str:
 
 
 # ── 专业百科卡片渲染（P2-6）──
-_MAJOR_ENCYCLOPEDIA_RE = _re.compile(r'【专业百科】(.+?)(?=\n【|\n---|\Z)', _re.DOTALL)
+_MAJOR_ENCYCLOPEDIA_RE = _re.compile(r"【专业百科】(.+?)(?=\n【|\n---|\Z)", _re.DOTALL)
 
 
 def _render_major_card(text: str) -> str:
@@ -535,7 +597,7 @@ def _render_school_cards(reply_text: str) -> str:
     last_end = 0
     for match in _SCHOOL_DATA_PATTERN.finditer(reply_text):
         # 非 SCHOOL_DATA 部分：HTML 转义后保留
-        before = reply_text[last_end:match.start()]
+        before = reply_text[last_end : match.start()]
         if before:
             parts.append(_html.escape(before))
 
@@ -570,10 +632,7 @@ def _render_school_cards(reply_text: str) -> str:
             items = groups[g_key]
             if not items:
                 continue
-            parts.append(
-                f'<div class="school-group-title {g_class}">{g_label}'
-                f'（{len(items)} 所）</div>'
-            )
+            parts.append(f'<div class="school-group-title {g_class}">{g_label}（{len(items)} 所）</div>')
             for s in items[:5]:  # 每组最多 5 张卡片
                 parts.append(_render_school_card(s))
         last_end = match.end()
@@ -590,7 +649,6 @@ def _render_school_cards(reply_text: str) -> str:
         result,
     )
     return result
-
 
 
 # ── 自定义样式：移动端优化 + 暖色教育风格 ─────────────
@@ -805,13 +863,13 @@ def init_session():
     # 先初始化 per-session 的 slots（每个用户独立）
     if "slots" not in st.session_state:
         st.session_state.slots = {
-            "province":     {"label": "省份", "filled": False, "value": ""},
-            "score_rank":   {"label": "分数/位次", "filled": False, "value": ""},
-            "subject":      {"label": "选科", "filled": False, "value": ""},
-            "interest":     {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
-            "region":       {"label": "地域偏好", "filled": False, "value": ""},
-            "family":       {"label": "家庭资源", "filled": False, "value": ""},
-            "goal":         {"label": "核心诉求", "filled": False, "value": ""},
+            "province": {"label": "省份", "filled": False, "value": ""},
+            "score_rank": {"label": "分数/位次", "filled": False, "value": ""},
+            "subject": {"label": "选科", "filled": False, "value": ""},
+            "interest": {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
+            "region": {"label": "地域偏好", "filled": False, "value": ""},
+            "family": {"label": "家庭资源", "filled": False, "value": ""},
+            "goal": {"label": "核心诉求", "filled": False, "value": ""},
         }
     # API Key 输入状态
     if "user_api_key" not in st.session_state:
@@ -848,9 +906,10 @@ def init_session():
         _try_restore_history()
         st.session_state.history_restored = True
 
+
 # #10: 频率限制常量
 MIN_REQUEST_INTERVAL = 2.0  # 秒，两次请求之间最短间隔
-MAX_MSG_PER_SESSION = 50    # 单 session 最大消息数
+MAX_MSG_PER_SESSION = 50  # 单 session 最大消息数
 
 
 # ── P3: 对话持久化辅助函数 ─────────────────────────────
@@ -859,6 +918,7 @@ def _try_restore_history():
     try:
         from db.crud import load_conversation_history, load_conversation_slots
         from db.database import get_session
+
         db = get_session()
         try:
             history = load_conversation_history(db, st.session_state.session_id)
@@ -882,6 +942,7 @@ def _save_message_to_db(role: str, content: str):
     try:
         from db.crud import save_message, save_slots
         from db.database import get_session
+
         db = get_session()
         try:
             save_message(db, st.session_state.session_id, role, content)
@@ -1024,10 +1085,7 @@ msg_count = st.session_state.msg_count
 
 # ── 顶部标题 ──────────────────────────────────────────
 st.markdown(
-    '<div class="main-title">'
-    "<h1>🎓 高报Agent AI 高考志愿顾问</h1>"
-    "<p>说话直、不绕弯 — 帮你科学填报志愿</p>"
-    "</div>",
+    '<div class="main-title"><h1>🎓 高报Agent AI 高考志愿顾问</h1><p>说话直、不绕弯 — 帮你科学填报志愿</p></div>',
     unsafe_allow_html=True,
 )
 
@@ -1047,11 +1105,7 @@ with st.sidebar:
 
     # API Key 未配置时：显示友好维护页面（不暴露技术细节）
     if not _has_env_key:
-        st.markdown(
-            "#### 🔧 系统维护中\n\n"
-            "顾问正在升级中，暂时无法使用。\n\n"
-            "请稍后再试，或联系管理员获取帮助。"
-        )
+        st.markdown("#### 🔧 系统维护中\n\n顾问正在升级中，暂时无法使用。\n\n请稍后再试，或联系管理员获取帮助。")
         st.markdown("---")
 
     st.markdown("**智能分析你的分数**，推荐最合适的冲、稳、保院校。")
@@ -1101,7 +1155,9 @@ with st.sidebar:
 
         # 步骤 1：选择省份
         provinces_list = PROVINCES
-        current_province = st.session_state.slots["province"]["value"] if st.session_state.slots["province"]["filled"] else ""
+        current_province = (
+            st.session_state.slots["province"]["value"] if st.session_state.slots["province"]["filled"] else ""
+        )
         province_idx = provinces_list.index(current_province) + 1 if current_province in provinces_list else 0
         selected_province = st.selectbox(
             "1️⃣ 你的省份",
@@ -1173,9 +1229,7 @@ with st.sidebar:
 
             if updated:
                 # 自动组装首条消息发给 AI
-                intro_msg = "你好，我是" + (
-                    st.session_state.slots["province"]["value"] or "（未填）"
-                ) + "考生，"
+                intro_msg = "你好，我是" + (st.session_state.slots["province"]["value"] or "（未填）") + "考生，"
                 if st.session_state.slots["score_rank"]["filled"]:
                     intro_msg += st.session_state.slots["score_rank"]["value"] + "，"
                 if st.session_state.slots["goal"]["filled"]:
@@ -1209,9 +1263,8 @@ with st.sidebar:
                 with _tabs[0]:
                     try:
                         from gaokao_data import query_admission_trend
-                        _trend = query_admission_trend(
-                            _detail_school.strip(), _province_hint, _known_subj, years=3
-                        )
+
+                        _trend = query_admission_trend(_detail_school.strip(), _province_hint, _known_subj, years=3)
                         if _trend and _trend.get("data"):
                             _trend_emoji = {"逐年上升": "📈", "逐年下降": "📉", "波动": "〰️", "稳定": "➡️"}.get(
                                 _trend["trend"], "📊"
@@ -1225,11 +1278,13 @@ with st.sidebar:
                             for _d in _trend["data"]:
                                 _score_s = str(_d.get("min_score", "—"))
                                 _rank_s = f"位次 {_d['min_rank']:,}" if _d.get("min_rank") else ""
-                                _rows_data.append({
-                                    "年份": str(_d.get("year", "")),
-                                    "最低分": _score_s,
-                                    "最低位次": _rank_s,
-                                })
+                                _rows_data.append(
+                                    {
+                                        "年份": str(_d.get("year", "")),
+                                        "最低分": _score_s,
+                                        "最低位次": _rank_s,
+                                    }
+                                )
                             if _rows_data:
                                 st.dataframe(_rows_data, use_container_width=True, hide_index=True)
                         elif _trend:
@@ -1243,16 +1298,19 @@ with st.sidebar:
                 with _tabs[1]:
                     try:
                         from gaokao_data import query_subject_ranking
+
                         _ranking = query_subject_ranking(_detail_school.strip())
                         if _ranking and _ranking.get("rankings"):
                             st.markdown(f"**{_detail_school} — 学科评估排名**")
                             _rk_rows = []
                             for _r in _ranking["rankings"][:10]:
-                                _rk_rows.append({
-                                    "学科类别": _r.get("major_category", ""),
-                                    "评估等级": _r.get("grade", "—"),
-                                    "排名来源": _r.get("ranking_source", ""),
-                                })
+                                _rk_rows.append(
+                                    {
+                                        "学科类别": _r.get("major_category", ""),
+                                        "评估等级": _r.get("grade", "—"),
+                                        "排名来源": _r.get("ranking_source", ""),
+                                    }
+                                )
                             st.dataframe(_rk_rows, use_container_width=True, hide_index=True)
                         else:
                             st.info("暂无该校的学科排名数据（数据来源：教育部学科评估）")
@@ -1263,10 +1321,15 @@ with st.sidebar:
                 with _tabs[2]:
                     try:
                         from gaokao_data import query_major_info
+
                         # 查询学校王牌专业的就业数据
                         _major_map = {
-                            "计算机": "计算机", "软件": "软件工程", "电子信息": "电子信息工程",
-                            "电气": "电气工程", "临床医学": "临床医学", "金融": "金融学",
+                            "计算机": "计算机",
+                            "软件": "软件工程",
+                            "电子信息": "电子信息工程",
+                            "电气": "电气工程",
+                            "临床医学": "临床医学",
+                            "金融": "金融学",
                         }
                         _majors_to_show = list(_major_map.keys())[:3]
                         _found = False
@@ -1274,9 +1337,11 @@ with st.sidebar:
                             _mi = query_major_info(_m)
                             if _mi and _mi.get("employment_rate"):
                                 _found = True
-                                _emp = f"{_mi['employment_rate']*100:.0f}%" if _mi.get("employment_rate") else "—"
-                                _salary = f"{_mi.get('avg_salary', 0)/1000:.1f}k" if _mi.get("avg_salary") else "—"
-                                _post = f"{_mi['postgraduate_rate']*100:.0f}%" if _mi.get("postgraduate_rate") else "—"
+                                _emp = f"{_mi['employment_rate'] * 100:.0f}%" if _mi.get("employment_rate") else "—"
+                                _salary = f"{_mi.get('avg_salary', 0) / 1000:.1f}k" if _mi.get("avg_salary") else "—"
+                                _post = (
+                                    f"{_mi['postgraduate_rate'] * 100:.0f}%" if _mi.get("postgraduate_rate") else "—"
+                                )
                                 st.markdown(f"**{_mi['name']}**")
                                 st.markdown(
                                     f"就业率 **{_emp}** · 毕业5年月薪 **{_salary}元** · "
@@ -1304,16 +1369,13 @@ with st.sidebar:
     # 📤 导出 & 分享
     with st.expander("📤 导出 & 分享", expanded=False):
         _sid = st.session_state.session_id
-        st.markdown(
-            f"**会话 ID**：`{_sid}`\n\n"
-            f"关闭页面后，通过此链接可恢复对话：\n\n"
-            f"页面地址栏中已包含 `?sid={_sid}`"
-        )
+        st.markdown(f"**会话 ID**：`{_sid}`\n\n关闭页面后，通过此链接可恢复对话：\n\n页面地址栏中已包含 `?sid={_sid}`")
         st.caption("💡 复制浏览器地址栏链接，发给家人或自己保存即可。")
         # 增强版：导出完整咨询报告（包含推荐摘要）
         if st.button("📊 生成完整咨询报告", use_container_width=True):
             export_lines = []
             from datetime import datetime as _dt
+
             _now = _dt.now().strftime("%Y-%m-%d %H:%M")
             export_lines.append("# 🎓 AI 高考志愿咨询报告")
             export_lines.append(f"**生成时间**: {_now}")
@@ -1324,9 +1386,13 @@ with st.sidebar:
             _slots = st.session_state.slots
             export_lines.append("## 📋 考生基本信息\n")
             slot_labels = {
-                "province": "省份", "score_rank": "分数/位次", "subject": "选科",
-                "interest": "专业兴趣", "region": "地域偏好",
-                "family": "家庭资源", "goal": "核心诉求",
+                "province": "省份",
+                "score_rank": "分数/位次",
+                "subject": "选科",
+                "interest": "专业兴趣",
+                "region": "地域偏好",
+                "family": "家庭资源",
+                "goal": "核心诉求",
             }
             for k, v in _slots.items():
                 if v.get("filled"):
@@ -1336,7 +1402,7 @@ with st.sidebar:
 
             # ── 推荐摘要（从 AI 回复中提取学校名） ──
             _school_mentions = set()
-            _re_school = _re.compile(r'([一-龥]{2,}(?:大学|学院|学校))')
+            _re_school = _re.compile(r"([一-龥]{2,}(?:大学|学院|学校))")
             for msg in st.session_state.messages:
                 if msg["role"] == "assistant":
                     for m in _re_school.finditer(msg.get("content", "")):
@@ -1354,7 +1420,7 @@ with st.sidebar:
             for msg in st.session_state.messages:
                 role_label = "👤 考生" if msg["role"] == "user" else "🤖 AI 顾问"
                 content = msg["content"]
-                content = _re.sub(r'<[^>]+>', '', content)
+                content = _re.sub(r"<[^>]+>", "", content)
                 content = content.strip()
                 if content:
                     export_lines.append(f"### {role_label}\n{content}\n")
@@ -1385,6 +1451,7 @@ with st.sidebar:
         if st.session_state.messages:
             if st.button("📄 导出对话 Markdown", use_container_width=True):
                 from datetime import datetime as _dt_md
+
                 _now_md = _dt_md.now().strftime("%Y-%m-%d %H:%M")
                 _md_lines = []
                 _md_lines.append("# 高考志愿咨询对话记录")
@@ -1405,15 +1472,12 @@ with st.sidebar:
                 _md_lines.append("---\n")
                 for _msg in st.session_state.messages:
                     _role_label = "考生" if _msg["role"] == "user" else "AI 顾问"
-                    _content = _re.sub(r'<[^>]+>', '', _msg.get("content", "")).strip()
+                    _content = _re.sub(r"<[^>]+>", "", _msg.get("content", "")).strip()
                     if _content:
                         _md_lines.append(f"### {_role_label}\n")
                         _md_lines.append(f"{_content}\n")
                 _md_lines.append("---\n")
-                _md_lines.append(
-                    "*本对话由 AI 高考志愿顾问自动生成，仅供参考，"
-                    "不构成升学决策依据。*"
-                )
+                _md_lines.append("*本对话由 AI 高考志愿顾问自动生成，仅供参考，不构成升学决策依据。*")
                 _md_text = "\n".join(_md_lines)
                 st.download_button(
                     "💾 下载对话 Markdown",
@@ -1459,25 +1523,39 @@ with st.sidebar:
                                 continue
 
                     import io
+
                     buffer = io.BytesIO()
                     doc = SimpleDocTemplate(
-                        buffer, pagesize=A4,
-                        topMargin=1.5 * cm, bottomMargin=1.5 * cm,
-                        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+                        buffer,
+                        pagesize=A4,
+                        topMargin=1.5 * cm,
+                        bottomMargin=1.5 * cm,
+                        leftMargin=1.5 * cm,
+                        rightMargin=1.5 * cm,
                     )
                     styles = getSampleStyleSheet()
                     # 自定义样式
                     title_style = ParagraphStyle(
-                        "PdfTitle", parent=styles["Title"],
-                        fontName=_font_name, fontSize=16, spaceAfter=12,
+                        "PdfTitle",
+                        parent=styles["Title"],
+                        fontName=_font_name,
+                        fontSize=16,
+                        spaceAfter=12,
                     )
                     normal_style = ParagraphStyle(
-                        "PdfNormal", parent=styles["Normal"],
-                        fontName=_font_name, fontSize=9, leading=13,
+                        "PdfNormal",
+                        parent=styles["Normal"],
+                        fontName=_font_name,
+                        fontSize=9,
+                        leading=13,
                     )
                     section_style = ParagraphStyle(
-                        "PdfSection", parent=styles["Heading2"],
-                        fontName=_font_name, fontSize=12, spaceBefore=10, spaceAfter=6,
+                        "PdfSection",
+                        parent=styles["Heading2"],
+                        fontName=_font_name,
+                        fontSize=12,
+                        spaceBefore=10,
+                        spaceAfter=6,
                     )
 
                     elements = []
@@ -1513,47 +1591,57 @@ with st.sidebar:
                         elements.append(Paragraph(f"◆ {group_label}", section_style))
                         table_data = [["序号", "院校", "批次", "选科", "最低分", "最低位次"]]
                         for i, s in enumerate(schools, 1):
-                            table_data.append([
-                                str(i),
-                                s.get("school_name", "?"),
-                                s.get("batch", ""),
-                                s.get("subject_type", ""),
-                                str(s.get("min_score", "")),
-                                str(s.get("min_rank", "")),
-                            ])
-                        t = Table(table_data, colWidths=[1.2*cm, 5*cm, 3*cm, 2.5*cm, 2.5*cm, 3*cm])
-                        t.setStyle(TableStyle([
-                            ("FONTNAME", (0, 0), (-1, -1), _font_name),
-                            ("FONTSIZE", (0, 0), (-1, -1), 9),
-                            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e0e7ff")),
-                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
-                            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-                            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
-                            ("TOPPADDING", (0, 0), (-1, -1), 4),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ]))
+                            table_data.append(
+                                [
+                                    str(i),
+                                    s.get("school_name", "?"),
+                                    s.get("batch", ""),
+                                    s.get("subject_type", ""),
+                                    str(s.get("min_score", "")),
+                                    str(s.get("min_rank", "")),
+                                ]
+                            )
+                        t = Table(table_data, colWidths=[1.2 * cm, 5 * cm, 3 * cm, 2.5 * cm, 2.5 * cm, 3 * cm])
+                        t.setStyle(
+                            TableStyle(
+                                [
+                                    ("FONTNAME", (0, 0), (-1, -1), _font_name),
+                                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e0e7ff")),
+                                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+                                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+                                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
+                                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                ]
+                            )
+                        )
                         elements.append(t)
                         elements.append(Spacer(1, 8))
 
                     # 数据来源说明
                     elements.append(Spacer(1, 12))
                     elements.append(Paragraph("数据来源说明", section_style))
-                    elements.append(Paragraph(
-                        "本志愿表数据来自教育部官方名单、各省教育考试院公开数据、"
-                        "百度高考 API 等渠道。录取分数线为往年数据，仅供参考。",
-                        normal_style,
-                    ))
+                    elements.append(
+                        Paragraph(
+                            "本志愿表数据来自教育部官方名单、各省教育考试院公开数据、"
+                            "百度高考 API 等渠道。录取分数线为往年数据，仅供参考。",
+                            normal_style,
+                        )
+                    )
 
                     # 免责声明
                     elements.append(Spacer(1, 8))
                     elements.append(Paragraph("免责声明", section_style))
-                    elements.append(Paragraph(
-                        "本志愿表基于 AI 推理与往年数据生成，不构成升学建议。"
-                        "最终填报请以各高校当年招生章程及省考试院公布的官方数据为准。"
-                        "生成日期: 2026 年",
-                        normal_style,
-                    ))
+                    elements.append(
+                        Paragraph(
+                            "本志愿表基于 AI 推理与往年数据生成，不构成升学建议。"
+                            "最终填报请以各高校当年招生章程及省考试院公布的官方数据为准。"
+                            "生成日期: 2026 年",
+                            normal_style,
+                        )
+                    )
 
                     doc.build(elements)
                     buffer.seek(0)
@@ -1603,9 +1691,10 @@ with st.sidebar:
                         format_volunteer_table,
                         generate_volunteer_table,
                     )
+
                     # 解析分数
                     _score_text = _slots_now["score_rank"]["value"]
-                    _score_match = _re.search(r'(\d{3})', _score_text)
+                    _score_match = _re.search(r"(\d{3})", _score_text)
                     if _score_match:
                         _score = int(_score_match.group(1))
                         _table = generate_volunteer_table(
@@ -1632,6 +1721,7 @@ with st.sidebar:
                 load_conversation_slots,
             )
             from db.database import get_session as _hist_db
+
             _db_h = _hist_db()
             try:
                 _histories = list_user_conversations(_db_h, limit=20)
@@ -1642,11 +1732,7 @@ with st.sidebar:
                         _prov = _h.province or "未知省份"
                         _score = _h.score_rank or ""
                         _msg_count = len(_h.messages) if _h.messages else 0
-                        _label = (
-                            f"{_date} · {_prov}"
-                            + (f" · {_score}" if _score else "")
-                            + f" · {_msg_count}条消息"
-                        )
+                        _label = f"{_date} · {_prov}" + (f" · {_score}" if _score else "") + f" · {_msg_count}条消息"
                         # 当前会话高亮
                         _is_current = _h.session_id == st.session_state.session_id
                         if _is_current:
@@ -1659,12 +1745,8 @@ with st.sidebar:
                                 use_container_width=True,
                             ):
                                 # 从数据库恢复该会话的消息和槽位
-                                _restored_msgs = load_conversation_history(
-                                    _db_h, _h.session_id
-                                )
-                                _restored_slots = load_conversation_slots(
-                                    _db_h, _h.session_id
-                                )
+                                _restored_msgs = load_conversation_history(_db_h, _h.session_id)
+                                _restored_slots = load_conversation_slots(_db_h, _h.session_id)
                                 if _restored_msgs:
                                     st.session_state.messages = _restored_msgs
                                     st.session_state.msg_count = len(_restored_msgs)
@@ -1709,6 +1791,7 @@ with st.sidebar:
 
     # 检查二维码图片是否存在，存在则显示
     import os as _os
+
     _qr_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static", "wechat_group_qr.png")
     if _os.path.exists(_qr_path):
         st.image(_qr_path, width=180, caption="家长群二维码（微信扫一扫）")
@@ -1717,7 +1800,7 @@ with st.sidebar:
             '<div style="text-align:center; padding:1.2rem; background:#f0fdf4; border:2px dashed #22c55e; border-radius:12px; margin:0.4rem 0;">'
             '<p style="font-size:0.8rem; color:#166534; margin:0 0 0.2rem;">📱 家长群二维码</p>'
             '<p style="font-size:0.7rem; color:#9ca3af; margin:0;">（管理员请将图片放置于 static/wechat_group_qr.png）</p>'
-            '</div>',
+            "</div>",
             unsafe_allow_html=True,
         )
 
@@ -1725,7 +1808,7 @@ with st.sidebar:
         '<div style="text-align:center; padding:0.6rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; margin:0.4rem 0;">'
         '<p style="font-size:0.9rem; color:#166534; margin:0; font-weight:600;">家长交流群</p>'
         '<p style="font-size:0.75rem; color:#6b7280; margin:0.2rem 0;">实时政策解读 · 1对1咨询答疑 · 过来人经验分享</p>'
-        '</div>',
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -1734,7 +1817,7 @@ with st.sidebar:
         '<p style="font-size:0.9rem; color:#92400e; margin:0; font-weight:600;">📖 免费领取《志愿填报避坑指南》</p>'
         '<p style="font-size:0.75rem; color:#92400e; margin:0.2rem 0;">历年考生踩坑案例汇总 PDF</p>'
         '<p style="font-size:0.7rem; color:#d97706; margin:0;">添加微信 <b>gaobao_ai</b> 领取</p>'
-        '</div>',
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -1743,10 +1826,10 @@ with st.sidebar:
     # ⭐ 品牌署名
     st.markdown(
         '<div style="text-align:center; padding:0.4rem; font-size:0.78rem; color:#9ca3af;">'
-        '⭐ Powered by <b>gaobao</b> · '
+        "⭐ Powered by <b>gaobao</b> · "
         '<a href="https://github.com" target="_blank" '
         'style="color:#3b82f6; text-decoration:none;">GitHub 开源</a>'
-        '</div>',
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -1776,6 +1859,7 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                     try:
                         from db.crud import save_feedback as _sf
                         from db.database import get_session as _gs
+
                         _db = _gs()
                         try:
                             _sf(_db, st.session_state.session_id, msg_idx, "helpful")
@@ -1791,6 +1875,7 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                     try:
                         from db.crud import save_feedback as _sf
                         from db.database import get_session as _gs
+
                         _db = _gs()
                         try:
                             _sf(_db, st.session_state.session_id, msg_idx, "not_helpful")
@@ -1808,6 +1893,7 @@ if st.session_state.get("_volunteer_table"):
     with st.chat_message("assistant"):
         st.markdown("### 📋 已生成你的专属志愿表草案")
         from gaokao_data import format_volunteer_table
+
         _table = st.session_state["_volunteer_table"]
         # 渲染为结构化卡片
         all_schools = []
@@ -1818,9 +1904,7 @@ if st.session_state.get("_volunteer_table"):
                 s2["group"] = g_key
                 s2["name"] = s2.get("school_name", "?")
                 all_schools.append(s2)
-        school_data_html = "<!--SCHOOL_DATA:" + _json.dumps(
-            all_schools, ensure_ascii=False
-        ) + "-->"
+        school_data_html = "<!--SCHOOL_DATA:" + _json.dumps(all_schools, ensure_ascii=False) + "-->"
         rendered_html = _render_school_cards(school_data_html)
         st.markdown(rendered_html, unsafe_allow_html=True)
         # 文字部分
@@ -1846,27 +1930,27 @@ if st.session_state.get("_volunteer_table"):
 
 
 # ── 欢迎消息（仅首屏） ────────────────────────────────
-_welcome_added = any("AI 高考志愿顾问" in m.get("content", "") for m in st.session_state.messages if m["role"] == "assistant")
+_welcome_added = any(
+    "AI 高考志愿顾问" in m.get("content", "") for m in st.session_state.messages if m["role"] == "assistant"
+)
 if not _welcome_added:
     with st.chat_message("assistant"):
         # 免责声明三件套之三：对话首条消息末尾附简短提示
         st.markdown(WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF)
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
-    })
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": WELCOME_MSG + "\n\n---\n" + DISCLAIMER_BRIEF,
+        }
+    )
 
 # ── 3-step onboarding for first-time users ──────────────────
 _has_user_msg = any(m["role"] == "user" for m in st.session_state.messages)
-_has_filled_slots = any(
-    v.get("filled", False) for v in st.session_state.slots.values()
-)
+_has_filled_slots = any(v.get("filled", False) for v in st.session_state.slots.values())
 _onboarding_state: OnboardingState | None = st.session_state.get("onboarding")
 
 _show_onboarding = (
-    not _has_user_msg
-    and not _has_filled_slots
-    and (_onboarding_state is None or not _onboarding_state.is_complete())
+    not _has_user_msg and not _has_filled_slots and (_onboarding_state is None or not _onboarding_state.is_complete())
 )
 
 if _show_onboarding:
@@ -1903,7 +1987,7 @@ if "_pending_question" in st.session_state:
     st.markdown(
         '<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;'
         'padding:0.5rem 0.8rem;margin:0.4rem 0;font-size:0.85rem;color:#1e40af;">'
-        '✏️ 以下问题已自动填入，你可以<b>修改补充</b>后再发送：</div>',
+        "✏️ 以下问题已自动填入，你可以<b>修改补充</b>后再发送：</div>",
         unsafe_allow_html=True,
     )
     _edited = st.text_input(
@@ -1937,8 +2021,7 @@ if user_input:
     client_ip = "unknown"
     try:
         ctx = st.context.headers
-        client_ip = ctx.get("X-Forwarded-For", "").split(",")[0].strip() or \
-                    ctx.get("X-Real-IP", "unknown")
+        client_ip = ctx.get("X-Forwarded-For", "").split(",")[0].strip() or ctx.get("X-Real-IP", "unknown")
     except Exception:
         client_ip = "unknown"  # IP 获取失败时降级
 
@@ -2008,9 +2091,7 @@ if user_input:
         _slots_text = slots_summary(st.session_state.slots)
         with st.chat_message("assistant"):
             st.markdown(f"```\n{_slots_text}\n```")
-        st.session_state.messages.append(
-            {"role": "assistant", "content": f"```\n{_slots_text}\n```"}
-        )
+        st.session_state.messages.append({"role": "assistant", "content": f"```\n{_slots_text}\n```"})
         st.stop()
 
     # ── 数据脱敏 & 隐私守卫：检测到敏感信息时，警告用户并阻断发送到 LLM ──
@@ -2028,9 +2109,7 @@ if user_input:
         ]:
             _sanitized_display = _pat.sub(f"**[**{_kind}已屏蔽**]**", _sanitized_display)
         # 真实姓名用"**"占位替换
-        _sanitized_display = _RE_REAL_NAME.sub(
-            r'\1**', _sanitized_display
-        )
+        _sanitized_display = _RE_REAL_NAME.sub(r"\1**", _sanitized_display)
         # 修正最后一次 "user" 消息的展示（不显示原文）
         if st.session_state.messages and st.session_state.messages[-1].get("role") == "user":
             st.session_state.messages[-1]["content"] = _sanitized_display
@@ -2067,7 +2146,7 @@ if user_input:
             for chunk in advisor.chat_stream(user_input):
                 if chunk.startswith("|||FINAL|||"):
                     # 最终标记：取出完整回复（后处理已在 chat_stream 内完成）
-                    reply = chunk[len("|||FINAL|||"):]
+                    reply = chunk[len("|||FINAL|||") :]
                 else:
                     # 首个 chunk 到达时清除加载提示
                     if not collected_chunks:
@@ -2084,11 +2163,9 @@ if user_input:
 
         except Exception as e:
             import logging
+
             logging.error("advisor.chat_stream failed: %s: %s", type(e).__name__, e, exc_info=True)
-            reply = (
-                "抱歉，AI 服务暂时遇到了问题，请稍后再试。\n\n"
-                "如果持续出现这个问题，请检查 API 配置是否正确。"
-            )
+            reply = "抱歉，AI 服务暂时遇到了问题，请稍后再试。\n\n如果持续出现这个问题，请检查 API 配置是否正确。"
             loading_placeholder.empty()
 
         # ── 报告结尾免责声明（每轮 AI 回复后追加，确保用户始终看到合规提示）──
@@ -2117,6 +2194,7 @@ if user_input:
                 try:
                     from db.crud import save_feedback as _sf
                     from db.database import get_session as _gs
+
                     _db = _gs()
                     try:
                         _sf(_db, st.session_state.session_id, _new_fb_idx, "helpful")
@@ -2132,6 +2210,7 @@ if user_input:
                 try:
                     from db.crud import save_feedback as _sf
                     from db.database import get_session as _gs
+
                     _db = _gs()
                     try:
                         _sf(_db, st.session_state.session_id, _new_fb_idx, "not_helpful")

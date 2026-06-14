@@ -2,6 +2,7 @@
 限流模块 — 纯标准库实现的令牌桶。
 用于 gaobao-advisor 防止 API 滥用。
 """
+
 import threading
 import time
 
@@ -48,8 +49,9 @@ class RateLimiter:
 
     MAX_KEYS_DEFAULT = 10000  # 默认 LRU 上限
 
-    def __init__(self, hourly_limit: int = 20, daily_limit: int = 40,
-                 max_input_len: int = 500, max_keys: int | None = None):
+    def __init__(
+        self, hourly_limit: int = 20, daily_limit: int = 40, max_input_len: int = 500, max_keys: int | None = None
+    ):
         self.hourly_limit = hourly_limit
         self.daily_limit = daily_limit
         self.max_input_len = max_input_len
@@ -69,22 +71,16 @@ class RateLimiter:
                 self._buckets[key] = {
                     "hourly": TokenBucket(
                         capacity=self.hourly_limit,
-                        refill_rate=self.hourly_limit / 3600.0  # 均匀补充
+                        refill_rate=self.hourly_limit / 3600.0,  # 均匀补充
                     ),
-                    "daily": TokenBucket(
-                        capacity=self.daily_limit,
-                        refill_rate=self.daily_limit / 86400.0
-                    ),
+                    "daily": TokenBucket(capacity=self.daily_limit, refill_rate=self.daily_limit / 86400.0),
                     "date": time.strftime("%Y-%m-%d"),
                 }
             entry = self._buckets[key]
             # 跨天重置日桶
             today = time.strftime("%Y-%m-%d")
             if entry["date"] != today:
-                entry["daily"] = TokenBucket(
-                    capacity=self.daily_limit,
-                    refill_rate=self.daily_limit / 86400.0
-                )
+                entry["daily"] = TokenBucket(capacity=self.daily_limit, refill_rate=self.daily_limit / 86400.0)
                 entry["date"] = today
             # 记录 LRU 访问时间戳
             self._access_counter += 1

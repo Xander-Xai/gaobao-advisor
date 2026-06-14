@@ -27,6 +27,7 @@
   # 仅更新一分一段表（全量）
   python scripts/update_data.py --all --yi-fen-yi-duan
 """
+
 import argparse
 import os
 import sys
@@ -44,33 +45,73 @@ from utils import safe_int
 
 # ── 31 个省份 ──
 ALL_PROVINCES = [
-    "北京", "天津", "上海", "重庆",
-    "河北", "山西", "辽宁", "吉林", "黑龙江",
-    "江苏", "浙江", "安徽", "福建", "江西", "山东",
-    "河南", "湖北", "湖南", "广东", "海南",
-    "四川", "贵州", "云南", "陕西", "甘肃",
-    "青海", "内蒙古", "广西", "西藏", "宁夏", "新疆",
+    "北京",
+    "天津",
+    "上海",
+    "重庆",
+    "河北",
+    "山西",
+    "辽宁",
+    "吉林",
+    "黑龙江",
+    "江苏",
+    "浙江",
+    "安徽",
+    "福建",
+    "江西",
+    "山东",
+    "河南",
+    "湖北",
+    "湖南",
+    "广东",
+    "海南",
+    "四川",
+    "贵州",
+    "云南",
+    "陕西",
+    "甘肃",
+    "青海",
+    "内蒙古",
+    "广西",
+    "西藏",
+    "宁夏",
+    "新疆",
 ]
 
 # 省份 → 百度 API curriculum 参数映射
 PROVINCE_CURRICULUMS = {
     # 3+3 综合（新高考六选三）
-    "北京": ["3+3综合"], "天津": ["3+3综合"], "上海": ["3+3综合"],
-    "山东": ["3+3综合"], "海南": ["3+3综合"], "浙江": ["3+3综合"],
+    "北京": ["3+3综合"],
+    "天津": ["3+3综合"],
+    "上海": ["3+3综合"],
+    "山东": ["3+3综合"],
+    "海南": ["3+3综合"],
+    "浙江": ["3+3综合"],
     # 3+1+2（新高考物理/历史）
-    "广东": ["物理类", "历史类"], "江苏": ["物理类", "历史类"],
-    "河北": ["物理类", "历史类"], "辽宁": ["物理类", "历史类"],
-    "重庆": ["物理类", "历史类"], "安徽": ["物理类", "历史类"],
-    "福建": ["物理类", "历史类"], "湖北": ["物理类", "历史类"],
-    "湖南": ["物理类", "历史类"], "广西": ["物理类", "历史类"],
-    "江西": ["物理类", "历史类"], "贵州": ["物理类", "历史类"],
-    "甘肃": ["物理类", "历史类"], "黑龙江": ["物理类", "历史类"],
+    "广东": ["物理类", "历史类"],
+    "江苏": ["物理类", "历史类"],
+    "河北": ["物理类", "历史类"],
+    "辽宁": ["物理类", "历史类"],
+    "重庆": ["物理类", "历史类"],
+    "安徽": ["物理类", "历史类"],
+    "福建": ["物理类", "历史类"],
+    "湖北": ["物理类", "历史类"],
+    "湖南": ["物理类", "历史类"],
+    "广西": ["物理类", "历史类"],
+    "江西": ["物理类", "历史类"],
+    "贵州": ["物理类", "历史类"],
+    "甘肃": ["物理类", "历史类"],
+    "黑龙江": ["物理类", "历史类"],
     "吉林": ["物理类", "历史类"],
     # 传统文理分科
-    "四川": ["理科", "文科"], "河南": ["理科", "文科"],
-    "山西": ["理科", "文科"], "陕西": ["理科", "文科"],
-    "云南": ["理科", "文科"], "内蒙古": ["理科", "文科"],
-    "宁夏": ["理科", "文科"], "青海": ["理科", "文科"],
+    "四川": ["理科", "文科"],
+    "河南": ["理科", "文科"],
+    "山西": ["理科", "文科"],
+    "陕西": ["理科", "文科"],
+    "云南": ["理科", "文科"],
+    "内蒙古": ["理科", "文科"],
+    "宁夏": ["理科", "文科"],
+    "青海": ["理科", "文科"],
     "新疆": ["理科", "文科"],
 }
 
@@ -78,6 +119,7 @@ PROVINCE_CURRICULUMS = {
 # ══════════════════════════════════════════════════════════
 # 录取数据更新（基于学校维度）
 # ══════════════════════════════════════════════════════════
+
 
 def update_admission_scores(db, province: str, year: int) -> dict:
     """
@@ -115,14 +157,18 @@ def update_admission_scores(db, province: str, year: int) -> dict:
                         continue
 
                     # 幂等检查：按 UniqueConstraint 去重
-                    existing = db.query(AdmissionScore).filter(
-                        AdmissionScore.school_id == school.id,
-                        AdmissionScore.major_id.is_(None),
-                        AdmissionScore.province == province,
-                        AdmissionScore.year == year,
-                        AdmissionScore.batch == s.get("batchName", "本科批"),
-                        AdmissionScore.subject_type == curriculum,
-                    ).first()
+                    existing = (
+                        db.query(AdmissionScore)
+                        .filter(
+                            AdmissionScore.school_id == school.id,
+                            AdmissionScore.major_id.is_(None),
+                            AdmissionScore.province == province,
+                            AdmissionScore.year == year,
+                            AdmissionScore.batch == s.get("batchName", "本科批"),
+                            AdmissionScore.subject_type == curriculum,
+                        )
+                        .first()
+                    )
 
                     if existing:
                         stats["skipped"] += 1
@@ -161,6 +207,7 @@ def update_admission_scores(db, province: str, year: int) -> dict:
 # 一分一段表更新
 # ══════════════════════════════════════════════════════════
 
+
 def fetch_yi_fen_yi_duan(province: str, year: int) -> list[dict]:
     """
     从百度高考 API 拉取一分一段表数据。
@@ -171,11 +218,13 @@ def fetch_yi_fen_yi_duan(province: str, year: int) -> list[dict]:
         list[dict]: [{"score": int, "count": int, "cumulative_count": int}, ...]
     """
     # 百度 API 省份名需要 URL 编码
-    params = urllib.parse.urlencode({
-        "province": province,
-        "year": str(year),
-        "type": "yfyd",
-    })
+    params = urllib.parse.urlencode(
+        {
+            "province": province,
+            "year": str(year),
+            "type": "yfyd",
+        }
+    )
     url = f"https://gaokao.baidu.com/api/gkscore?{params}"
     data = _fetch_json(url)
 
@@ -191,10 +240,12 @@ def fetch_yi_fen_yi_duan(province: str, year: int) -> list[dict]:
         row_list = raw_data
     elif isinstance(raw_data, dict):
         # 尝试常见的 key
-        row_list = (raw_data.get("list", [])
-                    or raw_data.get("dataList", [])
-                    or raw_data.get("rows", [])
-                    or raw_data.get("items", []))
+        row_list = (
+            raw_data.get("list", [])
+            or raw_data.get("dataList", [])
+            or raw_data.get("rows", [])
+            or raw_data.get("items", [])
+        )
         # 如果 data 本身就是 {score: cumulativeCount, ...} 格式
         if not row_list and not isinstance(raw_data.get("data"), list):
             # 可能 data 是单层 dict: {"680": 100, "679": 200, ...}
@@ -202,10 +253,12 @@ def fetch_yi_fen_yi_duan(province: str, year: int) -> list[dict]:
                 for k, v in raw_data.items():
                     try:
                         score = int(k)
-                        items.append({
-                            "score": score,
-                            "cumulative_count": safe_int(v),
-                        })
+                        items.append(
+                            {
+                                "score": score,
+                                "cumulative_count": safe_int(v),
+                            }
+                        )
                     except ValueError:
                         continue
                 return items
@@ -224,10 +277,12 @@ def fetch_yi_fen_yi_duan(province: str, year: int) -> list[dict]:
             or row.get("totalNum")
         )
         if score is not None and cumulative is not None:
-            items.append({
-                "score": score,
-                "cumulative_count": cumulative,
-            })
+            items.append(
+                {
+                    "score": score,
+                    "cumulative_count": cumulative,
+                }
+            )
 
     return items
 
@@ -261,12 +316,16 @@ def update_yi_fen_yi_duan(db, province: str, year: int) -> dict:
 
     for item in items:
         # 幂等检查
-        existing = db.query(YiFenYiDuan).filter(
-            YiFenYiDuan.province == province,
-            YiFenYiDuan.year == year,
-            YiFenYiDuan.subject_type == "综合",
-            YiFenYiDuan.score == item["score"],
-        ).first()
+        existing = (
+            db.query(YiFenYiDuan)
+            .filter(
+                YiFenYiDuan.province == province,
+                YiFenYiDuan.year == year,
+                YiFenYiDuan.subject_type == "综合",
+                YiFenYiDuan.score == item["score"],
+            )
+            .first()
+        )
 
         if existing:
             stats["skipped"] += 1
@@ -290,6 +349,7 @@ def update_yi_fen_yi_duan(db, province: str, year: int) -> dict:
 # 主入口
 # ══════════════════════════════════════════════════════════
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="数据更新管道 — 从百度高考 API 拉取录取数据和一分一段表",
@@ -307,10 +367,8 @@ def main():
     parser.add_argument("--province", type=str, help="指定省份，如 湖北")
     parser.add_argument("--year", type=int, help="指定年份，如 2025")
     parser.add_argument("--all", action="store_true", help="全量更新（31 个省份）")
-    parser.add_argument("--yi-fen-yi-duan", action="store_true",
-                        help="仅拉取一分一段表（跳过录取数据）")
-    parser.add_argument("--with-yfdd", action="store_true",
-                        help="拉取录取数据的同时也拉取一分一段表")
+    parser.add_argument("--yi-fen-yi-duan", action="store_true", help="仅拉取一分一段表（跳过录取数据）")
+    parser.add_argument("--with-yfdd", action="store_true", help="拉取录取数据的同时也拉取一分一段表")
     args = parser.parse_args()
 
     # 参数校验
@@ -348,8 +406,13 @@ def main():
     print("=" * 60)
 
     total_stats = {
-        "adm_new": 0, "adm_skipped": 0, "adm_errors": 0, "adm_requests": 0,
-        "yfdd_new": 0, "yfdd_skipped": 0, "yfdd_errors": 0,
+        "adm_new": 0,
+        "adm_skipped": 0,
+        "adm_errors": 0,
+        "adm_requests": 0,
+        "yfdd_new": 0,
+        "yfdd_skipped": 0,
+        "yfdd_errors": 0,
     }
     start = time.time()
 
@@ -367,9 +430,11 @@ def main():
                     total_stats["adm_skipped"] += adm_stats["skipped"]
                     total_stats["adm_errors"] += adm_stats["errors"]
                     total_stats["adm_requests"] += adm_stats["requests"]
-                    print(f"  录取数据: +{adm_stats['new']} 新增 / "
-                          f"{adm_stats['skipped']} 跳过 / {adm_stats['errors']} 错误 "
-                          f"/ {adm_stats['requests']} 请求")
+                    print(
+                        f"  录取数据: +{adm_stats['new']} 新增 / "
+                        f"{adm_stats['skipped']} 跳过 / {adm_stats['errors']} 错误 "
+                        f"/ {adm_stats['requests']} 请求"
+                    )
 
                 # 一分一段表
                 if only_yfdd or with_yfdd:
@@ -377,8 +442,10 @@ def main():
                     total_stats["yfdd_new"] += yfdd_stats["new"]
                     total_stats["yfdd_skipped"] += yfdd_stats["skipped"]
                     total_stats["yfdd_errors"] += yfdd_stats["errors"]
-                    print(f"  一分一段: +{yfdd_stats['new']} 新增 / "
-                          f"{yfdd_stats['skipped']} 跳过 / {yfdd_stats['errors']} 错误")
+                    print(
+                        f"  一分一段: +{yfdd_stats['new']} 新增 / "
+                        f"{yfdd_stats['skipped']} 跳过 / {yfdd_stats['errors']} 错误"
+                    )
 
     except KeyboardInterrupt:
         print("\n[中断] 用户取消，正在保存已采集数据...")

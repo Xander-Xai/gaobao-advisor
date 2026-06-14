@@ -11,6 +11,7 @@
 - 未交叉验证的数据
 - 训练语料推断的数据
 """
+
 from __future__ import annotations
 
 import re
@@ -18,36 +19,46 @@ import re
 # 匹配"具体数字 + 单位"的模式
 # 例: "580分", "3000元/月", "85%", "1万位次", "5-8万", "985院校"
 _NUMBER_WITH_UNIT = re.compile(
-    r'(\d[\d,\.\- ～~]*\d|\d)\s*'           # 数字（含小数/范围/千分位）
-    r'(分|位次|%|元/月|元/年|万|亿|千|公里|亩|平方米|平米|㎡)'
-    r'(?![元/月年所人个倍万分亿千])',        # 负向预查：避免重复匹配单位
+    r"(\d[\d,\.\- ～~]*\d|\d)\s*"  # 数字（含小数/范围/千分位）
+    r"(分|位次|%|元/月|元/年|万|亿|千|公里|亩|平方米|平米|㎡)"
+    r"(?![元/月年所人个倍万分亿千])",  # 负向预查：避免重复匹配单位
     re.UNICODE,
 )
 # 人数类匹配:严格白名单,避免"985人""211人"等教育标识误触
 _NUMBER_PEOPLE = re.compile(
-    r'(?<![一-鿿])\d{2,}\s*'                # 至少 2 位数字,前面不是中文
-    r'(?:位同学|位学生|名学生|位家长|个家庭)'
+    r"(?<![一-鿿])\d{2,}\s*"  # 至少 2 位数字,前面不是中文
+    r"(?:位同学|位学生|名学生|位家长|个家庭)"
 )
 
 # 教育标识(985/211/双一流/985工程/211工程)用于豁免"人""个"等单位
-_EDUCATION_BADGE = re.compile(r'(985|211|双一流|一本|二本|三本|985工程|211工程)')
+_EDUCATION_BADGE = re.compile(r"(985|211|双一流|一本|二本|三本|985工程|211工程)")
 
 # 已带来源的标记（LLM 可能输出的格式）
 _SOURCE_MARKERS = [
-    "来源", "数据来源", "出处", "根据", "数据显示",
-    "考试院", "阳光高考", "就业质量报告", "招聘平台",
-    "据", "官网", "教育部", "统计局",
+    "来源",
+    "数据来源",
+    "出处",
+    "根据",
+    "数据显示",
+    "考试院",
+    "阳光高考",
+    "就业质量报告",
+    "招聘平台",
+    "据",
+    "官网",
+    "教育部",
+    "统计局",
 ]
 
 # 不需要来源的"安全数字"模式（句首问候/场景化数字）
 _SAFE_NUMBER_PATTERNS = [
-    re.compile(r'^第\s*\d+'),                 # 第N
-    re.compile(r'^\d{4}年'),                  # 2024年 (年号)
-    re.compile(r'^\d+[、.]'),                # 1、2. (列表序号)
-    re.compile(r'^\d{1,2}月'),                # 6月
-    re.compile(r'^20\d{2}[-/]\d{1,2}'),       # 2024-01
-    re.compile(r'^\d+:\d{2}'),               # 12:30
-    re.compile(r'^[一二三四五六七八九十]+'),    # 中文数字
+    re.compile(r"^第\s*\d+"),  # 第N
+    re.compile(r"^\d{4}年"),  # 2024年 (年号)
+    re.compile(r"^\d+[、.]"),  # 1、2. (列表序号)
+    re.compile(r"^\d{1,2}月"),  # 6月
+    re.compile(r"^20\d{2}[-/]\d{1,2}"),  # 2024-01
+    re.compile(r"^\d+:\d{2}"),  # 12:30
+    re.compile(r"^[一二三四五六七八九十]+"),  # 中文数字
 ]
 
 
@@ -65,9 +76,7 @@ def _is_safe_number(sentence: str, match: re.Match) -> bool:
             if safe_pat.match(matched_text):
                 return True
     # 教育标识(985/211/双一流等)后面的"人"等不算数据需求
-    if _EDUCATION_BADGE.search(sentence) and any(
-        kw in matched_text for kw in ("人", "个", "所", "位")
-    ):
+    if _EDUCATION_BADGE.search(sentence) and any(kw in matched_text for kw in ("人", "个", "所", "位")):
         return True
     return False
 
@@ -95,7 +104,7 @@ def validate_source_attribution(reply: str) -> str:
         return reply
 
     # 按句子切分（保留标点）
-    sentences = re.split(r'(?<=[。！？\n])', reply)
+    sentences = re.split(r"(?<=[。！？\n])", reply)
     annotated: list[str] = []
     for sent in sentences:
         if not sent.strip():

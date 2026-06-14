@@ -1,4 +1,5 @@
 """kb_retriever 模块的单元测试。"""
+
 import json
 import os
 import sys
@@ -70,10 +71,24 @@ class TestKbRetrieverInit:
         quotes_dir = os.path.join(tmpdir, "knowledge", "quotes")
         os.makedirs(quotes_dir)
         quotes = {
-            "计算机": [{"id": "q1", "text": "学计算机就要卷到底", "tags": ["计算机", "努力"],
-                        "category": "zhuanye", "sentiment": "motivational"}],
-            "医学": [{"id": "q2", "text": "学医就是选择了一条漫长但稳定的路", "tags": ["医学", "稳定"],
-                      "category": "zhuanye", "sentiment": "neutral"}],
+            "计算机": [
+                {
+                    "id": "q1",
+                    "text": "学计算机就要卷到底",
+                    "tags": ["计算机", "努力"],
+                    "category": "zhuanye",
+                    "sentiment": "motivational",
+                }
+            ],
+            "医学": [
+                {
+                    "id": "q2",
+                    "text": "学医就是选择了一条漫长但稳定的路",
+                    "tags": ["医学", "稳定"],
+                    "category": "zhuanye",
+                    "sentiment": "neutral",
+                }
+            ],
         }
         with open(os.path.join(quotes_dir, "_by_major.json"), "w") as f:
             json.dump(quotes, f, ensure_ascii=False)
@@ -115,14 +130,29 @@ class TestQuoteRetrieval:
         os.makedirs(quotes_dir)
         quotes = {
             "计算机": [
-                {"id": "q1", "text": "学计算机就要卷到底", "tags": ["计算机", "努力"],
-                 "category": "zhuanye", "sentiment": "motivational"},
-                {"id": "q2", "text": "985计算机 > 211金融", "tags": ["计算机", "选择"],
-                 "category": "zhuanye", "sentiment": "neutral"},
+                {
+                    "id": "q1",
+                    "text": "学计算机就要卷到底",
+                    "tags": ["计算机", "努力"],
+                    "category": "zhuanye",
+                    "sentiment": "motivational",
+                },
+                {
+                    "id": "q2",
+                    "text": "985计算机 > 211金融",
+                    "tags": ["计算机", "选择"],
+                    "category": "zhuanye",
+                    "sentiment": "neutral",
+                },
             ],
             "医学": [
-                {"id": "q3", "text": "学医十年磨一剑", "tags": ["医学", "坚持"],
-                 "category": "zhuanye", "sentiment": "neutral"},
+                {
+                    "id": "q3",
+                    "text": "学医十年磨一剑",
+                    "tags": ["医学", "坚持"],
+                    "category": "zhuanye",
+                    "sentiment": "neutral",
+                },
             ],
         }
         with open(os.path.join(quotes_dir, "_by_major.json"), "w") as f:

@@ -1,4 +1,5 @@
 """Profile check node — identifies missing required fields."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,11 +24,13 @@ def profile_check_node(state: dict[str, Any]) -> dict[str, Any]:
     profile = {k: v for k, v in slots.items() if v}
 
     trace = list(state.get("trace", []))
-    trace.append({
-        "node": "profile_check",
-        "event": f"missing={len(missing)}",
-        "missing_fields": missing,
-    })
+    trace.append(
+        {
+            "node": "profile_check",
+            "event": f"missing={len(missing)}",
+            "missing_fields": missing,
+        }
+    )
 
     result: dict[str, Any] = {
         "missing_fields": missing,

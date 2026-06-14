@@ -1,4 +1,5 @@
 """Tests for skills/service.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -69,8 +70,7 @@ class TestBuildContext:
         context = service.build_context("gaokao")
 
         # Safety rules should be included
-        assert "身份锁定" in context or "安全" in context, \
-            "Context should contain safety-related content"
+        assert "身份锁定" in context or "安全" in context, "Context should contain safety-related content"
 
 
 class TestBuildStrategy:

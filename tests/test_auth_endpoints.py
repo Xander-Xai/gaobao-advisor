@@ -1,4 +1,5 @@
 """Tests for auth integration in chat and profile endpoints."""
+
 import json
 import os
 import sys

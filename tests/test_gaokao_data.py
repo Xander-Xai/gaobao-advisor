@@ -1,4 +1,5 @@
 """gaokao_data 模块测试。"""
+
 import os
 import sys
 

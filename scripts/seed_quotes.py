@@ -15,6 +15,7 @@
 用法:
   python scripts/seed_quotes.py
 """
+
 import json
 import os
 import sys
@@ -83,6 +84,7 @@ def main():
     # 输出样例
     print("\n[样例] 随机展示 3 条语录:")
     import random
+
     random.seed(42)
     for q in random.sample(all_quotes, min(3, len(all_quotes))):
         print(f"  · [{q.get('category', '?')}] {q['text']}")
@@ -92,25 +94,34 @@ def main():
     # 创建索引文件（用于快速加载）
     index_path = os.path.join(QUOTES_DIR, "_index.json")
     with open(index_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "version": "1.0.0",
-            "total": total,
-            "categories": {cat_id: {"name": cat_name, "count": expected_count}
-                          for cat_id, cat_name, expected_count in CATEGORY_FILES},
-            "all_quotes": all_quotes,
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "version": "1.0.0",
+                "total": total,
+                "categories": {
+                    cat_id: {"name": cat_name, "count": expected_count}
+                    for cat_id, cat_name, expected_count in CATEGORY_FILES
+                },
+                "all_quotes": all_quotes,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
     print(f"\n[索引] 已生成 {index_path} ({os.path.getsize(index_path)} bytes)")
 
     # 关联专业映射（用于按专业查语录）
     major_index = {}
     for q in all_quotes:
         for m in q.get("related_majors", []):
-            major_index.setdefault(m, []).append({
-                "id": q.get("id"),
-                "text": q.get("text"),
-                "tags": q.get("tags", []),
-                "sentiment": q.get("sentiment"),
-            })
+            major_index.setdefault(m, []).append(
+                {
+                    "id": q.get("id"),
+                    "text": q.get("text"),
+                    "tags": q.get("tags", []),
+                    "sentiment": q.get("sentiment"),
+                }
+            )
 
     major_index_path = os.path.join(QUOTES_DIR, "_by_major.json")
     with open(major_index_path, "w", encoding="utf-8") as f:

@@ -1,4 +1,5 @@
 """Tests for API routes (chat SSE, onboarding, data query, knowledge search)."""
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 

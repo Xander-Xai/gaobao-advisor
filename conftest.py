@@ -1,4 +1,5 @@
 """Pytest conftest — ensure project root is on sys.path for all imports."""
+
 import sys
 from pathlib import Path
 

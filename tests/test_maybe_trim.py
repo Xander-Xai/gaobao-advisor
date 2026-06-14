@@ -1,6 +1,9 @@
 """Verify _maybe_trim logging bug fix (C1/P17)."""
+
 import logging
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server.graph.nodes.llm_node import _maybe_trim

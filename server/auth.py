@@ -4,6 +4,7 @@ No full auth system needed: the client receives a signed token on first
 contact and must present it on subsequent requests. Prevents session_id
 enumeration attacks.
 """
+
 from __future__ import annotations
 
 import hashlib

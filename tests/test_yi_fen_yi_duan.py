@@ -1,4 +1,5 @@
 """Tests for yi_fen_yi_duan import and query functionality."""
+
 import os
 import sqlite3
 
@@ -73,10 +74,13 @@ def in_memory_db():
         ("河南", 2024, "理科", "河大", "文学", 0, 0),
     ]
     for row in test_data:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO admission_scores (province, year, subject_type, university, major, min_score, min_rank)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, row)
+        """,
+            row,
+        )
 
     conn.commit()
     yield conn
@@ -100,6 +104,7 @@ class TestPopulateFromAdmissionScores:
         """Should insert the correct number of unique score-rank records."""
         # Write a temp db file to test the function with file-based path
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             tmp_path = tmp.name
         try:
@@ -144,18 +149,22 @@ class TestPopulateFromAdmissionScores:
                 ("北京", 2024, "3+3综合", "清华", "计算机", 695, 30),
                 ("北京", 2024, "3+3综合", "北大", "数学", 690, 55),
                 ("河南", 2024, "理科", "郑大", "数学", None, None),  # excluded
-                ("河南", 2024, "理科", "河大", "文学", 0, 0),        # excluded
+                ("河南", 2024, "理科", "河大", "文学", 0, 0),  # excluded
             ]
             for row in test_data:
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO admission_scores (province, year, subject_type, university, major, min_score, min_rank)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, row)
+                """,
+                    row,
+                )
             conn.commit()
             conn.close()
 
             # Run populate
             from scripts.import_yi_fen_yi_duan import populate_from_admission_scores
+
             inserted = populate_from_admission_scores(db_path=tmp_path)
 
             # Verify count (4 广东2024 + 2 广东2023 + 2 北京2024 = 8)
@@ -167,9 +176,7 @@ class TestPopulateFromAdmissionScores:
             assert inserted == 8
 
             # Verify duplicate score 690 picked best rank (50, not 100)
-            cur.execute(
-                "SELECT cumulative_count FROM yi_fen_yi_duan WHERE province='广东' AND year=2024 AND score=690"
-            )
+            cur.execute("SELECT cumulative_count FROM yi_fen_yi_duan WHERE province='广东' AND year=2024 AND score=690")
             rank = cur.fetchone()[0]
             assert rank == 50, f"Expected rank 50 (best), got {rank}"
 
@@ -180,6 +187,7 @@ class TestPopulateFromAdmissionScores:
     def test_idempotent(self, in_memory_db):
         """Running populate twice should not duplicate rows."""
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             tmp_path = tmp.name
         try:
@@ -211,6 +219,7 @@ class TestPopulateFromAdmissionScores:
             conn.close()
 
             from scripts.import_yi_fen_yi_duan import populate_from_admission_scores
+
             first = populate_from_admission_scores(db_path=tmp_path)
             second = populate_from_admission_scores(db_path=tmp_path)
 
@@ -228,6 +237,7 @@ class TestPopulateFromAdmissionScores:
     def test_query_rank_after_populate(self, in_memory_db):
         """After populating, query yi_fen_yi_duan table directly and get a rank."""
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             tmp_path = tmp.name
         try:
@@ -259,15 +269,13 @@ class TestPopulateFromAdmissionScores:
             conn.close()
 
             from scripts.import_yi_fen_yi_duan import populate_from_admission_scores
+
             populate_from_admission_scores(db_path=tmp_path)
 
             # Query directly
             conn = sqlite3.connect(tmp_path)
             cur = conn.cursor()
-            cur.execute(
-                "SELECT cumulative_count FROM yi_fen_yi_duan "
-                "WHERE province='广东' AND year=2024 AND score=690"
-            )
+            cur.execute("SELECT cumulative_count FROM yi_fen_yi_duan WHERE province='广东' AND year=2024 AND score=690")
             result = cur.fetchone()
             assert result is not None
             assert result[0] == 50
@@ -282,6 +290,7 @@ class TestReverseEngineerRankTable:
     def test_returns_correct_structure(self):
         """Should return dict keyed by (province, year, subject_type)."""
         from scripts.import_yi_fen_yi_duan import reverse_engineer_rank_table
+
         rank_table = reverse_engineer_rank_table()
         assert isinstance(rank_table, dict)
         for key in rank_table:
@@ -290,6 +299,7 @@ class TestReverseEngineerRankTable:
     def test_no_duplicates_in_score_map(self):
         """Each score in the mapping should appear exactly once."""
         from scripts.import_yi_fen_yi_duan import reverse_engineer_rank_table
+
         rank_table = reverse_engineer_rank_table()
         for key, score_map in rank_table.items():
             # score_map values should all be positive integers

@@ -1,4 +1,5 @@
 """Chat endpoint with SSE streaming — backed by LangGraph workflow."""
+
 import asyncio
 import json
 

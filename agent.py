@@ -9,6 +9,7 @@ Usage:
   python agent.py --model qwen-plus # 指定模型
   python agent.py --no-search        # 禁用搜索
 """
+
 from __future__ import annotations
 
 import json
@@ -41,6 +42,7 @@ try:
         query_schools_by_major,
         query_yi_fen_yi_duan,
     )
+
     HAS_DATA_MODULE = True
 except ImportError:
     HAS_DATA_MODULE = False
@@ -48,6 +50,7 @@ except ImportError:
 # 质量控制模块：情绪检测
 try:
     from quality.emotion_detector import CRISIS_HOTLINES, detect_emotion
+
     HAS_EMOTION_DETECTOR = True
 except ImportError:
     HAS_EMOTION_DETECTOR = False
@@ -55,6 +58,7 @@ except ImportError:
 # 质量控制模块：交叉验证
 try:
     from quality.cross_validator import cross_validate_admission
+
     HAS_CROSS_VALIDATOR = True
 except ImportError:
     HAS_CROSS_VALIDATOR = False
@@ -62,6 +66,7 @@ except ImportError:
 # 质量控制模块：AI时代专业风险评估
 try:
     from quality.ai_era_risk import get_risk_summary
+
     HAS_AI_RISK = True
 except ImportError:
     HAS_AI_RISK = False
@@ -69,6 +74,7 @@ except ImportError:
 # 质量控制模块：决策启发式推荐
 try:
     from quality.decision_framework import recommend_heuristics as df_recommend_heuristics
+
     HAS_DECISION_FRAMEWORK = True
 except ImportError:
     HAS_DECISION_FRAMEWORK = False
@@ -76,6 +82,7 @@ except ImportError:
 # 质量控制模块：决策反模式检测
 try:
     from quality.anti_pattern_checker import check_anti_patterns
+
     HAS_ANTI_PATTERN_CHECKER = True
 except ImportError:
     HAS_ANTI_PATTERN_CHECKER = False
@@ -83,6 +90,7 @@ except ImportError:
 # 质量控制模块：模型选择矩阵
 try:
     from quality.model_selector import format_model_hint, select_models
+
     HAS_MODEL_SELECTOR = True
 except ImportError:
     HAS_MODEL_SELECTOR = False
@@ -90,6 +98,7 @@ except ImportError:
 # 质量控制模块：知识库按需加载
 try:
     from quality.knowledge_loader import load_contextual_knowledge
+
     HAS_KNOWLEDGE_LOADER = True
 except ImportError:
     HAS_KNOWLEDGE_LOADER = False
@@ -97,6 +106,7 @@ except ImportError:
 # 埋点模块
 try:
     from analytics.tracker import EventTracker
+
     _tracker = EventTracker()
     HAS_TRACKER = True
 except Exception:
@@ -106,15 +116,18 @@ except Exception:
 # ── 知识检索引擎（可选） ──
 try:
     from kb_retriever import KbRetriever, create_embedding_provider
+
     HAS_KB_RETRIEVER = True
 except ImportError:
     HAS_KB_RETRIEVER = False
+
 
 def read_clipboard():
     """读取 Windows 剪贴板文本（安全版本，限制长度）。"""
     MAX_CLIPBOARD_LEN = 2000
     try:
         import win32clipboard
+
         win32clipboard.OpenClipboard()
         if win32clipboard.IsClipboardFormatAvailable(13):  # CF_UNICODETEXT
             data = win32clipboard.GetClipboardData(13)
@@ -126,6 +139,7 @@ def read_clipboard():
     except Exception:
         pass
     return None
+
 
 # ── 加载 .env 文件 ──────────────────────────────────
 def load_dotenv(path):
@@ -153,10 +167,11 @@ def load_dotenv(path):
             if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
                 val = val[1:-1]
             # 校验 key 格式（只允许大写字母、数字、下划线）
-            if not re.match(r'^[A-Z][A-Z0-9_]*$', key):
+            if not re.match(r"^[A-Z][A-Z0-9_]*$", key):
                 continue
             if key not in os.environ:
                 os.environ[key] = val
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(HERE, ".env"))
@@ -171,21 +186,34 @@ SEARCH_ENGINE = "https://www.baidu.com/s?wd="
 DATA_YEAR = datetime.now().year - 1
 
 # 全国省级行政区（单一数据源，from constants）
-from constants import PROVINCES
 
 # 省份提取正则（编译一次，复用多次）
-_PROVINCE_RE = re.compile(r'(' + '|'.join(PROVINCES) + r')')
+_PROVINCE_RE = re.compile(r"(" + "|".join(PROVINCES) + r")")
 
 # 3+3 高考模式省份（选科不限定物理/历史二选一）
 PROVINCES_33 = {"浙江", "上海", "北京", "天津", "山东", "海南"}
 
 # 3+3 省份全部 20 种选科组合（6选3 = C(6,3) = 20）
 SUBJECT_COMBOS_33 = [
-    "物化生", "物化政", "物化地", "物生政", "物生地", "物政地",
-    "化生政", "化生地", "化政地", "生政地",
-    "物化史", "物生史", "物政史", "物地史",
-    "化生史", "化政史", "化地史",
-    "生政史", "生地史",
+    "物化生",
+    "物化政",
+    "物化地",
+    "物生政",
+    "物生地",
+    "物政地",
+    "化生政",
+    "化生地",
+    "化政地",
+    "生政地",
+    "物化史",
+    "物生史",
+    "物政史",
+    "物地史",
+    "化生史",
+    "化政史",
+    "化地史",
+    "生政史",
+    "生地史",
     "政地史",
 ]
 # 3+3 省份单科选考（用户可能只选了一科告知）
@@ -194,11 +222,11 @@ SUBJECT_SINGLE_33 = ["物理", "化学", "生物", "历史", "地理", "政治"]
 _SUBJ_ABBR_MAP = {"物": "物理", "化": "化学", "生": "生物", "史": "历史", "地": "地理", "政": "政治"}
 # 预编译 3+3 组合识别正则
 _SUBJECT_COMBO_33_RE = re.compile(
-    r'(物化生|物化政|物化地|物生政|物生地|物政地|'
-    r'化生政|化生地|化政地|生政地|'
-    r'物化史|物生史|物政史|物地史|'
-    r'化生史|化政史|化地史|'
-    r'生政史|生地史|政地史)'
+    r"(物化生|物化政|物化地|物生政|物生地|物政地|"
+    r"化生政|化生地|化政地|生政地|"
+    r"物化史|物生史|物政史|物地史|"
+    r"化生史|化政史|化地史|"
+    r"生政史|生地史|政地史)"
 )
 
 # ── 加载知识库 ──────────────────────────────────────
@@ -215,6 +243,7 @@ EMBEDDING_CACHE_SIZE = int(os.getenv("EMBEDDING_CACHE_SIZE", "100"))
 GROUPS_DIR = os.path.join(HERE, "knowledge", "groups")
 QUOTES_DIR = os.path.join(HERE, "knowledge", "quotes")
 
+
 # 加载语录索引（用于按专业查询行业专家语录）
 def load_quotes_index():
     """加载语录的反向索引（专业→语录列表）"""
@@ -223,7 +252,9 @@ def load_quotes_index():
             return json.load(f)
     return {}
 
+
 QUOTES_INDEX = load_quotes_index()
+
 
 def load_file(path):
     if os.path.exists(path):
@@ -231,37 +262,57 @@ def load_file(path):
             return f.read()
     return ""
 
+
 # ── 槽位管理器（从 slots 模块导入）──────────────────
 from slots.extractor import (
-    SlotExtractor,
     DEFAULT_SLOTS,
-    filled_slots,
-    missing_slots,
-    slots_summary,
     extract_slots_from_message,
-    chinese_num_to_int as _chinese_num_to_int,
-    expand_subject_combo as _expand_subject_combo,
-    parse_oral_score as _parse_oral_score,
+    filled_slots,
+    slots_summary,
 )
 
 # 全局槽位模板（供外部引用）
 SLOTS = DEFAULT_SLOTS
 
+
 def is_consultation_intent(msg):
     """判断用户是否有志愿咨询意图。"""
     keywords = [
-        "高考", "志愿", "选专业", "报学校", "报志愿", "填志愿", "选科",
-        "分科", "考研", "选学校", "大学", "专业", "就业", "考公",
-        "能报", "能上", "推荐", "建议", "帮忙看", "帮我选",
+        "高考",
+        "志愿",
+        "选专业",
+        "报学校",
+        "报志愿",
+        "填志愿",
+        "选科",
+        "分科",
+        "考研",
+        "选学校",
+        "大学",
+        "专业",
+        "就业",
+        "考公",
+        "能报",
+        "能上",
+        "推荐",
+        "建议",
+        "帮忙看",
+        "帮我选",
     ]
     return any(kw in msg for kw in keywords)
+
 
 # ── 搜索功能 ─────────────────────────────────────────
 # SSRF 防御: 禁止访问的内网/危险IP段
 _BLOCKED_HOSTS = {
-    "localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254",
-    "metadata.google.internal", "100.100.100.200",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "169.254.169.254",
+    "metadata.google.internal",
+    "100.100.100.200",
 }
+
 
 def _is_safe_url(url: str) -> bool:
     """检查URL是否安全（防SSRF）：拒绝内网地址和非HTTP协议。"""
@@ -274,6 +325,7 @@ def _is_safe_url(url: str) -> bool:
             return False
         # 拒绝内网IP段
         import ipaddress
+
         try:
             ip = ipaddress.ip_address(hostname)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
@@ -293,6 +345,7 @@ def _is_safe_url(url: str) -> bool:
 def _sanitize_html(text: str) -> str:
     """强化HTML清理，防止XSS残留（#6）。委托给 utils.sanitize_html。"""
     from utils import sanitize_html
+
     return sanitize_html(text)
 
 
@@ -302,16 +355,16 @@ def web_search(query, max_results=3):
     try:
         # Step 1: 百度搜索获取结果链接
         url = SEARCH_ENGINE + urllib.parse.quote(query[:200])  # 限制查询长度
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
 
         # Step 2: 提取搜索结果URL（尝试多种匹配模式）
         urls = re.findall(r'href="(https?://[^"]+)"', html)
         # 过滤掉百度自己的链接，保留真实网站
-        valid_urls = [u for u in urls if 'baidu.com' not in u and len(u) > 30][:max_results]
+        valid_urls = [u for u in urls if "baidu.com" not in u and len(u) > 30][:max_results]
 
         # Step 3: 抓取每个结果页面的文字内容（SSRF 防御）
         for target_url in valid_urls:
@@ -319,9 +372,9 @@ def web_search(query, max_results=3):
             if not _is_safe_url(target_url):
                 continue
             try:
-                page_req = urllib.request.Request(target_url, headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                })
+                page_req = urllib.request.Request(
+                    target_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                )
                 with urllib.request.urlopen(page_req, timeout=8) as page_resp:
                     # 防御: 限制下载大小（最大 512KB）
                     content = page_resp.read(512 * 1024)
@@ -346,19 +399,54 @@ def web_search(query, max_results=3):
     except Exception:
         return ["(搜索暂时不可用)"]  # #9: 不泄露错误细节
 
+
 def should_search(msg):
     """判断是否需要联网搜索——更积极触发。"""
     triggers = [
-        "今年", "最新", "2026", "2025", "最近", "现在",
-        "分数线", "录取分", "投档线", "招生计划", "录取",
-        "政策", "变化", "改革", "新规",
-        "就业率", "就业前景", "薪资", "月薪", "年薪",
-        "排名", "第几名", "怎么样", "好不好",
-        "能上", "能报", "能进", "稳不稳", "冲不冲",
-        "多少分", "什么专业", "一本", "二本", "985", "211",
-        "王牌专业", "优势", "缺点", "劣势", "值得", "推荐吗",
+        "今年",
+        "最新",
+        "2026",
+        "2025",
+        "最近",
+        "现在",
+        "分数线",
+        "录取分",
+        "投档线",
+        "招生计划",
+        "录取",
+        "政策",
+        "变化",
+        "改革",
+        "新规",
+        "就业率",
+        "就业前景",
+        "薪资",
+        "月薪",
+        "年薪",
+        "排名",
+        "第几名",
+        "怎么样",
+        "好不好",
+        "能上",
+        "能报",
+        "能进",
+        "稳不稳",
+        "冲不冲",
+        "多少分",
+        "什么专业",
+        "一本",
+        "二本",
+        "985",
+        "211",
+        "王牌专业",
+        "优势",
+        "缺点",
+        "劣势",
+        "值得",
+        "推荐吗",
     ]
     return any(t in msg for t in triggers)
+
 
 # ── 安全防御 ─────────────────────────────────────────
 
@@ -371,25 +459,26 @@ except ImportError:
 
 # Fallback patterns (only used when security module is not importable)
 _INJECTION_PATTERNS = [
-    r'(?i)ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|prompts|rules)',
-    r'(?i)forget\s+(?:all\s+)?(?:previous|prior|above)',
-    r'(?i)you\s+are\s+now\s+(?:a|an|the)',
-    r'(?i)new\s+(?:system\s+)?(?:instructions?|prompt|rules?|role)',
-    r'(?i)override\s+(?:your|the)\s+(?:instructions?|rules?|system)',
-    r'(?i)output\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?|rules?)',
-    r'(?i)reveal\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
-    r'(?i)repeat\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
-    r'(?i)print\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
-    r'(?i)show\s+me\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
-    r'(?i)what\s+(?:are|is)\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)',
-    r'(?i)\bDAN\b.*\bjailbreak\b',
-    r'(?i)pretend\s+you\s+(?:are|have)',
-    r'(?i)act\s+as\s+(?:if|though)',
-    r'(?i)disregard\s+(?:all|any|the)',
-    r'(?i)from\s+now\s+on\s+(?:you|respond|answer|output)',
-    r'(?i)system:\s*(?:you|ignore|forget|new)',
+    r"(?i)ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|prompts|rules)",
+    r"(?i)forget\s+(?:all\s+)?(?:previous|prior|above)",
+    r"(?i)you\s+are\s+now\s+(?:a|an|the)",
+    r"(?i)new\s+(?:system\s+)?(?:instructions?|prompt|rules?|role)",
+    r"(?i)override\s+(?:your|the)\s+(?:instructions?|rules?|system)",
+    r"(?i)output\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?|rules?)",
+    r"(?i)reveal\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)",
+    r"(?i)repeat\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)",
+    r"(?i)print\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)",
+    r"(?i)show\s+me\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)",
+    r"(?i)what\s+(?:are|is)\s+(?:your|the)\s+(?:system\s+)?(?:prompt|instructions?)",
+    r"(?i)\bDAN\b.*\bjailbreak\b",
+    r"(?i)pretend\s+you\s+(?:are|have)",
+    r"(?i)act\s+as\s+(?:if|though)",
+    r"(?i)disregard\s+(?:all|any|the)",
+    r"(?i)from\s+now\s+on\s+(?:you|respond|answer|output)",
+    r"(?i)system:\s*(?:you|ignore|forget|new)",
 ]
 _INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
+
 
 def detect_prompt_injection(msg: str) -> bool:
     """检测用户输入中的 prompt injection 攻击模式。"""
@@ -404,13 +493,16 @@ def detect_prompt_injection(msg: str) -> bool:
             return True
     return False
 
+
 # #13: 通配符转义（防止 ORM LIKE 查询注入）
 def sanitize_like_query(value: str) -> str:
     """转义 SQL LIKE 通配符（%, _）。"""
-    return value.replace('%', '\\%').replace('_', '\\_')
+    return value.replace("%", "\\%").replace("_", "\\_")
+
 
 # 最大用户输入长度
 MAX_USER_INPUT_LEN = 3000
+
 
 def validate_user_input(msg: str) -> str:
     """校验和清理用户输入。返回清理后的消息，或抛出异常。"""
@@ -420,6 +512,7 @@ def validate_user_input(msg: str) -> str:
     if len(msg) > MAX_USER_INPUT_LEN:
         msg = msg[:MAX_USER_INPUT_LEN] + "...(输入过长已截断)"
     return msg
+
 
 # ── LLM 对话 ─────────────────────────────────────────
 def cleanup_format(text, cli_mode=True):
@@ -431,17 +524,18 @@ def cleanup_format(text, cli_mode=True):
     if not text:
         return text
     # 去掉 ### 标题（CLI/Web 都不需要 LLM 自作主张加标题）
-    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
     if cli_mode:
         # CLI 模式：全部去格式，像真人聊天
-        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
-        text = re.sub(r'^\s*[-*]\s+', '', text, flags=re.MULTILINE)
-        text = re.sub(r'^\s*\d+[\.\、]\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+        text = re.sub(r"^\s*[-*]\s+", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^\s*\d+[\.\、]\s*", "", text, flags=re.MULTILINE)
     return text.strip()
 
 
 # ── 数据年份标注 + 免责声明 ──────────────────────────
 _ERROR_PREFIXES = ("AI 服务", "抱歉", "异常", "不可用")
+
 
 def ensure_disclaimer(text: str | None) -> str | None:
     """如果回复缺少免责声明则在末尾追加。
@@ -510,7 +604,7 @@ class GaokaoAdvisor:
         self._cached_base_system = None  # 不含槽位和搜索状态的基础部分
         self._cache_dirty = True
         self._last_user_msg = ""  # 供 RAG 检索使用
-        self._rag_result = None   # RAG 检索结果缓存
+        self._rag_result = None  # RAG 检索结果缓存
 
         # ── RAG 知识检索引擎 ──
         self.kb_retriever = None
@@ -525,7 +619,9 @@ class GaokaoAdvisor:
                     ),
                     embedding_model=EMBEDDING_MODEL,
                 )
-                log.info(f"kb_retriever 初始化完成 groups={len(self.kb_retriever._groups)} quotes={len(self.kb_retriever._quotes)}")
+                log.info(
+                    f"kb_retriever 初始化完成 groups={len(self.kb_retriever._groups)} quotes={len(self.kb_retriever._quotes)}"
+                )
             except Exception as e:
                 log.warning(f"kb_retriever 初始化失败，降级为旧系统: {e}")
                 self.kb_retriever = None
@@ -547,7 +643,9 @@ class GaokaoAdvisor:
         slots_status = slots_summary(self.slots)
         search_note = ""
         if CONFIG["enable_search"]:
-            search_note = "\n\n【联网搜索已启用。遇到最新政策/分数线/就业数据等问题时，优先查询本地数据库，数据不足时再搜索。】"
+            search_note = (
+                "\n\n【联网搜索已启用。遇到最新政策/分数线/就业数据等问题时，优先查询本地数据库，数据不足时再搜索。】"
+            )
 
         # 数据库状态
         db_info = ""
@@ -557,11 +655,11 @@ class GaokaoAdvisor:
                 if isinstance(stats, dict) and "schools" in stats:
                     db_info = f"""
 【本地数据库已就绪】
-- 院校: {stats['schools']} 条（985/211/双一流/普通）
-- 专业: {stats['majors']} 条（含就业率、薪资、就业方向）
-- 录取分数线: {stats['admission_scores']} 条（多省份多年份）
-- 学科排名: {stats['subject_rankings']} 条（教育部评估）
-- 招生政策: {stats['policies']} 条
+- 院校: {stats["schools"]} 条（985/211/双一流/普通）
+- 专业: {stats["majors"]} 条（含就业率、薪资、就业方向）
+- 录取分数线: {stats["admission_scores"]} 条（多省份多年份）
+- 学科排名: {stats["subject_rankings"]} 条（教育部评估）
+- 招生政策: {stats["policies"]} 条
 
 数据来源：官方数据（教育部/省考试院）> 权威平台（掌上高考/麦可思）> 百度搜索（仅供参考）
 **引用录取分数/就业数据时必须标注数据来源和具体年份**（如「20XX年数据显示...」）。"""
@@ -617,6 +715,7 @@ class GaokaoAdvisor:
             return
         try:
             from gaokao_data import check_user_subject_compatibility, format_subject_compatibility
+
             user_subj_text = self.slots["subject"]["value"]
             _known_subjects = ["物理", "历史", "化学", "生物", "政治", "地理"]
             user_subj_list = [s for s in _known_subjects if s in user_subj_text]
@@ -634,13 +733,13 @@ class GaokaoAdvisor:
         if self.kb_retriever and self._rag_result is not None:
             try:
                 if self._rag_result.quotes:
-                    quote_text = "\n".join(
-                        [f"· {q.text}" for q in self._rag_result.quotes[:3]]
+                    quote_text = "\n".join([f"· {q.text}" for q in self._rag_result.quotes[:3]])
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）",
+                        }
                     )
-                    messages.append({
-                        "role": "system",
-                        "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）"
-                    })
                 return
             except Exception as e:
                 log.warning(f"RAG 语录注入失败，降级为旧匹配: {e}")
@@ -657,10 +756,12 @@ class GaokaoAdvisor:
                 quotes_to_inject.append(q["text"])
         if quotes_to_inject:
             quote_text = "\n".join([f"· {q}" for q in quotes_to_inject[:3]])
-            messages.append({
-                "role": "system",
-                "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）"
-            })
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"【相关语录参考】\n{quote_text}\n（以上语录可化用到回复中，不要一字不差照搬）",
+                }
+            )
 
     # ── 子方法：查询数据（数据库 + 搜索） ──
     def _query_data_hints(self, user_msg: str) -> list:
@@ -669,7 +770,7 @@ class GaokaoAdvisor:
             return []
 
         data_hints = []
-        school_match = re.findall(r'[一-鿿]{2,10}(?:大学|学院|学校)', user_msg)
+        school_match = re.findall(r"[一-鿿]{2,10}(?:大学|学院|学校)", user_msg)
         prov_match = _PROVINCE_RE.findall(user_msg)
 
         if not HAS_DATA_MODULE:
@@ -686,11 +787,13 @@ class GaokaoAdvisor:
                         validation_sources = []
                         for r in raw:
                             if r.get("min_score") is not None:
-                                validation_sources.append({
-                                    "source": r.get("data_source", "未知")[:15],
-                                    "min_score": r["min_score"],
-                                    "min_rank": r.get("min_rank"),
-                                })
+                                validation_sources.append(
+                                    {
+                                        "source": r.get("data_source", "未知")[:15],
+                                        "min_score": r["min_score"],
+                                        "min_rank": r.get("min_rank"),
+                                    }
+                                )
                         if len(validation_sources) >= 2:
                             cv = cross_validate_admission(validation_sources)
                             if cv:
@@ -720,6 +823,7 @@ class GaokaoAdvisor:
                                         check_user_subject_compatibility,
                                         format_subject_compatibility,
                                     )
+
                                     _compat = check_user_subject_compatibility(_user_subj_list)
                                     if _compat:
                                         _compat_note = format_subject_compatibility(_compat)
@@ -735,13 +839,16 @@ class GaokaoAdvisor:
                 info = query_school_info(school_match[0])
                 if info:
                     level_parts = []
-                    if info.get("is_985"): level_parts.append("985")
-                    if info.get("is_211"): level_parts.append("211")
-                    if info.get("is_double_first_class"): level_parts.append("双一流")
+                    if info.get("is_985"):
+                        level_parts.append("985")
+                    if info.get("is_211"):
+                        level_parts.append("211")
+                    if info.get("is_double_first_class"):
+                        level_parts.append("双一流")
                     level_str = "/".join(level_parts) if level_parts else info.get("level", "")
                     data_hints.append(
                         f"【院校信息】{info['name']} | {info['province']}{info['city']} | "
-                        f"{level_str} {info.get('school_type','')} | 软科排名{info.get('ranking','未知')} | "
+                        f"{level_str} {info.get('school_type', '')} | 软科排名{info.get('ranking', '未知')} | "
                         f"来源：{info['data_source']}"
                     )
             except Exception as e:
@@ -749,17 +856,19 @@ class GaokaoAdvisor:
 
         # 3. 提取专业关键词，查就业数据
         major_match = re.findall(
-            r'(计算机|软件|人工智能|电气|电子信息|通信|临床医学|口腔|金融|法学|会计|土木|机械|新闻|汉语言|数学|物理|化学|生物|材料|环境|自动化|集成电路|大数据|物联网|信息安全|车辆工程|建筑学|统计学|药学|师范|英语|历史学|哲学)',
-            user_msg
+            r"(计算机|软件|人工智能|电气|电子信息|通信|临床医学|口腔|金融|法学|会计|土木|机械|新闻|汉语言|数学|物理|化学|生物|材料|环境|自动化|集成电路|大数据|物联网|信息安全|车辆工程|建筑学|统计学|药学|师范|英语|历史学|哲学)",
+            user_msg,
         )
         if major_match:
             try:
                 major_info = query_major_info(major_match[0])
                 if major_info:
-                    emp_rate = f"{major_info['employment_rate']*100:.0f}%" if major_info.get('employment_rate') else "未知"
-                    salary = f"{major_info['avg_salary']:.0f}元/月" if major_info.get('avg_salary') else "未知"
+                    emp_rate = (
+                        f"{major_info['employment_rate'] * 100:.0f}%" if major_info.get("employment_rate") else "未知"
+                    )
+                    salary = f"{major_info['avg_salary']:.0f}元/月" if major_info.get("avg_salary") else "未知"
                     data_hints.append(
-                        f"【就业数据】{major_info['name']} | {major_info.get('category','')} | "
+                        f"【就业数据】{major_info['name']} | {major_info.get('category', '')} | "
                         f"就业率{emp_rate} | 毕业5年均薪{salary} | "
                         f"来源：{major_info['data_source']}"
                     )
@@ -776,16 +885,14 @@ class GaokaoAdvisor:
 
         # 4. 对比模式检测（P2-1）：A和B哪个好 / A vs B / A好还是B好
         contrast_match = re.search(
-            r'([一-龥]{2,10}(?:大学|学院|学校))\s*[和跟与vVsS]{1,3}\s*([一-龥]{2,10}(?:大学|学院|学校))',
+            r"([一-龥]{2,10}(?:大学|学院|学校))\s*[和跟与vVsS]{1,3}\s*([一-龥]{2,10}(?:大学|学院|学校))",
             user_msg,
         )
         if not contrast_match:
             # 尝试单校 + 对比关键词模式
-            all_schools_in_msg = re.findall(r'[一-龥]{2,10}(?:大学|学院|学校)', user_msg)
-            if len(all_schools_in_msg) >= 2 and re.search(r'(?:好还是|还是|哪个好|选哪个|对比)', user_msg):
-                contrast_match = type('Match', (), {
-                    'group': lambda self, n: all_schools_in_msg[n - 1]
-                })()
+            all_schools_in_msg = re.findall(r"[一-龥]{2,10}(?:大学|学院|学校)", user_msg)
+            if len(all_schools_in_msg) >= 2 and re.search(r"(?:好还是|还是|哪个好|选哪个|对比)", user_msg):
+                contrast_match = type("Match", (), {"group": lambda self, n: all_schools_in_msg[n - 1]})()
 
         if contrast_match:
             try:
@@ -808,13 +915,16 @@ class GaokaoAdvisor:
                         info = query_school_info(name)
                         if info:
                             level_parts = []
-                            if info.get("is_985"): level_parts.append("985")
-                            if info.get("is_211"): level_parts.append("211")
-                            if info.get("is_double_first_class"): level_parts.append("双一流")
+                            if info.get("is_985"):
+                                level_parts.append("985")
+                            if info.get("is_211"):
+                                level_parts.append("211")
+                            if info.get("is_double_first_class"):
+                                level_parts.append("双一流")
                             level_str = "/".join(level_parts) if level_parts else info.get("level", "")
                             contrast_parts.append(
-                                f"  院校属性: {level_str} | {info.get('school_type','')} | "
-                                f"排名{info.get('ranking','未知')}"
+                                f"  院校属性: {level_str} | {info.get('school_type', '')} | "
+                                f"排名{info.get('ranking', '未知')}"
                             )
                     except Exception:
                         pass
@@ -854,39 +964,72 @@ class GaokaoAdvisor:
 
         # 6. 专业百科卡片（P2-6）：检测到专业关键词时注入百科信息
         major_keywords = [
-            "计算机", "软件", "人工智能", "电气", "电子信息", "通信",
-            "临床医学", "口腔", "金融", "法学", "会计", "土木", "机械",
-            "新闻", "汉语言", "数学", "物理", "化学", "生物", "材料",
-            "环境", "自动化", "集成电路", "大数据", "物联网", "信息安全",
-            "车辆工程", "建筑学", "统计学", "药学", "师范", "英语",
-            "历史学", "哲学",
+            "计算机",
+            "软件",
+            "人工智能",
+            "电气",
+            "电子信息",
+            "通信",
+            "临床医学",
+            "口腔",
+            "金融",
+            "法学",
+            "会计",
+            "土木",
+            "机械",
+            "新闻",
+            "汉语言",
+            "数学",
+            "物理",
+            "化学",
+            "生物",
+            "材料",
+            "环境",
+            "自动化",
+            "集成电路",
+            "大数据",
+            "物联网",
+            "信息安全",
+            "车辆工程",
+            "建筑学",
+            "统计学",
+            "药学",
+            "师范",
+            "英语",
+            "历史学",
+            "哲学",
         ]
         major百科_hits = [mk for mk in major_keywords if mk in user_msg]
         if major百科_hits and HAS_DATA_MODULE:
             try:
                 from gaokao_data import query_major_info as _qmi
+
                 for mj_name in major百科_hits[:2]:
                     mj = _qmi(mj_name)
                     if mj:
-                        emp_rate = f"{mj['employment_rate']*100:.0f}%" if mj.get('employment_rate') else "未知"
-                        salary = f"{mj['avg_salary']:.0f}" if mj.get('avg_salary') else "未知"
-                        postgrad = f"{mj['postgraduate_rate']*100:.0f}%" if mj.get('postgraduate_rate') else "未知"
+                        emp_rate = f"{mj['employment_rate'] * 100:.0f}%" if mj.get("employment_rate") else "未知"
+                        salary = f"{mj['avg_salary']:.0f}" if mj.get("avg_salary") else "未知"
+                        postgrad = f"{mj['postgraduate_rate'] * 100:.0f}%" if mj.get("postgraduate_rate") else "未知"
                         card = (
                             f"【专业百科】{mj['name']} | "
-                            f"学科门类:{mj.get('category','未知')} | "
-                            f"专业类:{mj.get('sub_category','未知')} | "
+                            f"学科门类:{mj.get('category', '未知')} | "
+                            f"专业类:{mj.get('sub_category', '未知')} | "
                             f"就业率:{emp_rate} | "
                             f"均薪:{salary}元/月 | "
                             f"考研率:{postgrad}"
                         )
-                        if mj.get('job_directions'):
+                        if mj.get("job_directions"):
                             try:
-                                directions = json.loads(mj['job_directions']) if isinstance(mj['job_directions'], str) else mj['job_directions']
+                                directions = (
+                                    json.loads(mj["job_directions"])
+                                    if isinstance(mj["job_directions"], str)
+                                    else mj["job_directions"]
+                                )
                                 if directions:
                                     card += f" | 就业方向:{','.join(directions[:5])}"
                             except Exception:
                                 pass
-                        if mj.get('description'):
+                        if mj.get("description"):
                             card += f"\n简介: {mj['description'][:200]}"
                         data_hints.append(card)
             except Exception as e:
@@ -894,12 +1037,12 @@ class GaokaoAdvisor:
 
         # 7. 专业→院校反查（P1-6）：检测"学XX""读XX专业""XX专业能上什么学校"等模式
         _major_first_patterns = [
-            r'想学(?:习)?(.{2,10}?)(?:专业的?)?(?:能上|可以报|有什么|去哪|哪些)',
-            r'读(.{2,10}?)(?:专业?)?(?:能上|可以报|有什么|去哪)',
-            r'(.{2,10}?)(?:专业?)?能上什么学校',
-            r'(.{2,10}?)(?:专业?)?(?:有哪些|有什么)学校',
-            r'(.{2,10}?)(?:专业?)?(?:推荐|推荐什么)学校',
-            r'(?:喜欢|想报|想读)(.{2,10}?)(?:，|,|\s)',
+            r"想学(?:习)?(.{2,10}?)(?:专业的?)?(?:能上|可以报|有什么|去哪|哪些)",
+            r"读(.{2,10}?)(?:专业?)?(?:能上|可以报|有什么|去哪)",
+            r"(.{2,10}?)(?:专业?)?能上什么学校",
+            r"(.{2,10}?)(?:专业?)?(?:有哪些|有什么)学校",
+            r"(.{2,10}?)(?:专业?)?(?:推荐|推荐什么)学校",
+            r"(?:喜欢|想报|想读)(.{2,10}?)(?:，|,|\s)",
         ]
         _major_first_name = None
         for _pat in _major_first_patterns:
@@ -915,8 +1058,11 @@ class GaokaoAdvisor:
             try:
                 subj = "物理类" if "物理" in user_msg else ("历史类" if "历史" in user_msg else "综合")
                 major_result = query_schools_by_major(
-                    _major_first_name, prov_match[0],
-                    int(score_match.group(1)), subj, year=DATA_YEAR,
+                    _major_first_name,
+                    prov_match[0],
+                    int(score_match.group(1)),
+                    subj,
+                    year=DATA_YEAR,
                 )
                 if major_result and major_result.get("total", 0) > 0:
                     major_hint = format_schools_by_major(major_result)
@@ -932,11 +1078,9 @@ class GaokaoAdvisor:
                 logging.warning("专业→院校反查失败: %s", e)
 
         # 8. 如果有分数+省份+选科信息，做位次法匹配推荐
-        score_match = re.search(r'(\d{3})\s*分', user_msg)
-        if score_match and prov_match and not school_match and not getattr(self, '_major_reverse_done', False):
-            data_hints.extend(self._query_rank_recommendations(
-                int(score_match.group(1)), prov_match[0], user_msg
-            ))
+        score_match = re.search(r"(\d{3})\s*分", user_msg)
+        if score_match and prov_match and not school_match and not getattr(self, "_major_reverse_done", False):
+            data_hints.extend(self._query_rank_recommendations(int(score_match.group(1)), prov_match[0], user_msg))
         # 清除标记
         self._major_reverse_done = False
 
@@ -973,26 +1117,28 @@ class GaokaoAdvisor:
                     match_lines = []
                     for m in matches[:5]:
                         badge = ""
-                        if m.get("is_985"): badge = "985/"
-                        elif m.get("is_211"): badge = "211/"
+                        if m.get("is_985"):
+                            badge = "985/"
+                        elif m.get("is_211"):
+                            badge = "211/"
                         subj_note = ""
                         # 选科过滤：检查推荐学校的选科匹配
                         if user_subj_list:
                             try:
                                 from gaokao_data import check_user_subject_compatibility
+
                                 compat = check_user_subject_compatibility(user_subj_list)
                                 if compat and compat.get("compatible") is False:
                                     subj_note = " ⚠️选科可能不符"
                             except Exception:
                                 pass
                         match_lines.append(
-                            f"  {m.get('school_name','')[:15]:15}({badge}{m.get('school_level','')}) "
-                            f"{m.get('batch','')[:8]:8} "
-                            f"最低分{m.get('min_score','')} 位次{m.get('min_rank','')}{subj_note}"
+                            f"  {m.get('school_name', '')[:15]:15}({badge}{m.get('school_level', '')}) "
+                            f"{m.get('batch', '')[:8]:8} "
+                            f"最低分{m.get('min_score', '')} 位次{m.get('min_rank', '')}{subj_note}"
                         )
                     hints.append(
-                        f"【{strategy}档位次法推荐】{province} {score}分 {subject}：\n" +
-                        "\n".join(match_lines)
+                        f"【{strategy}档位次法推荐】{province} {score}分 {subject}：\n" + "\n".join(match_lines)
                     )
         except Exception as e:
             logging.warning("位次法推荐查询失败: %s", e)
@@ -1007,9 +1153,7 @@ class GaokaoAdvisor:
         except Exception:
             baidu_results = []
         if baidu_results:
-            hint = "【百度搜索结果（仅供参考，请核实官方数据）】\n" + "\n".join(
-                f"· {r}" for r in baidu_results[:3]
-            )
+            hint = "【百度搜索结果（仅供参考，请核实官方数据）】\n" + "\n".join(f"· {r}" for r in baidu_results[:3])
             return [hint]
         return []
 
@@ -1017,6 +1161,7 @@ class GaokaoAdvisor:
     def _call_llm(self, messages: list) -> str:
         """调用 LLM API 并返回回复文本。"""
         import openai
+
         start_ts = time.time()
         try:
             kwargs = dict(
@@ -1056,8 +1201,7 @@ class GaokaoAdvisor:
         """处理一轮对话。返回 assistant 的回复。"""
         # #4: Prompt Injection 防御
         if detect_prompt_injection(user_msg):
-            return ("不好意思，你的输入包含一些我不太能处理的内容。"
-                    "请直接告诉我你的高考情况，我帮你分析志愿。")
+            return "不好意思，你的输入包含一些我不太能处理的内容。请直接告诉我你的高考情况，我帮你分析志愿。"
 
         # #13: 输入校验
         user_msg = validate_user_input(user_msg)
@@ -1065,8 +1209,9 @@ class GaokaoAdvisor:
 
         # 埋点：会话追踪
         if HAS_TRACKER:
-            if not hasattr(self, '_session_id'):
+            if not hasattr(self, "_session_id"):
                 import uuid
+
                 self._session_id = uuid.uuid4().hex[:12]
                 _tracker.log_event(self._session_id, "session_start", {})
 
@@ -1077,10 +1222,14 @@ class GaokaoAdvisor:
 
         # 埋点：情绪检测
         if HAS_TRACKER and emotion_result:
-            _tracker.log_event(self._session_id, "emotion_detected", {
-                "level": emotion_result["level"],
-                "score": emotion_result["score"],
-            })
+            _tracker.log_event(
+                self._session_id,
+                "emotion_detected",
+                {
+                    "level": emotion_result["level"],
+                    "score": emotion_result["score"],
+                },
+            )
 
         # 检查意图
         if is_consultation_intent(user_msg):
@@ -1094,8 +1243,9 @@ class GaokaoAdvisor:
             for u in updates:
                 parts = u.split("→")
                 if len(parts) == 2:
-                    _tracker.log_event(self._session_id, "slot_filled",
-                                       {"slot_type": parts[0], "slot_value": parts[1][:20]})
+                    _tracker.log_event(
+                        self._session_id, "slot_filled", {"slot_type": parts[0], "slot_value": parts[1][:20]}
+                    )
 
         # 构建消息
         system_msg = self._build_system_message()
@@ -1137,10 +1287,9 @@ class GaokaoAdvisor:
             try:
                 heuristics = df_recommend_heuristics(self.slots)
                 h_descs = "\n".join([f"· {h['name']}：{h['desc']}" for h in heuristics])
-                messages.append({
-                    "role": "system",
-                    "content": f"【决策启发式提示】本回答请优先参考以下启发式：\n{h_descs}"
-                })
+                messages.append(
+                    {"role": "system", "content": f"【决策启发式提示】本回答请优先参考以下启发式：\n{h_descs}"}
+                )
             except Exception:
                 pass  # 静默降级
 
@@ -1168,10 +1317,7 @@ class GaokaoAdvisor:
             try:
                 ctx_kb = load_contextual_knowledge(user_msg, self.slots)
                 if ctx_kb:
-                    messages.append({
-                        "role": "system",
-                        "content": f"【补充知识库（按需加载）】\n{ctx_kb}"
-                    })
+                    messages.append({"role": "system", "content": f"【补充知识库（按需加载）】\n{ctx_kb}"})
             except Exception:
                 pass  # 静默降级
 
@@ -1204,6 +1350,7 @@ class GaokaoAdvisor:
                 ap_matches = check_anti_patterns(reply, family_known=family_known)
                 if ap_matches:
                     from quality.anti_pattern_checker import format_report
+
                     log.warning(f"anti_pattern_hit count={len(ap_matches)} report={format_report(ap_matches)}")
                     # 如果有 error 级别的反模式，记录但不自动重写（避免影响用户体验）
                     error_count = sum(1 for m in ap_matches if m.severity == "error")
@@ -1218,22 +1365,26 @@ class GaokaoAdvisor:
             log.warning(f"self_eval_low score={eval_score} reply_len={len(reply)} preview={reply[:60]}")
         # 高分金句入库（>= 60 分才入库）
         if eval_highlights and eval_score >= 60:
-            sid = getattr(self, '_session_id', 'cli')
+            sid = getattr(self, "_session_id", "cli")
             self._record_highlight(sid, eval_highlights[0], eval_score)
 
         # 金句候选收集（短回复 + 感叹号/反问号）
         if HAS_TRACKER and reply and len(reply) <= 80 and ("！" in reply or "？" in reply):
-            _tracker.log_event(self._session_id, "highlight_candidate", {
-                "text": reply[:80],
-                "emotion": emotion_result["level"] if emotion_result else "🟢",
-            })
+            _tracker.log_event(
+                self._session_id,
+                "highlight_candidate",
+                {
+                    "text": reply[:80],
+                    "emotion": emotion_result["level"] if emotion_result else "🟢",
+                },
+            )
 
         # 对话轮次计数
-        self._turn_count = getattr(self, '_turn_count', 0) + 1
+        self._turn_count = getattr(self, "_turn_count", 0) + 1
 
         # 对话结束引导（≥3轮且包含推荐关键词）
         if self._turn_count >= 3 and ("冲" in reply or "稳" in reply or "保" in reply):
-            if not getattr(self, '_guidance_shown', False):
+            if not getattr(self, "_guidance_shown", False):
                 reply += "\n\n---\n💡 想要更精准的分析？关注公众号获取：\n1. 个性化 PDF 志愿报告\n2. 500+ 家长真实案例库\n3. 高考季政策实时推送"
                 self._guidance_shown = True
 
@@ -1252,7 +1403,7 @@ class GaokaoAdvisor:
         return reply
 
     # ── 子方法：多轮对话上下文压缩 ──
-    _COMPRESS_THRESHOLD = 40   # 对话超过 40 条（20轮）时触发压缩
+    _COMPRESS_THRESHOLD = 40  # 对话超过 40 条（20轮）时触发压缩
     _COMPRESS_KEEP_COUNT = 20  # 保留后 20 条（10轮），压缩更早的对话
 
     def _compress_history(self) -> None:
@@ -1266,8 +1417,8 @@ class GaokaoAdvisor:
             return
 
         # 取出待压缩的早期消息（保留最近 _COMPRESS_KEEP_COUNT 条不动）
-        keep = self.conversation[-self._COMPRESS_KEEP_COUNT:]
-        to_compress = self.conversation[:-self._COMPRESS_KEEP_COUNT]
+        keep = self.conversation[-self._COMPRESS_KEEP_COUNT :]
+        to_compress = self.conversation[: -self._COMPRESS_KEEP_COUNT]
 
         # ── 从早期消息中提取关键信息 ──
         provinces = set()
@@ -1290,12 +1441,12 @@ class GaokaoAdvisor:
                     if p in content:
                         provinces.add(p)
                 # 提取分数
-                for m in re.finditer(r'(\d{3})\s*分', content):
+                for m in re.finditer(r"(\d{3})\s*分", content):
                     scores.add(m.group(1) + "分")
                 # 提取位次
-                for m in re.finditer(r'(?:位次|省排|排名)\s*(\d{4,7})', content):
+                for m in re.finditer(r"(?:位次|省排|排名)\s*(\d{4,7})", content):
                     ranks.add("位次" + m.group(1))
-                for m in re.finditer(r'(\d+(?:\.\d+)?)\s*万\s*(?:位次|名|名次)', content):
+                for m in re.finditer(r"(\d+(?:\.\d+)?)\s*万\s*(?:位次|名|名次)", content):
                     ranks.add("位次" + str(int(float(m.group(1)) * 10000)))
                 # 提取选科
                 for subj in ["物理", "历史", "物化生", "物化地", "物化政", "理科", "文科"]:
@@ -1303,10 +1454,32 @@ class GaokaoAdvisor:
                         subjects.add(subj)
                         break
                 # 提取兴趣
-                for kw in ["计算机", "软件", "人工智能", "AI", "电气", "电子信息",
-                            "通信", "临床医学", "口腔", "金融", "法学", "会计",
-                            "土木", "机械", "新闻", "汉语言", "数学", "化学",
-                            "生物", "材料", "环境", "自动化", "集成电路", "大数据"]:
+                for kw in [
+                    "计算机",
+                    "软件",
+                    "人工智能",
+                    "AI",
+                    "电气",
+                    "电子信息",
+                    "通信",
+                    "临床医学",
+                    "口腔",
+                    "金融",
+                    "法学",
+                    "会计",
+                    "土木",
+                    "机械",
+                    "新闻",
+                    "汉语言",
+                    "数学",
+                    "化学",
+                    "生物",
+                    "材料",
+                    "环境",
+                    "自动化",
+                    "集成电路",
+                    "大数据",
+                ]:
                     if kw in content:
                         interests.add(kw)
                 # 提取诉求
@@ -1317,7 +1490,7 @@ class GaokaoAdvisor:
 
             elif msg["role"] == "assistant":
                 # 提取推荐的学校名（匹配 xx大学/xx学院）
-                for m in re.finditer(r'([一-鿿]{2,8}(?:大学|学院))', content):
+                for m in re.finditer(r"([一-鿿]{2,8}(?:大学|学院))", content):
                     recommended_schools.add(m.group(1))
 
         # ── 组装摘要 ──
@@ -1359,8 +1532,7 @@ class GaokaoAdvisor:
 
         # #4: Prompt Injection 防御
         if detect_prompt_injection(user_msg):
-            full_reply = ("不好意思，你的输入包含一些我不太能处理的内容。"
-                          "请直接告诉我你的高考情况，我帮你分析志愿。")
+            full_reply = "不好意思，你的输入包含一些我不太能处理的内容。请直接告诉我你的高考情况，我帮你分析志愿。"
             yield full_reply
             yield "|||FINAL|||" + full_reply
             return
@@ -1371,8 +1543,9 @@ class GaokaoAdvisor:
 
         # 埋点：会话追踪
         if HAS_TRACKER:
-            if not hasattr(self, '_session_id'):
+            if not hasattr(self, "_session_id"):
                 import uuid
+
                 self._session_id = uuid.uuid4().hex[:12]
                 _tracker.log_event(self._session_id, "session_start", {})
 
@@ -1383,10 +1556,14 @@ class GaokaoAdvisor:
 
         # 埋点：情绪检测
         if HAS_TRACKER and emotion_result:
-            _tracker.log_event(self._session_id, "emotion_detected", {
-                "level": emotion_result["level"],
-                "score": emotion_result["score"],
-            })
+            _tracker.log_event(
+                self._session_id,
+                "emotion_detected",
+                {
+                    "level": emotion_result["level"],
+                    "score": emotion_result["score"],
+                },
+            )
 
         # 检查意图
         if is_consultation_intent(user_msg):
@@ -1399,8 +1576,9 @@ class GaokaoAdvisor:
             for u in updates:
                 parts = u.split("→")
                 if len(parts) == 2:
-                    _tracker.log_event(self._session_id, "slot_filled",
-                                       {"slot_type": parts[0], "slot_value": parts[1][:20]})
+                    _tracker.log_event(
+                        self._session_id, "slot_filled", {"slot_type": parts[0], "slot_value": parts[1][:20]}
+                    )
 
         # 构建消息
         system_msg = self._build_system_message()
@@ -1443,6 +1621,7 @@ class GaokaoAdvisor:
 
         # ── 流式调用 LLM ──
         import openai
+
         start_ts = time.time()
         full_reply = ""
         try:
@@ -1482,7 +1661,9 @@ class GaokaoAdvisor:
             yield full_reply
         except openai.APIError as e:
             elapsed = time.time() - start_ts
-            log.error(f"llm_stream_api_error model={CONFIG['model']} elapsed={elapsed:.2f}s err={type(e).__name__}: {e}")
+            log.error(
+                f"llm_stream_api_error model={CONFIG['model']} elapsed={elapsed:.2f}s err={type(e).__name__}: {e}"
+            )
             full_reply = "AI 服务出现异常，请稍后重试。"
             yield full_reply
         except Exception as e:
@@ -1506,22 +1687,26 @@ class GaokaoAdvisor:
             log.warning(f"self_eval_low score={eval_score} reply_len={len(full_reply)} preview={full_reply[:60]}")
         # 高分金句入库（>= 60 分才入库）
         if eval_highlights and eval_score >= 60:
-            sid = getattr(self, '_session_id', 'cli')
+            sid = getattr(self, "_session_id", "cli")
             self._record_highlight(sid, eval_highlights[0], eval_score)
 
         # 金句候选收集
         if HAS_TRACKER and full_reply and len(full_reply) <= 80 and ("！" in full_reply or "？" in full_reply):
-            _tracker.log_event(self._session_id, "highlight_candidate", {
-                "text": full_reply[:80],
-                "emotion": emotion_result["level"] if emotion_result else "\U0001f7e2",
-            })
+            _tracker.log_event(
+                self._session_id,
+                "highlight_candidate",
+                {
+                    "text": full_reply[:80],
+                    "emotion": emotion_result["level"] if emotion_result else "\U0001f7e2",
+                },
+            )
 
         # 对话轮次计数
-        self._turn_count = getattr(self, '_turn_count', 0) + 1
+        self._turn_count = getattr(self, "_turn_count", 0) + 1
 
         # 对话结束引导（>=3轮且包含推荐关键词）
         if self._turn_count >= 3 and ("冲" in full_reply or "稳" in full_reply or "保" in full_reply):
-            if not getattr(self, '_guidance_shown', False):
+            if not getattr(self, "_guidance_shown", False):
                 full_reply += "\n\n---\n\U0001f4a1 想要更精准的分析？关注公众号获取：\n1. 个性化 PDF 志愿报告\n2. 500+ 家长真实案例库\n3. 高考季政策实时推送"
                 self._guidance_shown = True
 
@@ -1572,9 +1757,26 @@ class GaokaoAdvisor:
         if first_line and not any(g in first_line for g in _greeting_words):
             # 至少包含一个判断性词汇
             _judgment_words = [
-                "别", "千万别", "必须", "建议", "应该", "选", "不选",
-                "推荐", "冲", "稳", "保", "方向", "明确", "首选",
-                "最优", "是最好的", "别碰", "别想", "不行", "可以",
+                "别",
+                "千万别",
+                "必须",
+                "建议",
+                "应该",
+                "选",
+                "不选",
+                "推荐",
+                "冲",
+                "稳",
+                "保",
+                "方向",
+                "明确",
+                "首选",
+                "最优",
+                "是最好的",
+                "别碰",
+                "别想",
+                "不行",
+                "可以",
             ]
             if any(j in first_line for j in _judgment_words):
                 score += 15
@@ -1604,7 +1806,7 @@ class GaokaoAdvisor:
             score += max(0, 15 - len(found_forbidden) * 5)
 
         # d. 口语化比例 >= 70%（15 分）
-        sentences = re.split(r'[。！？\n]', reply)
+        sentences = re.split(r"[。！？\n]", reply)
         sentences = [s.strip() for s in sentences if len(s.strip()) >= 2]
         if sentences:
             oral_count = 0
@@ -1622,14 +1824,14 @@ class GaokaoAdvisor:
 
         # e. 引用数据并标注来源（10 分）
         _data_source_patterns = [
-            r'根据.*?(?:数据|评估|报告|统计|显示)',
-            r'教育部',
-            r'数据库显示',
-            r'来源[：:]',
-            r'数据显示',
-            r'录取线|录取分',
-            r'就业率',
-            r'\d{4}年',
+            r"根据.*?(?:数据|评估|报告|统计|显示)",
+            r"教育部",
+            r"数据库显示",
+            r"来源[：:]",
+            r"数据显示",
+            r"录取线|录取分",
+            r"就业率",
+            r"\d{4}年",
         ]
         has_data_citation = any(re.search(p, reply) for p in _data_source_patterns)
         if has_data_citation:
@@ -1637,13 +1839,11 @@ class GaokaoAdvisor:
 
         # f. 未编造数据（10 分）
         # 检查"根据X数据"、"数据显示"等是否有具体来源
-        _vague_data = re.findall(r'(?:根据|据)\s*.{0,10}(?:数据|统计|报告)', reply)
-        _vague_display = re.findall(r'数据显示', reply)
+        _vague_data = re.findall(r"(?:根据|据)\s*.{0,10}(?:数据|统计|报告)", reply)
+        _vague_display = re.findall(r"数据显示", reply)
         vague_count = len(_vague_data) + len(_vague_display)
         # 如果有具体年份/机构名，不算编造
-        _specific_sources = re.findall(
-            r'(?:教育部|麦可思|百度高考|省考试院|阳光高考|\d{4}年)', reply
-        )
+        _specific_sources = re.findall(r"(?:教育部|麦可思|百度高考|省考试院|阳光高考|\d{4}年)", reply)
         if vague_count == 0 or len(_specific_sources) >= vague_count:
             score += 10
         elif len(_specific_sources) > 0:
@@ -1658,7 +1858,7 @@ class GaokaoAdvisor:
         # 过短（<30）或过长（>1200）不得分
 
         # h. 不含 Markdown 格式残留（10 分）
-        md_patterns = [r'^#{1,6}\s', r'\*\*.*?\*\*', r'^\s*[-*]\s+', r'^\s*\d+[\.、]\s+']
+        md_patterns = [r"^#{1,6}\s", r"\*\*.*?\*\*", r"^\s*[-*]\s+", r"^\s*\d+[\.、]\s+"]
         md_count = sum(1 for p in md_patterns if re.search(p, reply, re.MULTILINE))
         if md_count == 0:
             score += 10
@@ -1672,6 +1872,7 @@ class GaokaoAdvisor:
         try:
             from db.database import get_session
             from db.models import Highlight
+
             db = get_session()
             try:
                 db.add(Highlight(session_id=session_id, content=content, score=score))
@@ -1688,6 +1889,7 @@ class GaokaoAdvisor:
             self.slots[k]["filled"] = False
             self.slots[k]["value"] = ""
 
+
 # ── CLI 界面 ─────────────────────────────────────────
 def test_connection():
     """测试 API 连接是否正常。"""
@@ -1701,6 +1903,7 @@ def test_connection():
         return True, resp.choices[0].message.content
     except Exception as e:
         return False, str(e)
+
 
 def main():
 
@@ -1783,17 +1986,17 @@ def main():
                 print(f"\n📊 运营数据（最近 {stats.get('days', 7)} 天）")
                 print("━" * 30)
                 print(f"会话数: {stats['session_count']}")
-                if stats.get('emotion_distribution'):
+                if stats.get("emotion_distribution"):
                     print("\n😊 情绪分布:")
-                    for level, count in stats['emotion_distribution'].items():
+                    for level, count in stats["emotion_distribution"].items():
                         print(f"  {level}: {count}")
-                if stats.get('top_majors'):
+                if stats.get("top_majors"):
                     print("\n📚 热门专业 TOP 5:")
-                    for name, count in stats['top_majors'][:5]:
+                    for name, count in stats["top_majors"][:5]:
                         print(f"  {name}({count})")
-                if stats.get('top_schools'):
+                if stats.get("top_schools"):
                     print("\n🏫 热门学校 TOP 5:")
-                    for name, count in stats['top_schools'][:5]:
+                    for name, count in stats["top_schools"][:5]:
                         print(f"  {name}({count})")
             else:
                 print("埋点模块不可用")
@@ -1811,6 +2014,7 @@ def main():
         print("\n🤖 顾问: ", end="", flush=True)
         reply = advisor.chat(user_input)
         print(reply)
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 """
 CRUD 操作 — 数据库查询层
 """
+
 import json
 
 from sqlalchemy.orm import Session, joinedload
@@ -19,10 +20,11 @@ from db.models import (
 
 def _escape_like(value: str) -> str:
     """转义 SQL LIKE 通配符（%, _），防注入（#13）。"""
-    return value.replace('%', '\\%').replace('_', '\\_')
+    return value.replace("%", "\\%").replace("_", "\\_")
 
 
 # ── 院校查询 ──
+
 
 def get_school_by_name(db: Session, name: str) -> School | None:
     """精确匹配院校（支持模糊：先精确，再 LIKE）"""
@@ -31,7 +33,7 @@ def get_school_by_name(db: Session, name: str) -> School | None:
         return school
     # #13: 转义 LIKE 通配符
     safe_name = _escape_like(name)
-    return db.query(School).filter(School.name.contains(safe_name, escape='\\')).first()
+    return db.query(School).filter(School.name.contains(safe_name, escape="\\")).first()
 
 
 def get_schools_by_province(db: Session, province: str) -> list:
@@ -44,18 +46,17 @@ def get_schools_by_level(db: Session, level: str) -> list:
 
 # ── 专业查询 ──
 
+
 def get_major_by_name(db: Session, name: str) -> Major | None:
     major = db.query(Major).filter(Major.name == name).first()
     if major:
         return major
     safe_name = _escape_like(name)
-    return db.query(Major).filter(Major.name.contains(safe_name, escape='\\')).first()
+    return db.query(Major).filter(Major.name.contains(safe_name, escape="\\")).first()
 
 
 def get_hot_majors(db: Session, limit: int = 20) -> list:
-    return db.query(Major).filter(Major.is_hot == 1).order_by(
-        Major.avg_salary.desc().nullslast()
-    ).limit(limit).all()
+    return db.query(Major).filter(Major.is_hot == 1).order_by(Major.avg_salary.desc().nullslast()).limit(limit).all()
 
 
 def get_majors_by_category(db: Session, category: str) -> list:
@@ -63,6 +64,7 @@ def get_majors_by_category(db: Session, category: str) -> list:
 
 
 # ── 录取分数线查询 ──
+
 
 def get_admission_scores(
     db: Session,
@@ -77,10 +79,14 @@ def get_admission_scores(
     limit: int = 50,
 ) -> list[dict]:
     """多条件查询录取分数线"""
-    q = db.query(AdmissionScore).options(
-        joinedload(AdmissionScore.school),
-        joinedload(AdmissionScore.major),
-    ).join(School, AdmissionScore.school_id == School.id)
+    q = (
+        db.query(AdmissionScore)
+        .options(
+            joinedload(AdmissionScore.school),
+            joinedload(AdmissionScore.major),
+        )
+        .join(School, AdmissionScore.school_id == School.id)
+    )
     q = q.outerjoin(Major, AdmissionScore.major_id == Major.id)
 
     if school_id:
@@ -102,27 +108,28 @@ def get_admission_scores(
 
     rows = q.order_by(AdmissionScore.year.desc(), AdmissionScore.min_score.desc()).limit(limit).all()
 
-    return [{
-        "id": r.id,
-        "school_id": r.school_id,
-        "major_id": r.major_id,
-        "school_name": r.school.name if r.school else None,
-        "major_name": r.major.name if r.major else None,
-        "province": r.province,
-        "year": r.year,
-        "batch": r.batch,
-        "subject_type": r.subject_type,
-        "min_score": r.min_score,
-        "avg_score": r.avg_score,
-        "max_score": r.max_score,
-        "min_rank": r.min_rank,
-        "plan_count": r.plan_count,
-    } for r in rows]
+    return [
+        {
+            "id": r.id,
+            "school_id": r.school_id,
+            "major_id": r.major_id,
+            "school_name": r.school.name if r.school else None,
+            "major_name": r.major.name if r.major else None,
+            "province": r.province,
+            "year": r.year,
+            "batch": r.batch,
+            "subject_type": r.subject_type,
+            "min_score": r.min_score,
+            "avg_score": r.avg_score,
+            "max_score": r.max_score,
+            "min_rank": r.min_rank,
+            "plan_count": r.plan_count,
+        }
+        for r in rows
+    ]
 
 
-def get_scores_by_school(db: Session, school_id: int,
-                         province: str | None = None,
-                         year: int | None = None) -> list:
+def get_scores_by_school(db: Session, school_id: int, province: str | None = None, year: int | None = None) -> list:
     q = db.query(AdmissionScore).filter(AdmissionScore.school_id == school_id)
     if province:
         q = q.filter(AdmissionScore.province == province)
@@ -133,11 +140,14 @@ def get_scores_by_school(db: Session, school_id: int,
 
 # ── 招生计划查询 ──
 
-def get_enrollment_plans(db: Session,
-                         school_id: int | None = None,
-                         major_id: int | None = None,
-                         province: str | None = None,
-                         year: int | None = None) -> list:
+
+def get_enrollment_plans(
+    db: Session,
+    school_id: int | None = None,
+    major_id: int | None = None,
+    province: str | None = None,
+    year: int | None = None,
+) -> list:
     q = db.query(EnrollmentPlan)
     if school_id:
         q = q.filter(EnrollmentPlan.school_id == school_id)
@@ -152,9 +162,8 @@ def get_enrollment_plans(db: Session,
 
 # ── 学科排名查询 ──
 
-def get_subject_rankings(db: Session,
-                         school_id: int | None = None,
-                         major_category: str | None = None) -> list:
+
+def get_subject_rankings(db: Session, school_id: int | None = None, major_category: str | None = None) -> list:
     q = db.query(SubjectRanking)
     if school_id:
         q = q.filter(SubjectRanking.school_id == school_id)
@@ -165,8 +174,8 @@ def get_subject_rankings(db: Session,
 
 # ── 策略性查询（给 agent 用）──
 
-def query_admission_from_db(db: Session, school_name: str, province: str,
-                            year: int | None = None) -> list[dict]:
+
+def query_admission_from_db(db: Session, school_name: str, province: str, year: int | None = None) -> list[dict]:
     """根据学校名+省份查录取数据，返回格式化结果"""
     school = get_school_by_name(db, school_name)
     if not school:
@@ -176,24 +185,25 @@ def query_admission_from_db(db: Session, school_name: str, province: str,
     results = []
     for s in scores:
         major = s.major if s.major_id else None
-        results.append({
-            "school": school.name,
-            "level": school.level,
-            "province": s.province,
-            "year": s.year,
-            "batch": s.batch,
-            "subject_type": s.subject_type,
-            "min_score": s.min_score,
-            "avg_score": s.avg_score,
-            "min_rank": s.min_rank,
-            "major": major.name if major else "院校线",
-            "data_source": f"数据库（来源：{school.name}官方/省考试院 {s.year}年数据）",
-        })
+        results.append(
+            {
+                "school": school.name,
+                "level": school.level,
+                "province": s.province,
+                "year": s.year,
+                "batch": s.batch,
+                "subject_type": s.subject_type,
+                "min_score": s.min_score,
+                "avg_score": s.avg_score,
+                "min_rank": s.min_rank,
+                "major": major.name if major else "院校线",
+                "data_source": f"数据库（来源：{school.name}官方/省考试院 {s.year}年数据）",
+            }
+        )
     return results
 
 
-def query_match_schools(db: Session, score: int, province: str,
-                        subject_type: str, strategy: str = "稳") -> list[dict]:
+def query_match_schools(db: Session, score: int, province: str, subject_type: str, strategy: str = "稳") -> list[dict]:
     """分数匹配院校推荐（冲/稳/保）"""
     if strategy == "冲":
         lo, hi = score, score + 30
@@ -203,8 +213,7 @@ def query_match_schools(db: Session, score: int, province: str,
         lo, hi = score - 20, score + 10
 
     rows = get_admission_scores(
-        db, province=province, subject_type=subject_type,
-        min_score_floor=lo, max_score_ceil=hi, limit=30
+        db, province=province, subject_type=subject_type, min_score_floor=lo, max_score_ceil=hi, limit=30
     )
 
     seen = set()
@@ -315,8 +324,8 @@ def check_subject_compatibility(
         "required": required,
         "missing": missing,
         "note": f"需要选考 {'+'.join(required)}"
-            if not missing
-            else f"需选考 {'+'.join(required)}，你未选 {'+'.join(missing)}",
+        if not missing
+        else f"需选考 {'+'.join(required)}，你未选 {'+'.join(missing)}",
     }
 
 
@@ -337,18 +346,20 @@ def get_majors_by_subject_compatibility(
     results = []
     for m in majors:
         compat = check_subject_compatibility(m.name, user_subjects)
-        results.append({
-            "id": m.id,
-            "name": m.name,
-            "category": m.category,
-            "sub_category": m.sub_category,
-            "is_hot": m.is_hot,
-            "avg_salary": m.avg_salary,
-            "employment_rate": m.employment_rate,
-            "compatible": compat["compatible"],
-            "required_subjects": compat["required"],
-            "note": compat["note"],
-        })
+        results.append(
+            {
+                "id": m.id,
+                "name": m.name,
+                "category": m.category,
+                "sub_category": m.sub_category,
+                "is_hot": m.is_hot,
+                "avg_salary": m.avg_salary,
+                "employment_rate": m.employment_rate,
+                "compatible": compat["compatible"],
+                "required_subjects": compat["required"],
+                "note": compat["note"],
+            }
+        )
     return results
 
 
@@ -364,14 +375,15 @@ def format_admission_info_db(results: list[dict]) -> str:
         rank_info = f"最低位次{r['min_rank']}" if r.get("min_rank") else ""
         source = r.get("data_source", "数据库")
         lines.append(
-            f"{i+1}. {r['school']}({r.get('level','')}) {major_info} | "
-            f"{r['province']} {r['year']}年 {r.get('subject_type','')} | "
+            f"{i + 1}. {r['school']}({r.get('level', '')}) {major_info} | "
+            f"{r['province']} {r['year']}年 {r.get('subject_type', '')} | "
             f"{score_info} {rank_info} | 来源：{source}"
         )
     return "\n".join(lines)
 
 
 # ── 对话持久化（基于 session_id） ──
+
 
 def get_or_create_conversation(db: Session, session_id: str) -> Conversation:
     """根据 session_id 查找或创建对话会话。"""
@@ -401,6 +413,7 @@ def save_slots(db: Session, session_id: str, slots: dict) -> None:
     """更新对话的槽位信息。"""
     conv = get_or_create_conversation(db, session_id)
     conv.slots_json = json.dumps(slots, ensure_ascii=False)
+
     # 同步核心字段，方便查询
     # 支持两种格式：扁平 {"province": "湖北"} 和嵌套 {"province": {"value": "湖北"}}
     def _val(v):
@@ -440,12 +453,17 @@ def list_user_conversations(db: Session, limit: int = 10) -> list[Conversation]:
 
 # ── 用户反馈 ──
 
+
 def save_feedback(db: Session, session_id: str, message_index: int, rating: str) -> bool:
     """保存一条用户反馈。同一 session + message_index 只保留最新一条。"""
-    existing = db.query(Feedback).filter(
-        Feedback.session_id == session_id,
-        Feedback.message_index == message_index,
-    ).first()
+    existing = (
+        db.query(Feedback)
+        .filter(
+            Feedback.session_id == session_id,
+            Feedback.message_index == message_index,
+        )
+        .first()
+    )
     if existing:
         existing.rating = rating
     else:
@@ -462,6 +480,7 @@ def save_feedback(db: Session, session_id: str, message_index: int, rating: str)
 def get_feedback_stats(db: Session) -> dict:
     """获取反馈统计：好评率、总反馈数。"""
     from sqlalchemy import func
+
     total = db.query(func.count(Feedback.id)).scalar() or 0
     helpful = db.query(func.count(Feedback.id)).filter(Feedback.rating == "helpful").scalar() or 0
     not_helpful = db.query(func.count(Feedback.id)).filter(Feedback.rating == "not_helpful").scalar() or 0
@@ -471,4 +490,3 @@ def get_feedback_stats(db: Session) -> dict:
         "not_helpful": not_helpful,
         "helpful_rate": f"{helpful / total * 100:.1f}%" if total > 0 else "N/A",
     }
-

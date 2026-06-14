@@ -1,6 +1,7 @@
 """
 P2-1 知识库按需加载模块测试
 """
+
 from quality.knowledge_loader import load_contextual_knowledge
 
 
@@ -28,17 +29,13 @@ class TestKnowledgeLoader:
         assert result is None
 
     def test_max_files_limit(self):
-        result = load_contextual_knowledge(
-            "AI时代选科怎么选？人工智能和计算机哪个好？",
-            max_files=1
-        )
+        result = load_contextual_knowledge("AI时代选科怎么选？人工智能和计算机哪个好？", max_files=1)
         assert result is not None
         # 只加载了 1 个文件的内容
 
     def test_slots_context(self):
         result = load_contextual_knowledge(
-            "这个专业怎么样",
-            slots={"interest": {"value": "人工智能"}, "goal": {"value": "就业"}}
+            "这个专业怎么样", slots={"interest": {"value": "人工智能"}, "goal": {"value": "就业"}}
         )
         assert result is not None
         assert "AI" in result

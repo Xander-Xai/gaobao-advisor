@@ -1,6 +1,7 @@
 """
 ORM 模型 — 13 张表（院校/专业/分数线/招生计划/学科排名/对话/消息/位次/金句/反馈/考研院校/考研分数线/职业趋势）
 """
+
 import datetime
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
@@ -11,15 +12,16 @@ from db.database import Base
 
 class School(Base):
     """院校表"""
+
     __tablename__ = "schools"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
     province = Column(String(20), nullable=False)
     city = Column(String(30), nullable=False, default="")
-    level = Column(String(20), nullable=False, default="普通")       # 985/211/双一流/普通
+    level = Column(String(20), nullable=False, default="普通")  # 985/211/双一流/普通
     school_type = Column(String(20), nullable=False, default="综合")  # 综合/理工/医药/师范/财经
-    ranking = Column(Integer, nullable=True)                          # 软科排名
+    ranking = Column(Integer, nullable=True)  # 软科排名
     is_985 = Column(Integer, default=0)
     is_211 = Column(Integer, default=0)
     is_double_first_class = Column(Integer, default=0)
@@ -41,31 +43,30 @@ class School(Base):
 
 class Major(Base):
     """专业表"""
+
     __tablename__ = "majors"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
-    category = Column(String(50), nullable=False)         # 学科门类: 工学/理学/医学
-    sub_category = Column(String(50), nullable=True)      # 专业类: 计算机类/电子信息类
-    employment_rate = Column(Float, nullable=True)        # 就业率 0-1
-    avg_salary = Column(Float, nullable=True)             # 毕业五年平均月薪（元）
-    median_salary = Column(Float, nullable=True)          # 薪资中位数
-    salary_range = Column(Text, nullable=True)            # JSON: {"low": x, "high": y}
-    top_industries = Column(Text, nullable=True)          # JSON 数组
-    employment_locations = Column(Text, nullable=True)    # JSON 数组
-    postgraduate_rate = Column(Float, nullable=True)      # 考研比例
-    overseas_rate = Column(Float, nullable=True)          # 出国比例
+    category = Column(String(50), nullable=False)  # 学科门类: 工学/理学/医学
+    sub_category = Column(String(50), nullable=True)  # 专业类: 计算机类/电子信息类
+    employment_rate = Column(Float, nullable=True)  # 就业率 0-1
+    avg_salary = Column(Float, nullable=True)  # 毕业五年平均月薪（元）
+    median_salary = Column(Float, nullable=True)  # 薪资中位数
+    salary_range = Column(Text, nullable=True)  # JSON: {"low": x, "high": y}
+    top_industries = Column(Text, nullable=True)  # JSON 数组
+    employment_locations = Column(Text, nullable=True)  # JSON 数组
+    postgraduate_rate = Column(Float, nullable=True)  # 考研比例
+    overseas_rate = Column(Float, nullable=True)  # 出国比例
     description = Column(Text, nullable=True)
-    job_directions = Column(Text, nullable=True)          # JSON 数组
+    job_directions = Column(Text, nullable=True)  # JSON 数组
     is_hot = Column(Integer, default=0)
     education_level = Column(String(10), nullable=True, default="本科")  # 本科/专科
 
     admission_scores = relationship("AdmissionScore", back_populates="major")
     enrollment_plans = relationship("EnrollmentPlan", back_populates="major")
 
-    __table_args__ = (
-        Index("ix_majors_category", "category"),
-    )
+    __table_args__ = (Index("ix_majors_category", "category"),)
 
     def __repr__(self):
         return f"<Major({self.name}, {self.category})>"
@@ -73,6 +74,7 @@ class Major(Base):
 
 class AdmissionScore(Base):
     """录取分数线表"""
+
     __tablename__ = "admission_scores"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -92,8 +94,9 @@ class AdmissionScore(Base):
     major = relationship("Major", back_populates="admission_scores")
 
     __table_args__ = (
-        UniqueConstraint("school_id", "major_id", "province", "year", "batch", "subject_type",
-                         name="uq_admission_score"),
+        UniqueConstraint(
+            "school_id", "major_id", "province", "year", "batch", "subject_type", name="uq_admission_score"
+        ),
         Index("ix_adm_school_province_year", "school_id", "province", "year"),
     )
 
@@ -103,6 +106,7 @@ class AdmissionScore(Base):
 
 class EnrollmentPlan(Base):
     """招生计划表"""
+
     __tablename__ = "enrollment_plans"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -113,19 +117,18 @@ class EnrollmentPlan(Base):
     plan_count = Column(Integer, nullable=True)
     subject_requirement = Column(String(100), nullable=True)  # 物理必选/不限
     batch = Column(String(20), nullable=True)
-    duration = Column(Integer, nullable=True)                  # 学制年数
-    tuition = Column(Integer, nullable=True)                   # 学费元/年
+    duration = Column(Integer, nullable=True)  # 学制年数
+    tuition = Column(Integer, nullable=True)  # 学费元/年
 
     school = relationship("School", back_populates="enrollment_plans")
     major = relationship("Major", back_populates="enrollment_plans")
 
-    __table_args__ = (
-        UniqueConstraint("school_id", "major_id", "province", "year", name="uq_enrollment_plan"),
-    )
+    __table_args__ = (UniqueConstraint("school_id", "major_id", "province", "year", name="uq_enrollment_plan"),)
 
 
 class SubjectRanking(Base):
     """学科排名表"""
+
     __tablename__ = "subject_rankings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -139,15 +142,16 @@ class SubjectRanking(Base):
     school = relationship("School", back_populates="subject_rankings")
 
     __table_args__ = (
-        UniqueConstraint("school_id", "major_category", "ranking_source", "ranking_year",
-                         name="uq_subject_ranking"),
+        UniqueConstraint("school_id", "major_category", "ranking_source", "ranking_year", name="uq_subject_ranking"),
     )
 
 
 # ── 对话持久化（P3） ──
 
+
 class Conversation(Base):
     """对话会话表 — 支持关闭页面后恢复"""
+
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -156,10 +160,13 @@ class Conversation(Base):
     province = Column(String(20), nullable=True)
     score_rank = Column(String(30), nullable=True)
     subject = Column(String(50), nullable=True)
-    slots_json = Column(Text, nullable=True)         # 完整 slots JSON
+    slots_json = Column(Text, nullable=True)  # 完整 slots JSON
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc),
-                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
 
     messages = relationship(
         "ConversationMessage",
@@ -171,6 +178,7 @@ class Conversation(Base):
 
 class ConversationMessage(Base):
     """对话消息表"""
+
     __tablename__ = "conversation_messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -184,6 +192,7 @@ class ConversationMessage(Base):
 
 class YiFenYiDuan(Base):
     """一分一段表 — 真实位次映射"""
+
     __tablename__ = "yi_fen_yi_duan"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -204,12 +213,13 @@ class YiFenYiDuan(Base):
 
 class Highlight(Base):
     """金句表 — 高传播力的优质回复片段"""
+
     __tablename__ = "highlights"
 
     id = Column(Integer, primary_key=True)
     session_id = Column(String(64), nullable=False, index=True)
-    content = Column(Text, nullable=False)       # 金句内容
-    score = Column(Integer, default=0)            # 自评分数（0-100）
+    content = Column(Text, nullable=False)  # 金句内容
+    score = Column(Integer, default=0)  # 自评分数（0-100）
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     def __repr__(self):
@@ -218,17 +228,16 @@ class Highlight(Base):
 
 class Feedback(Base):
     """用户反馈表 — 每条AI回复的有帮助/没帮助评分"""
+
     __tablename__ = "feedbacks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String(64), nullable=False, index=True)
     message_index = Column(Integer, nullable=False)  # 消息在会话中的序号
-    rating = Column(String(10), nullable=False)       # "helpful" / "not_helpful"
+    rating = Column(String(10), nullable=False)  # "helpful" / "not_helpful"
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
-    __table_args__ = (
-        Index("ix_feedback_session_msg", "session_id", "message_index"),
-    )
+    __table_args__ = (Index("ix_feedback_session_msg", "session_id", "message_index"),)
 
     def __repr__(self):
         return f"<Feedback({self.session_id}, #{self.message_index}, {self.rating})>"
@@ -236,8 +245,10 @@ class Feedback(Base):
 
 # ── 考研相关 ──
 
+
 class GraduateProgram(Base):
     """考研院校专业"""
+
     __tablename__ = "graduate_program"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -251,9 +262,7 @@ class GraduateProgram(Base):
     avg_score = Column(Integer)  # 平均录取分
     plan_count = Column(Integer)  # 招生计划数
 
-    __table_args__ = (
-        Index("idx_grad_program_school_major", "school_name", "major_name"),
-    )
+    __table_args__ = (Index("idx_grad_program_school_major", "school_name", "major_name"),)
 
     def __repr__(self):
         return f"<GraduateProgram({self.school_name}, {self.major_name})>"
@@ -261,6 +270,7 @@ class GraduateProgram(Base):
 
 class GraduateScore(Base):
     """考研分数线"""
+
     __tablename__ = "graduate_score"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -278,8 +288,10 @@ class GraduateScore(Base):
 
 # ── 职业相关 ──
 
+
 class CareerTrend(Base):
     """职业趋势数据"""
+
     __tablename__ = "career_trend"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -293,4 +305,3 @@ class CareerTrend(Base):
 
     def __repr__(self):
         return f"<CareerTrend({self.major_name}, {self.job_title}, {self.salary_median})>"
-

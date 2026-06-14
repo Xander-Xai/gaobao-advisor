@@ -10,14 +10,15 @@ Migration from zhangxuefeng-agent:
 - estimate_tokens    ← backend/agent/langchain_agent.py:37-39
 - MemoryManager      ← backend/agent/langchain_agent.py:106-149
 """
+
 from __future__ import annotations
 
 import logging
 import os
-import sys
 import threading
 import time
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from openai import OpenAI
 
@@ -41,10 +42,7 @@ MAX_HISTORY_ROUNDS = 20
 _client: OpenAI | None = None
 _client_lock = threading.Lock()
 _config: dict | None = None
-_FALLBACK_REPLY = (
-    "抱歉，我现在暂时无法给出完整分析。"
-    "请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
-)
+_FALLBACK_REPLY = "抱歉，我现在暂时无法给出完整分析。请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
 
 
 def _get_config() -> dict:
@@ -62,10 +60,7 @@ def _get_llm_client() -> OpenAI:
             if _client is None:
                 api_key = cfg["api_key"]
                 if not api_key:
-                    raise RuntimeError(
-                        "LLM_API_KEY must be set "
-                        "(via config/llm_providers.yaml or env)"
-                    )
+                    raise RuntimeError("LLM_API_KEY must be set (via config/llm_providers.yaml or env)")
                 _client = OpenAI(
                     api_key=api_key,
                     base_url=cfg["base_url"],
@@ -74,9 +69,7 @@ def _get_llm_client() -> OpenAI:
 
 
 def _load_system_prompt() -> str:
-    path = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "system_prompt.md"
-    )
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "system_prompt.md")
     try:
         with open(path, encoding="utf-8") as f:
             return f.read()
@@ -99,7 +92,10 @@ def _sync_retry(coro_factory, max_retries=MAX_RETRIES, base_delay=BASE_DELAY):
                 delay = base_delay * (2**attempt)
                 logger.warning(
                     "LLM call failed (status=%s), retry %d/%d in %.1fs...",
-                    status, attempt + 1, max_retries, delay,
+                    status,
+                    attempt + 1,
+                    max_retries,
+                    delay,
                 )
                 time.sleep(delay)
                 last_exc = e
@@ -132,11 +128,13 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
         # Load conversation memory from DB
         memory_messages = _load_memory_for_session(session_id)
         if memory_messages:
-            trace.append({
-                "node": "llm_reason",
-                "event": "memory_loaded",
-                "memory_messages": len(memory_messages),
-            })
+            trace.append(
+                {
+                    "node": "llm_reason",
+                    "event": "memory_loaded",
+                    "memory_messages": len(memory_messages),
+                }
+            )
 
         user_message = build_llm_context(state)
 
@@ -149,12 +147,14 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
         messages = _maybe_trim(messages)
 
         token_count = estimate_messages_tokens(messages)
-        trace.append({
-            "node": "llm_reason",
-            "event": "llm_call_start",
-            "messages": len(messages),
-            "estimated_tokens": token_count,
-        })
+        trace.append(
+            {
+                "node": "llm_reason",
+                "event": "llm_call_start",
+                "messages": len(messages),
+                "estimated_tokens": token_count,
+            }
+        )
 
         response = _sync_retry(
             lambda: client.chat.completions.create(
@@ -169,15 +169,15 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
         if not reply:
             reply = _FALLBACK_REPLY
     except Exception as exc:
-        logger.warning(
-            "LLM call failed after retries: %s", exc
-        )
+        logger.warning("LLM call failed after retries: %s", exc)
         reply = _FALLBACK_REPLY
-        trace.append({
-            "node": "llm_reason",
-            "event": "llm_error",
-            "error": str(exc)[:200],
-        })
+        trace.append(
+            {
+                "node": "llm_reason",
+                "event": "llm_error",
+                "error": str(exc)[:200],
+            }
+        )
 
     trace.append({"node": "llm_reason", "event": "llm_reply_generated"})
     return {"reply": reply, "trace": trace}
@@ -193,8 +193,8 @@ def _load_memory_for_session(session_id: str) -> list[dict]:
     """
     if not session_id:
         return []
-    from db.database import get_session
     from db.crud import load_conversation_history
+    from db.database import get_session
 
     db = get_session()
     try:
@@ -221,7 +221,9 @@ def _maybe_trim(messages: list[dict]) -> list[dict]:
         dropped = len(rest) - max_to_keep
         rest = rest[-max_to_keep:]
         logger.info(
-            "Context trimmed: dropped %d messages, keeping %d", dropped, len(rest),
+            "Context trimmed: dropped %d messages, keeping %d",
+            dropped,
+            len(rest),
         )
 
     return system_messages + rest

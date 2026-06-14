@@ -7,10 +7,10 @@ LLM 配置加载器 — 从 YAML 配置文件 + 环境变量合并生成最终�
     from config.loader import load_llm_config
     CONFIG = load_llm_config()
 """
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any
 
 
@@ -74,8 +74,7 @@ def _parse_yaml_value(value: str) -> Any:
     except ValueError:
         pass
     # 去除引号
-    if (value.startswith('"') and value.endswith('"')) or \
-       (value.startswith("'") and value.endswith("'")):
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
         return value[1:-1]
     return value
 

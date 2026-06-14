@@ -6,24 +6,25 @@ to avoid double LLM calls. The graph stops at structure_output
 (complete path) or question_generate (incomplete path),
 and the SSE handler streams tokens from llm_node_stream.
 """
+
 from __future__ import annotations
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
-from server.graph.state import AdvisorState
-from server.graph.nodes.security_scan import security_scan_node
-from server.graph.nodes.intent import intent_detect_node
-from server.graph.nodes.route import scene_route_node
-from server.graph.nodes.extract import slot_extract_node
 from server.graph.nodes.check import profile_check_node
-from server.graph.nodes.question import question_generate_node
-from server.graph.nodes.quality_nodes import quality_orchestrate_node
 from server.graph.nodes.data_nodes import data_query_node
+from server.graph.nodes.extract import slot_extract_node
+from server.graph.nodes.intent import intent_detect_node
+from server.graph.nodes.memory import memory_node as memory_update_node
+from server.graph.nodes.quality_nodes import quality_orchestrate_node
+from server.graph.nodes.question import question_generate_node
 from server.graph.nodes.rag_node import rag_retrieve_node
 from server.graph.nodes.reason import reason_node
-from server.graph.nodes.structure import structure_output_node
 from server.graph.nodes.render import render_reply_node
-from server.graph.nodes.memory import memory_node as memory_update_node
+from server.graph.nodes.route import scene_route_node
+from server.graph.nodes.security_scan import security_scan_node
+from server.graph.nodes.structure import structure_output_node
+from server.graph.state import AdvisorState
 
 
 def _profile_has_data(state: AdvisorState) -> str:

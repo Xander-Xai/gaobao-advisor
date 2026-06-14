@@ -49,6 +49,7 @@ def _get_retriever():
     global _retriever
     if _retriever is None:
         from kb_retriever import KbRetriever, create_embedding_provider
+
         provider_name = _active_provider if _active_provider != "unknown" else _default_provider()
         embedder = create_embedding_provider(provider_name)
         _retriever = KbRetriever(
@@ -109,6 +110,7 @@ def load_contextual_knowledge(
     Falls back to keyword-based loading when RAG is not configured.
     """
     from quality.knowledge_loader import load_contextual_knowledge as _load
+
     retriever = None
     if _retriever is not None:
         retriever = _retriever
