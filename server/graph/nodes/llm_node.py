@@ -1,31 +1,53 @@
-"""LLM reasoning node -- calls the LLM to generate a conversational reply."""
+"""LLM reasoning node — calls the LLM to generate a conversational reply.
+
+This module provides both synchronous (graph node) and streaming (SSE) entry
+points with automatic retry, context trimming, token estimation, and
+conversation memory management (dual-layer: recent + summary).
+
+Migration from zhangxuefeng-agent:
+- retry_api_call     ← backend/agent/core.py:31-51
+- trim_messages      ← backend/agent/core.py:54-69
+- estimate_tokens    ← backend/agent/langchain_agent.py:37-39
+- MemoryManager      ← backend/agent/langchain_agent.py:106-149
+"""
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import threading
+import time
 from typing import Any, Generator
 
 from openai import OpenAI
 
-# Ensure project root is on path for config import
-# This is needed when llm_node.py is imported directly (e.g. by chat.py's
-# streaming path) rather than through the main server entry point which
-# already adds the project root to sys.path.
-_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-
 from config.loader import load_llm_config
+from server.agent.llm_reliability import (
+    build_llm_context,
+    estimate_messages_tokens,
+)
+
+MODEL = "gpt-4o"  # Default model if config fails
+logger = logging.getLogger(__name__)
 
 
+# ── Retry constants (sync variant) ─────────────────────────────────
+MAX_RETRIES = 2
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+BASE_DELAY = 1.0
+MAX_HISTORY_ROUNDS = 20
+
+# ── Client (lazy singleton) ────────────────────────────────────────
 _client: OpenAI | None = None
 _client_lock = threading.Lock()
 _config: dict | None = None
+_FALLBACK_REPLY = (
+    "抱歉，我现在暂时无法给出完整分析。"
+    "请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
+)
 
 
 def _get_config() -> dict:
-    """Load LLM config from YAML + env vars (cached)."""
     global _config
     if _config is None:
         _config = load_llm_config()
@@ -40,7 +62,10 @@ def _get_llm_client() -> OpenAI:
             if _client is None:
                 api_key = cfg["api_key"]
                 if not api_key:
-                    raise RuntimeError("LLM_API_KEY must be set (via config/llm_providers.yaml or env)")
+                    raise RuntimeError(
+                        "LLM_API_KEY must be set "
+                        "(via config/llm_providers.yaml or env)"
+                    )
                 _client = OpenAI(
                     api_key=api_key,
                     base_url=cfg["base_url"],
@@ -48,92 +73,189 @@ def _get_llm_client() -> OpenAI:
     return _client
 
 
-_SYSTEM_PROMPT_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "system_prompt.md"
-)
-
-
 def _load_system_prompt() -> str:
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "system_prompt.md"
+    )
     try:
-        with open(_SYSTEM_PROMPT_PATH, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return "你是一个资深高考志愿规划师。"
 
 
-_FALLBACK_REPLY = (
-    "抱歉，我现在暂时无法给出完整分析。"
-    "请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
-)
+# ── Sync retry (for thread-pool / synchronous graph) ──────────────
 
 
-def _build_user_message(state: dict[str, Any]) -> str:
-    """Build the user message with full context from state."""
-    reasoning = state.get("reasoning", "")
-    emotion = state.get("emotion_state", "🟢")
-    heuristics = state.get("decision_heuristics", [])
+def _sync_retry(coro_factory, max_retries=MAX_RETRIES, base_delay=BASE_DELAY):
+    """Sync retry wrapper using time.sleep (for use in thread pool)."""
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return coro_factory()
+        except Exception as e:
+            status = getattr(e, "status_code", None) or getattr(e, "code", None)
+            if status in RETRYABLE_STATUS_CODES and attempt < max_retries:
+                delay = base_delay * (2**attempt)
+                logger.warning(
+                    "LLM call failed (status=%s), retry %d/%d in %.1fs...",
+                    status, attempt + 1, max_retries, delay,
+                )
+                time.sleep(delay)
+                last_exc = e
+            else:
+                raise
+    raise last_exc
 
-    user_parts = [f"以下是分析上下文：\n{reasoning}"]
 
-    if emotion and emotion != "🟢":
-        user_parts.append(f"⚠️ 用户情绪状态：{emotion}（请先共情再给建议）")
-
-    if heuristics:
-        user_parts.append(f"决策启发：{'; '.join(heuristics[:5])}")
-
-    user_parts.append("请基于以上信息，用你的人设和表达方式，给出回复。")
-    return "\n\n".join(user_parts)
+# ── Graph node (sync, runs inside asyncio.to_thread) ──────────────
 
 
 def llm_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Call the LLM to generate a conversational reply (non-streaming)."""
-    user_message = _build_user_message(state)
-    trace = list(state.get("trace", []))
+    """Call the LLM with retry + context trimming + memory (non-streaming).
+
+    Loads conversation history from the database via MemoryManager,
+    applies dual-layer memory (recent verbatim + older summarized),
+    trims if needed, then calls the LLM with retry.
+
+    Runs synchronously — called from LangGraph.invoke() which is offloaded
+    to a thread pool by the SSE handler.
+    """
     cfg = _get_config()
+    trace = list(state.get("trace", []))
+    session_id = state.get("session_id", "")
 
     try:
         client = _get_llm_client()
         system_prompt = _load_system_prompt()
 
-        response = client.chat.completions.create(
-            model=cfg["model"],
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=cfg.get("temperature", 0.7),
-            max_tokens=cfg.get("max_tokens") or 2000,
+        # Load conversation memory from DB
+        memory_messages = _load_memory_for_session(session_id)
+        if memory_messages:
+            trace.append({
+                "node": "llm_reason",
+                "event": "memory_loaded",
+                "memory_messages": len(memory_messages),
+            })
+
+        user_message = build_llm_context(state)
+
+        # Build message list
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        messages.extend(memory_messages)
+        messages.append({"role": "user", "content": user_message})
+
+        # Trim if needed
+        messages = _maybe_trim(messages)
+
+        token_count = estimate_messages_tokens(messages)
+        trace.append({
+            "node": "llm_reason",
+            "event": "llm_call_start",
+            "messages": len(messages),
+            "estimated_tokens": token_count,
+        })
+
+        response = _sync_retry(
+            lambda: client.chat.completions.create(
+                model=cfg["model"],
+                messages=messages,
+                temperature=cfg.get("temperature", 0.7),
+                max_tokens=cfg.get("max_tokens") or 2000,
+            )
         )
         content = response.choices[0].message.content
         reply = (content or "").strip()
         if not reply:
             reply = _FALLBACK_REPLY
     except Exception as exc:
+        logger.warning(
+            "LLM call failed after retries: %s", exc
+        )
         reply = _FALLBACK_REPLY
-        trace.append({"node": "llm_reason", "event": "llm_error", "error": str(exc)[:200]})
+        trace.append({
+            "node": "llm_reason",
+            "event": "llm_error",
+            "error": str(exc)[:200],
+        })
 
     trace.append({"node": "llm_reason", "event": "llm_reply_generated"})
     return {"reply": reply, "trace": trace}
 
 
+# ── Memory loading helper ─────────────────────────────────────────
+
+
+def _load_memory_for_session(session_id: str) -> list[dict]:
+    """Load conversation history from the database.
+
+    Returns list of dicts with 'role' and 'content' keys.
+    """
+    if not session_id:
+        return []
+    from db.database import get_session
+    from db.crud import load_conversation_history
+
+    db = get_session()
+    try:
+        return load_conversation_history(db, session_id)
+    except Exception:
+        return []
+    finally:
+        db.close()
+
+
+def _maybe_trim(messages: list[dict]) -> list[dict]:
+    """Trim message list if it exceeds the context budget."""
+    system_messages: list[dict] = []
+    rest: list[dict] = []
+
+    for m in messages:
+        if m.get("role") == "system":
+            system_messages.append(m)
+        else:
+            rest.append(m)
+
+    max_to_keep = MAX_HISTORY_ROUNDS * 2
+    if len(rest) > max_to_keep:
+        dropped = len(rest) - max_to_keep
+        rest = rest[-max_to_keep:]
+        logger.info(
+            "Context trimmed: dropped %d messages, keeping %d", dropped, len(rest),
+        )
+
+    return system_messages + rest
+
+
+# ── Streaming (also sync generator, called inside SSE handler) ────
+
+
 def llm_node_stream(state: dict[str, Any]) -> Generator[str, None, None]:
-    """Stream LLM tokens one by one. Yields token strings."""
-    user_message = _build_user_message(state)
+    """Stream LLM tokens one by one with retry + context trimming + memory."""
     cfg = _get_config()
 
     try:
         client = _get_llm_client()
         system_prompt = _load_system_prompt()
+        user_message = build_llm_context(state)
 
-        stream = client.chat.completions.create(
-            model=cfg["model"],
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=cfg.get("temperature", 0.7),
-            max_tokens=cfg.get("max_tokens") or 2000,
-            stream=True,
+        # Load memory
+        session_id = state.get("session_id", "")
+        memory_messages = _load_memory_for_session(session_id)
+
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        messages.extend(memory_messages)
+        messages.append({"role": "user", "content": user_message})
+        messages = _maybe_trim(messages)
+
+        stream = _sync_retry(
+            lambda: client.chat.completions.create(
+                model=cfg["model"],
+                messages=messages,
+                temperature=cfg.get("temperature", 0.7),
+                max_tokens=cfg.get("max_tokens") or 2000,
+                stream=True,
+            )
         )
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
