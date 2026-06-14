@@ -164,7 +164,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 import json as _json
                 raw_body = _json.dumps(body).encode("utf-8")
                 request._body = raw_body
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Security middleware body processing failed: %s", exc, exc_info=True)
         response = await call_next(request)
         return response
