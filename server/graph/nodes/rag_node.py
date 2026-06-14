@@ -36,9 +36,10 @@ def rag_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
                     parts.append(content)
             knowledge_context = "\n\n".join(parts)
 
-    except Exception:
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("RAG retrieval failed: %s", exc, exc_info=True)
         # RAG not configured or error — continue without knowledge
-        pass
 
     trace = list(state.get("trace", []))
     trace.append({

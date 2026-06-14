@@ -144,7 +144,9 @@ def _load_query_state(session_id: str) -> QueryState:
             asked_fields=qs.get("asked_fields", []),
             skipped_fields=qs.get("skipped_fields", []),
         )
-    except Exception:
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("Failed to load query state: %s", exc)
         return QueryState()
     finally:
         db.close()
@@ -164,7 +166,8 @@ def _save_query_state(session_id: str, state: QueryState) -> None:
             "skipped_fields": state.skipped_fields,
         }}
         save_slots(db, session_id, slot_data)
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Failed to save query state: %s", exc)
     finally:
         db.close()
