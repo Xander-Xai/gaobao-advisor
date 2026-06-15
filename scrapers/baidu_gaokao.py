@@ -12,6 +12,7 @@ API 端点（实测可用）：
 数据来源: 百度高考 (gaokao.baidu.com)，底层数据由中国教育在线提供
 """
 
+import asyncio
 import json
 import os
 import sys
@@ -20,11 +21,13 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 
+import httpx
+
 # 确保项目根目录在 path 中
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from utils import safe_int
+from utils import safe_int  # noqa: E402
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -37,6 +40,10 @@ HEADERS = {
 BASE_URL = "https://gaokao.baidu.com"
 PAGE_SIZE = 20
 DELAY = 0.2  # 秒，请求间隔（从 0.4 降至 0.2，平衡速度与限频）
+
+# Async/parallel mode
+ASYNC_CONCURRENCY = 5       # 最大并发请求数
+ASYNC_TIMEOUT = 15           # 单请求超时秒数
 
 
 def _fetch_json(url: str, retries: int = 3) -> dict | None:
@@ -51,6 +58,22 @@ def _fetch_json(url: str, retries: int = 3) -> dict | None:
                 time.sleep(1.5 * (attempt + 1))
             else:
                 print(f"  [WARN] 请求失败 ({attempt + 1}/{retries}): {url[:80]}... | {e}")
+                return None
+    return None
+
+
+async def async_fetch_json(url: str, client: httpx.AsyncClient, retries: int = 3) -> dict | None:
+    """异步通用 JSON 请求，带重试，使用共享 httpx.AsyncClient"""
+    for attempt in range(retries):
+        try:
+            resp = await client.get(url, timeout=ASYNC_TIMEOUT)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            if attempt < retries - 1:
+                await asyncio.sleep(1.5 * (attempt + 1))
+            else:
+                print(f"  [WARN] 异步请求失败 ({attempt + 1}/{retries}): {url[:80]}... | {e}")
                 return None
     return None
 
@@ -76,8 +99,7 @@ def iter_schools() -> Iterator[dict]:
         items = data["data"].get("ranking", {}).get("tRow", [])
         if not items:
             break
-        for item in items:
-            yield item
+        yield from items
         page_info = data["data"].get("pageInfo", {})
         if not page_info.get("hasNext"):
             break
@@ -100,6 +122,28 @@ def fetch_school_score(school: str, province: str, year: int = 2024, curriculum:
     }
     url = f"{BASE_URL}/gk/gkschool/schoolscore?" + urllib.parse.urlencode(params)
     data = _fetch_json(url)
+    if not data or "data" not in data:
+        return []
+    score_data = data["data"].get("school_score", {})
+    return score_data.get("dataList", [])
+
+
+async def async_fetch_school_score(
+    client: httpx.AsyncClient,
+    school: str,
+    province: str,
+    year: int = 2024,
+    curriculum: str = "3+3综合",
+) -> list[dict]:
+    """异步获取某学校在某省的录取分数线"""
+    params = {
+        "curriculum": curriculum,
+        "school": school,
+        "province": province,
+        "year": str(year),
+    }
+    url = f"{BASE_URL}/gk/gkschool/schoolscore?" + urllib.parse.urlencode(params)
+    data = await async_fetch_json(url, client)
     if not data or "data" not in data:
         return []
     score_data = data["data"].get("school_score", {})
@@ -300,6 +344,7 @@ def import_scores_to_db(
 
     for idx, school in enumerate(schools):
         actual_idx = start_school_index + idx
+        school_new_count = 0  # 每校新增计数
 
         for province in provinces:
             for year in years:
@@ -327,10 +372,20 @@ def import_scores_to_db(
                             time.sleep(DELAY / 2)
                             continue
 
+                        # In-memory dedup: track keys within this API response to prevent
+                        # inserting duplicate records before commit flushes to DB
+                        seen_keys = set()
+                        batch_added = False
                         for s in scores[:max_per_school]:
                             min_score = safe_int(s.get("minScore"))
                             if min_score is None:
                                 continue
+                            batch_name = s.get("batchName", "本科批")
+                            # Dedup key: batch + score (API returns major-specific records flattened)
+                            dedup_key = (batch_name, curriculum, min_score)
+                            if dedup_key in seen_keys:
+                                continue
+                            seen_keys.add(dedup_key)
                             min_rank = safe_int(s.get("minScoreOrder"))
 
                             existing = (
@@ -339,7 +394,7 @@ def import_scores_to_db(
                                     AdmissionScore.school_id == school.id,
                                     AdmissionScore.province == province,
                                     AdmissionScore.year == year,
-                                    AdmissionScore.batch == s.get("batchName", "本科批"),
+                                    AdmissionScore.batch == batch_name,
                                     AdmissionScore.subject_type == curriculum,
                                     AdmissionScore.major_id.is_(None),
                                 )
@@ -352,29 +407,35 @@ def import_scores_to_db(
                                     major_id=None,
                                     province=province,
                                     year=year,
-                                    batch=s.get("batchName", "本科批"),
+                                    batch=batch_name,
                                     subject_type=curriculum,
                                     min_score=min_score,
                                     min_rank=min_rank,
                                     plan_count=safe_int(s.get("enrollNum")),
                                 )
                                 db_session.add(as_rec)
-                                stats["new_scores"] += 1
+                                school_new_count += 1
+                                batch_added = True
 
-                        db_session.commit()
+                        # 提交该省份+年份+curriculum的数据
+                        if batch_added:
+                            db_session.commit()
                         time.sleep(DELAY)
 
                     except Exception as e:
                         stats["errors"] += 1
-                        # 安全获取学校名（session 可能已损坏）
                         school_name = getattr(school, "name", "unknown")
                         print(f"  [ERROR] {school_name} {province} {year}: {e}")
-                        # WSL2 transient OperationalError 后尝试安全回滚
+                        # 安全回滚，防止 session 处于损坏状态
                         try:
                             db_session.rollback()
                         except Exception:
                             pass
+                        time.sleep(1)
                         continue
+
+        # 每校完成后累加到全局统计
+        stats["new_scores"] += school_new_count
 
         # 定期保存断点
         if checkpoint_path and (idx + 1) % 10 == 0:
@@ -394,7 +455,7 @@ def import_scores_to_db(
         if on_progress:
             on_progress(actual_idx + 1, total, stats)
         else:
-            print(f"  [{actual_idx + 1}/{total}] {school.name}: {stats['new_scores']} 条新增")
+            print(f"  [{actual_idx + 1}/{total}] {school.name}: {school_new_count} 条新增 (总计 {stats['new_scores']})")
 
     # 最终保存断点
     if checkpoint_path:
@@ -412,6 +473,229 @@ def import_scores_to_db(
         )
 
     print(f"[完成] 录取分数线: 新增 {stats['new_scores']} / 请求 {stats['requests']} / 错误 {stats['errors']}")
+    return stats
+
+
+# ══════════════════════════════════════════════════════════
+# 6b. 异步并行导入
+# ══════════════════════════════════════════════════════════
+
+
+async def _fetch_school_batch(
+    client: httpx.AsyncClient,
+    db_session,
+    AdmissionScore,
+    school,
+    province: str,
+    year: int,
+    curriculum: str,
+    max_per_school: int,
+    stats: dict,
+    semaphore: asyncio.Semaphore,
+) -> int:
+    """为单个学校/省份/年份/课程组合获取并写入分数线。返回新增数。"""
+    async with semaphore:
+        # 跳过已有数据
+        existing_count = (
+            db_session.query(AdmissionScore)
+            .filter(
+                AdmissionScore.school_id == school.id,
+                AdmissionScore.province == province,
+                AdmissionScore.year == year,
+                AdmissionScore.subject_type == curriculum,
+            )
+            .count()
+        )
+        if existing_count > 0:
+            return 0
+
+        try:
+            scores = await async_fetch_school_score(client, school.name, province, year, curriculum)
+            stats["requests"] += 1
+            if not scores:
+                return 0
+
+            seen_keys = set()
+            local_new_count = 0
+            for s in scores[:max_per_school]:
+                min_score = safe_int(s.get("minScore"))
+                if min_score is None:
+                    continue
+                batch_name = s.get("batchName", "本科批")
+                dedup_key = (batch_name, curriculum, min_score)
+                if dedup_key in seen_keys:
+                    continue
+                seen_keys.add(dedup_key)
+                min_rank = safe_int(s.get("minScoreOrder"))
+
+                existing = (
+                    db_session.query(AdmissionScore)
+                    .filter(
+                        AdmissionScore.school_id == school.id,
+                        AdmissionScore.province == province,
+                        AdmissionScore.year == year,
+                        AdmissionScore.batch == batch_name,
+                        AdmissionScore.subject_type == curriculum,
+                        AdmissionScore.major_id.is_(None),
+                    )
+                    .first()
+                )
+
+                if not existing:
+                    as_rec = AdmissionScore(
+                        school_id=school.id,
+                        major_id=None,
+                        province=province,
+                        year=year,
+                        batch=batch_name,
+                        subject_type=curriculum,
+                        min_score=min_score,
+                        min_rank=min_rank,
+                        plan_count=safe_int(s.get("enrollNum")),
+                    )
+                    db_session.add(as_rec)
+                    local_new_count += 1
+
+            if local_new_count > 0:
+                db_session.commit()
+            return local_new_count
+
+        except Exception as e:
+            stats["errors"] += 1
+            school_name = getattr(school, "name", "unknown")
+            print(f"  [ERROR] {school_name} {province} {year}: {e}")
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
+            return 0
+
+
+def _build_fetch_tasks(
+    db_session,
+    AdmissionScore,
+    school,
+    provinces: list,
+    years: list,
+    semaphore: asyncio.Semaphore,
+) -> list:
+    """构建需要异步获取的任务列表 — 跳过数据库中已有的组合。"""
+    from scrapers.provinces import PROVINCE_CURRICULUMS as CURR_MAP
+
+    tasks = []
+    for province in provinces:
+        curriculums = CURR_MAP.get(province, ["物理类", "历史类"])
+        for year in years:
+            for curriculum in curriculums:
+                existing_count = (
+                    db_session.query(AdmissionScore)
+                    .filter(
+                        AdmissionScore.school_id == school.id,
+                        AdmissionScore.province == province,
+                        AdmissionScore.year == year,
+                        AdmissionScore.subject_type == curriculum,
+                    )
+                    .count()
+                )
+                if existing_count > 0:
+                    continue
+                tasks.append((province, year, curriculum))
+    return tasks
+
+
+async def import_scores_async(
+    db_session,
+    School,
+    AdmissionScore,
+    schools: list = None,
+    provinces: list = None,
+    years: list = None,
+    max_per_school: int = 50,
+    checkpoint_path: str = None,
+    start_school_index: int = 0,
+    on_progress: callable = None,
+) -> dict:
+    """异步并行版：为指定学校采集录取分数线。
+    学校级串行（保持 checkpoint 排序），校内省份/年份/课程并行。
+    """
+    from scrapers.provinces import ALL_PROVINCES
+
+    if provinces is None:
+        provinces = ALL_PROVINCES
+    if years is None:
+        years = [2024, 2023, 2022]
+
+    stats = {"requests": 0, "new_scores": 0, "errors": 0}
+    total = len(schools)
+    print(f"\n[录取分数线·异步] 开始采集: {total}校 × {len(provinces)}省 × {len(years)}年 (并发={ASYNC_CONCURRENCY})")
+
+    semaphore = asyncio.Semaphore(ASYNC_CONCURRENCY)
+
+    async with httpx.AsyncClient(headers=HEADERS, timeout=ASYNC_TIMEOUT) as client:
+        for idx, school in enumerate(schools):
+            actual_idx = start_school_index + idx
+            school_new_count = 0
+
+            # 构建需要抓取的任务列表（跳过已有数据）
+            tasks = _build_fetch_tasks(
+                db_session, AdmissionScore, school, provinces, years, semaphore
+            )
+
+            if tasks:
+                # 并行获取
+                coros = [
+                    _fetch_school_batch(
+                        client, db_session, AdmissionScore, school,
+                        prov, yr, cur, max_per_school, stats, semaphore,
+                    )
+                    for prov, yr, cur in tasks
+                ]
+                batch_counts = await asyncio.gather(*coros, return_exceptions=True)
+                # 处理异常结果
+                for i, result in enumerate(batch_counts):
+                    if isinstance(result, Exception):
+                        print(f"  [ERROR] {school.name} {tasks[i]}: {result}")
+                        stats["errors"] += 1
+                    elif isinstance(result, int):
+                        school_new_count += result
+
+            # 累加统计
+            stats["new_scores"] += school_new_count
+
+            # 定期保存断点
+            if checkpoint_path and (idx + 1) % 10 == 0:
+                from scrapers.checkpoint import save_checkpoint
+                save_checkpoint(
+                    checkpoint_path,
+                    {
+                        "last_run": __import__("datetime").datetime.now().isoformat(),
+                        "school_index": actual_idx + 1,
+                        "total_schools": total,
+                        "current_school": school.name,
+                        "stats": stats,
+                    },
+                )
+
+            if on_progress:
+                on_progress(actual_idx + 1, total, stats)
+            else:
+                print(f"  [{actual_idx + 1}/{total}] {school.name}: {school_new_count} 条新增 (总计 {stats['new_scores']})")
+
+    # 最终保存断点
+    if checkpoint_path:
+        from scrapers.checkpoint import save_checkpoint
+        save_checkpoint(
+            checkpoint_path,
+            {
+                "last_run": __import__("datetime").datetime.now().isoformat(),
+                "school_index": start_school_index + total,
+                "total_schools": total,
+                "current_school": schools[-1].name if schools else "",
+                "stats": stats,
+            },
+        )
+
+    print(f"[完成] 录取分数线(异步): 新增 {stats['new_scores']} / 请求 {stats['requests']} / 错误 {stats['errors']}")
     return stats
 
 

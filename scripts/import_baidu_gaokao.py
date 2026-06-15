@@ -29,14 +29,14 @@ import time
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, Major, School
-from scrapers.baidu_gaokao import (
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, Major, School  # noqa: E402
+from scrapers.baidu_gaokao import (  # noqa: E402
     import_schools_to_db,
     import_scores_to_db,
 )
-from scrapers.checkpoint import clear_checkpoint, load_checkpoint
-from scrapers.provinces import ALL_PROVINCES
+from scrapers.checkpoint import clear_checkpoint, load_checkpoint  # noqa: E402
+from scrapers.provinces import ALL_PROVINCES  # noqa: E402
 
 # ── 院校层级筛选参数 ──
 LAYER_FILTERS = {
@@ -118,6 +118,12 @@ def main():
         default="data/import_checkpoint.json",
         help="断点文件路径（默认 data/import_checkpoint.json）",
     )
+    parser.add_argument(
+        "--async",
+        dest="async_mode",
+        action="store_true",
+        help="使用异步并行模式（更快，需 httpx）",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -157,7 +163,7 @@ def main():
         # 1. 采集院校列表（补全信息）
         if not args.scores_only:
             print("\n>>> 阶段 1: 采集院校列表（补全基础信息）")
-            school_stats = import_schools_to_db(
+            import_schools_to_db(
                 db,
                 School,
                 max_schools=args.max_schools,
@@ -193,16 +199,34 @@ def main():
             print(f"  省份: {provinces or '默认 10 省'}")
             print(f"  年份: {args.years}")
 
-            score_stats = import_scores_to_db(
-                db,
-                School,
-                AdmissionScore,
-                schools=target_schools,
-                provinces=provinces,
-                years=args.years,
-                checkpoint_path=args.checkpoint,
-                start_school_index=start_index,
-            )
+            if args.async_mode:
+                from scrapers.baidu_gaokao import import_scores_async
+
+                import asyncio
+                print("  模式: 异步并行")
+                asyncio.run(
+                    import_scores_async(
+                        db,
+                        School,
+                        AdmissionScore,
+                        schools=target_schools,
+                        provinces=provinces,
+                        years=args.years,
+                        checkpoint_path=args.checkpoint,
+                        start_school_index=start_index,
+                    )
+                )
+            else:
+                import_scores_to_db(
+                    db,
+                    School,
+                    AdmissionScore,
+                    schools=target_schools,
+                    provinces=provinces,
+                    years=args.years,
+                    checkpoint_path=args.checkpoint,
+                    start_school_index=start_index,
+                )
 
             # 全量导入完成后清除断点
             if not layers or set(layers) == {1, 2, 3, 4}:

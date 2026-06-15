@@ -1,12 +1,13 @@
 #!/bin/bash
-# 高报Agent 数据自动更新脚本 v2
+# 高报Agent 数据自动更新脚本 v3
 # 用法: crontab -e → 0 2 * * 1 /path/to/auto_update.sh
-# 功能: 每周一凌晨 2:00 自动增量同步最新数据
+# 功能: 每周一凌晨 2:00 自动增量同步最新数据（含2025年）
 
 PROJECT_DIR="/home/dev/projects/gaobao/gaobao-advisor"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/auto_update_$(date +%Y%m%d).log"
 CHECKPOINT="$PROJECT_DIR/data/import_checkpoint.json"
+CHECKPOINT_2025="$PROJECT_DIR/data/import_checkpoint_2025.json"
 
 mkdir -p "$LOG_DIR"
 mkdir -p "$PROJECT_DIR/data"
@@ -29,11 +30,19 @@ echo "[1/3] 同步院校列表..." >> "$LOG_FILE"
 python3 scripts/import_baidu_gaokao.py --schools-only >> "$LOG_FILE" 2>&1
 
 # 3. 增量同步分数线（从断点继续，无断点则跳过）
+# 处理两个独立断点：2022-2024年 和 2025年
 if [ -f "$CHECKPOINT" ]; then
-    echo "[2/3] 从断点继续分数线采集..." >> "$LOG_FILE"
-    python3 scripts/import_baidu_gaokao.py --scores-only --resume >> "$LOG_FILE" 2>&1
+    echo "[2/3] 从断点继续 2022-2024年分数线采集..." >> "$LOG_FILE"
+    python3 scripts/import_baidu_gaokao.py --scores-only --async --resume >> "$LOG_FILE" 2>&1
 else
-    echo "[2/3] 无断点文件，跳过分数线采集" >> "$LOG_FILE"
+    echo "[2/3] 无 2022-2024断点文件，跳过" >> "$LOG_FILE"
+fi
+
+if [ -f "$CHECKPOINT_2025" ]; then
+    echo "[2b/3] 从断点继续 2025年分数线采集..." >> "$LOG_FILE"
+    python3 scripts/import_baidu_gaokao.py --scores-only --async --years 2025 --resume --checkpoint "$CHECKPOINT_2025" >> "$LOG_FILE" 2>&1
+else
+    echo "[2b/3] 无 2025断点文件，跳过" >> "$LOG_FILE"
 fi
 
 # 4. 统计
@@ -45,6 +54,10 @@ init_db()
 db = get_session()
 print(f'院校: {db.query(School).count()}')
 print(f'录取分数: {db.query(AdmissionScore).count()}')
+# 年份分布
+from sqlalchemy import func
+for y, c in db.query(AdmissionScore.year, func.count(AdmissionScore.id)).group_by(AdmissionScore.year).order_by(AdmissionScore.year).all():
+    print(f'  {y}年: {c}')
 db.close()
 " >> "$LOG_FILE" 2>&1
 
