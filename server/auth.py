@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 import secrets
+
+logger = logging.getLogger(__name__)
 
 _SECRET = os.getenv("SESSION_SECRET", "")
 
@@ -20,6 +23,11 @@ def _get_secret() -> bytes:
     global _SECRET
     if not _SECRET:
         _SECRET = secrets.token_hex(32)
+        logger.warning(
+            "SESSION_SECRET not set — using ephemeral random secret. "
+            "Session tokens will be invalidated on restart. "
+            "Set SESSION_SECRET in .env for production."
+        )
     return _SECRET.encode()
 
 
