@@ -1,6 +1,5 @@
 """Tests for the voice service — prompts, styles, and rendering."""
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +22,6 @@ class TestVoiceRenderPrompt:
     def test_prompt_mentions_key_constraints(self):
         prompt = VOICE_RENDER_SYSTEM_PROMPT
         has_length_constraint = "200" in prompt or "200字" in prompt
-        has_no_markdown = "markdown" not in prompt.lower() or "不要" in prompt
         has_spoken = "口语" in prompt
         assert has_length_constraint or has_spoken, "Prompt should have constraints or spoken-style requirement"
 
