@@ -10,11 +10,11 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from sqlalchemy import func
+from sqlalchemy import func  # noqa: E402
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, School
-from scrapers.provinces import ALL_PROVINCES
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, School  # noqa: E402
+from scrapers.provinces import ALL_PROVINCES  # noqa: E402
 
 
 def validate() -> None:

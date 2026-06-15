@@ -30,15 +30,21 @@ def monitor():
     init_db()
     db = get_session()
 
-    # 读取 checkpoint
-    checkpoint_path = "data/import_checkpoint.json"
-    checkpoint = None
-    if os.path.exists(checkpoint_path):
-        try:
-            with open(checkpoint_path) as f:
-                checkpoint = json.load(f)
-        except:
-            pass
+    # 读取 checkpoint（支持多个进程）
+    checkpoint_paths = [
+        ("data/import_checkpoint.json", "2022-2024年"),
+        ("data/import_checkpoint_2025.json", "2025年"),
+    ]
+    checkpoints = []
+    for ckpt_path, label in checkpoint_paths:
+        if os.path.exists(ckpt_path):
+            try:
+                with open(ckpt_path) as f:
+                    ckpt = json.load(f)
+                    ckpt["_label"] = label
+                    checkpoints.append(ckpt)
+            except Exception:
+                pass
 
     # 数据库统计
     total_scores = db.query(AdmissionScore).count()
@@ -61,25 +67,25 @@ def monitor():
     print("  📊 高考数据导入监控报告")
     print("=" * 60)
 
-    if checkpoint:
-        idx = checkpoint.get("school_index", 0)
-        total = checkpoint.get("total_schools", 3000)
-        pct = idx * 100 // total if total else 0
+    if checkpoints:
+        for ckpt in checkpoints:
+            idx = ckpt.get("school_index", 0)
+            total = ckpt.get("total_schools", 3000)
+            pct = idx * 100 // total if total else 0
+            label = ckpt.get("_label", "")
 
-        print(f"\n🎯 导入进度: {idx}/{total} ({pct}%)")
-        print(f"🏫 当前学校: {checkpoint.get('current_school', '?')}")
+            print(f"\n🎯 [{label}] {idx}/{total} ({pct}%)")
+            print(f"🏫 当前学校: {ckpt.get('current_school', '?')}")
 
-        stats = checkpoint.get("stats", {})
-        print("\n📈 本次运行统计:")
-        print(f"  新增分数: {stats.get('new_scores', 0):,}")
-        print(f"  API 请求: {stats.get('requests', 0):,}")
-        print(f"  错误: {stats.get('errors', 0)}")
+            stats = ckpt.get("stats", {})
+            print(f"  新增分数: {stats.get('new_scores', 0):,}")
+            print(f"  API 请求: {stats.get('requests', 0):,}")
+            print(f"  错误: {stats.get('errors', 0)}")
 
-        # 估算剩余时间
-        if idx > 0 and total > 0:
-            # 简单估算：假设每校平均时间相同
-            # 这里用固定估算，实际可以根据时间戳计算
-            print(f"\n⏱️ 预计剩余: ~{format_time((total - idx) * 30)} (约 {(total - idx) * 30 / 3600:.1f}小时)")
+            # 估算剩余时间
+            if idx > 0 and total > 0:
+                est_hours = (total - idx) * 30 / 3600
+                print(f"⏱️ 预计剩余: ~{format_time((total - idx) * 30)} (约 {est_hours:.1f}小时)")
 
     print("\n💾 数据库统计:")
     print(f"  录取分数: {total_scores:,} 条")
@@ -91,8 +97,9 @@ def monitor():
         print(f"  {year}年: {count:,} 条")
 
     # 最近修改时间
-    if checkpoint:
-        last_run = checkpoint.get("last_run", "?")
+    if checkpoints:
+        last_ckpt = max(checkpoints, key=lambda c: c.get("last_run", ""))
+        last_run = last_ckpt.get("last_run", "?")
         print(f"\n🕐 最后更新: {last_run}")
 
     print("\n" + "=" * 60)

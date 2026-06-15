@@ -15,8 +15,8 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import get_session, init_db
-from db.models import Major
+from db.database import get_session, init_db  # noqa: E402
+from db.models import Major  # noqa: E402
 
 # ══════════════════════════════════════════════════════════
 # 教育部本科专业目录（2024 年版）
@@ -245,9 +245,8 @@ def main():
     try:
         new_count = 0
         update_count = 0
-        skip_count = 0
 
-        for name, category, sub_category, code, emp_rate, salary, hot, desc in MAJORS:
+        for name, category, sub_category, _code, emp_rate, salary, hot, desc in MAJORS:
             existing = db.query(Major).filter(Major.name == name).first()
             if existing:
                 # 更新就业数据

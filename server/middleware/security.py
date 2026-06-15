@@ -1,6 +1,7 @@
 """Security utilities: injection detection, SSRF defense, XSS sanitization."""
 
 import ipaddress
+import logging
 import re
 from urllib.parse import urlparse
 
@@ -149,8 +150,8 @@ def check_ssrf(url: str) -> bool:
 
 
 # --- FastAPI Middleware ---
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
@@ -174,6 +175,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 raw_body = _json.dumps(body).encode("utf-8")
                 request._body = raw_body
             except Exception as exc:
-                logger.debug("Security middleware body processing failed: %s", exc, exc_info=True)
+                logging.debug("Security middleware body processing failed: %s", exc, exc_info=True)
         response = await call_next(request)
         return response

@@ -97,7 +97,9 @@ class AdmissionScore(Base):
         UniqueConstraint(
             "school_id", "major_id", "province", "year", "batch", "subject_type", name="uq_admission_score"
         ),
-        Index("ix_adm_school_province_year", "school_id", "province", "year"),
+        Index("ix_adm_lookup", "school_id", "province", "year", "subject_type"),
+        Index("ix_adm_dedup", "school_id", "province", "year", "batch", "subject_type", "major_id"),
+        Index("ix_adm_year", "year"),
     )
 
     def __repr__(self):

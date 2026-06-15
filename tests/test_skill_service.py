@@ -32,8 +32,6 @@ class TestLoadAssets:
     def test_load_assets_idempotent(self, service: SkillService) -> None:
         """Loading twice doesn't reload."""
         service.load_assets()
-        original_mental_models = service._mental_models
-        original_loaded = service._loaded
 
         # Modify the content after first load
         service._mental_models = "modified content"

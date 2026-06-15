@@ -63,7 +63,7 @@ def _lock_db_permissions(db_path: str):
         if os.path.exists(path):
             try:
                 os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
-            except OSError:
+            except OSError as _e:
                 pass
 
 
@@ -83,18 +83,21 @@ def is_db_connected() -> bool:
 
 def init_db():
     """创建所有表"""
-    from db.models import (
-        School,
-        Major,
+    from db.models import (  # noqa: F401 — import to register tables with Base.metadata
         AdmissionScore,
+        CareerTrend,
+        Conversation,
+        ConversationMessage,
         EnrollmentPlan,
-        SubjectRanking,
-        YiFenYiDuan,
-        Highlight,
+        Feedback,
         GraduateProgram,
         GraduateScore,
-        CareerTrend,
-    )  # noqa
+        Highlight,
+        Major,
+        School,
+        SubjectRanking,
+        YiFenYiDuan,
+    )
 
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)

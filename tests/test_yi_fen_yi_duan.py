@@ -7,7 +7,7 @@ import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys_path_dir = os.path.join(PROJECT_ROOT)
-import sys
+import sys  # noqa: E402
 
 if sys_path_dir not in sys.path:
     sys.path.insert(0, sys_path_dir)
@@ -89,7 +89,7 @@ def in_memory_db():
 
 def _insert_test_rows(conn):
     """Insert test data and return expected count of unique (province, year, subject_type, score) combos."""
-    cur = conn.cursor()
+    conn.cursor()
     # Expected: 4 unique scores for 广东2024物理类 (690,688,670,650 - 690 deduped)
     # + 2 for 广东2023物理类 + 2 for 北京20243+3综合 = 8 total
     # NULL/0 rows excluded
@@ -301,7 +301,7 @@ class TestReverseEngineerRankTable:
         from scripts.import_yi_fen_yi_duan import reverse_engineer_rank_table
 
         rank_table = reverse_engineer_rank_table()
-        for key, score_map in rank_table.items():
+        for _key, score_map in rank_table.items():
             # score_map values should all be positive integers
             for score, rank in score_map.items():
                 assert isinstance(score, (int, float))

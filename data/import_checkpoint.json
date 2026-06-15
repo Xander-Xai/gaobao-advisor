@@ -1,11 +1,11 @@
 {
-  "last_run": "2026-06-14T23:24:34.716184",
-  "school_index": 140,
+  "last_run": "2026-06-15T21:53:07.891214",
+  "school_index": 1570,
   "total_schools": 3000,
-  "current_school": "华北电力大学（北京）",
+  "current_school": "岳阳职业技术学院",
   "stats": {
-    "requests": 6440,
-    "new_scores": 0,
+    "requests": 131214,
+    "new_scores": 18657,
     "errors": 0
   }
 }

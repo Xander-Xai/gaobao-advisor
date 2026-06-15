@@ -59,7 +59,7 @@ class TestEventTracker(unittest.TestCase):
         conn.close()
 
         expected_types = [EVENT_SESSION_START, EVENT_QUERY_SUBMITTED, EVENT_EMOTION_SCORED]
-        for row, expected_type in zip(rows, expected_types):
+        for row, expected_type in zip(rows, expected_types, strict=False):
             self.assertEqual(row["session_id"], sid)
             self.assertEqual(row["event_type"], expected_type)
 

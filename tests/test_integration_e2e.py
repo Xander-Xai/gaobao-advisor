@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from server.auth import create_session_token
 from server.main import app
 
 
@@ -23,6 +24,7 @@ def _mock_llm():
 @pytest.mark.asyncio
 async def test_full_gaokao_conversation():
     """Simulate a complete gaokao consultation via API."""
+    token = create_session_token("e2e-001")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/v1/chat",
@@ -31,6 +33,7 @@ async def test_full_gaokao_conversation():
                 "scene": "gaokao",
                 "message": "我是北京理科考生，620分，想学计算机",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
         text = response.text
@@ -41,6 +44,7 @@ async def test_full_gaokao_conversation():
 @pytest.mark.asyncio
 async def test_full_kaoyan_conversation():
     """Simulate a kaoyan consultation."""
+    token = create_session_token("e2e-002")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/v1/chat",
@@ -49,6 +53,7 @@ async def test_full_kaoyan_conversation():
                 "scene": "kaoyan",
                 "message": "我想考研到清华计算机",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
 
@@ -56,6 +61,7 @@ async def test_full_kaoyan_conversation():
 @pytest.mark.asyncio
 async def test_health_to_chat_pipeline():
     """Verify health check and chat endpoint both work."""
+    token = create_session_token("e2e-003")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         health = await client.get("/api/v1/health")
         assert health.json()["status"] == "ok"
@@ -67,6 +73,7 @@ async def test_health_to_chat_pipeline():
                 "scene": "gaokao",
                 "message": "你好",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert chat.status_code == 200
 
@@ -81,6 +88,7 @@ async def test_onboarding_to_chat_flow():
         assert onb.json()["next_step"] == 2
 
         # Step 2: chat with extracted info
+        token = create_session_token("e2e-004")
         chat = await client.post(
             "/api/v1/chat",
             json={
@@ -88,6 +96,7 @@ async def test_onboarding_to_chat_flow():
                 "scene": "gaokao",
                 "message": "我是北京考生，620分，想学计算机",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert chat.status_code == 200
 
@@ -110,6 +119,8 @@ async def test_injection_blocked_in_pipeline():
 @pytest.mark.asyncio
 async def test_multi_scene_routing():
     """Verify scene routing works in full pipeline."""
+    token_kaoyan = create_session_token("e2e-006")
+    token_career = create_session_token("e2e-007")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Kaoyan scene
         kaoyan = await client.post(
@@ -119,6 +130,7 @@ async def test_multi_scene_routing():
                 "scene": "kaoyan",
                 "message": "我想考研",
             },
+            headers={"Authorization": f"Bearer {token_kaoyan}"},
         )
         assert kaoyan.status_code == 200
 
@@ -130,5 +142,6 @@ async def test_multi_scene_routing():
                 "scene": "career",
                 "message": "我想了解就业方向",
             },
+            headers={"Authorization": f"Bearer {token_career}"},
         )
         assert career.status_code == 200

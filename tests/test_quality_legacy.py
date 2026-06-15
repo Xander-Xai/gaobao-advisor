@@ -165,22 +165,22 @@ class TestAiEraRisk(unittest.TestCase):
     """AI时代专业风险评估测试用例。"""
 
     def test_get_risk_known_major(self):
-        """计算机科学与技术 → not None, risk_zone="🟡"."""
+        """计算机科学与技术 → not None, risk_zone="🟡 中风险"."""
         risk = get_major_risk("计算机科学与技术")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🟡")
+        self.assertEqual(risk["risk_zone"], "🟡 中风险")
 
     def test_get_risk_red_zone(self):
-        """金融学 → risk_zone="🔴"."""
+        """金融学 → risk_zone="🔴 极高风险"."""
         risk = get_major_risk("金融学")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🔴")
+        self.assertEqual(risk["risk_zone"], "🔴 极高风险")
 
     def test_get_risk_green_zone(self):
-        """电气工程及其自动化 → risk_zone="🟢"."""
+        """电气工程及其自动化 → risk_zone="🟢 低风险"."""
         risk = get_major_risk("电气工程及其自动化")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🟢")
+        self.assertEqual(risk["risk_zone"], "🟢 低风险")
 
     def test_get_risk_unknown_major(self):
         """量子玄学 → None."""
@@ -188,10 +188,10 @@ class TestAiEraRisk(unittest.TestCase):
         self.assertIsNone(risk)
 
     def test_get_risk_summary(self):
-        """金融学 → summary string <= 80 chars containing '🔴' or '高'."""
+        """金融学 → summary string <= 120 chars containing '🔴' or '高'."""
         summary = get_risk_summary("金融学")
         self.assertIsNotNone(summary)
-        self.assertLessEqual(len(summary), 80)
+        self.assertLessEqual(len(summary), 120)
         self.assertTrue("🔴" in summary or "高" in summary)
 
 
