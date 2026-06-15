@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -10,6 +11,8 @@ from pydantic import BaseModel, Field
 from server.auth import create_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -38,6 +41,9 @@ async def _sse_generator(
     Two-phase streaming:
     1. Run graph up to LLM node (yields metadata: slots, emotion, structured)
     2. Stream LLM tokens in real-time via llm_node_stream
+
+    The final 'done' event returns a session_token for Bearer auth
+    on subsequent requests (profile/voice endpoints).
     """
     graph = get_advisor_graph()
     initial_state = {
@@ -50,7 +56,12 @@ async def _sse_generator(
     }
 
     # Phase 1: Run graph (synchronous, offloaded to thread)
-    result = await asyncio.to_thread(graph.invoke, initial_state)
+    try:
+        result = await asyncio.to_thread(graph.invoke, initial_state)
+    except Exception:
+        logger.exception("Phase 1 graph.invoke failed for session %s", session_id)
+        yield f"data: {json.dumps({'type': 'error', 'code': 'GRAPH_FAILED', 'message': '服务暂时不可用，请稍后重试'})}\n\n"
+        return
 
     # Emit updated slots
     if result.get("slots"):
