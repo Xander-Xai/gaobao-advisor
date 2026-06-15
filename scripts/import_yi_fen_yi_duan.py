@@ -12,6 +12,7 @@
 - 反推位次：T3（基于录取数据估算，仅作参考）
 - CSV 导入：T1（各省考试院官方）
 """
+
 import csv
 import os
 import sqlite3
@@ -58,8 +59,7 @@ def reverse_engineer_rank_table(db_path: str = None) -> dict:
     return result
 
 
-def query_rank_for_score(province: str, year: int, subject_type: str,
-                          score: int, db_path: str = None) -> int | None:
+def query_rank_for_score(province: str, year: int, subject_type: str, score: int, db_path: str = None) -> int | None:
     """查询某分数在 (省份, 年份, 科类) 下的位次（线性插值近似）
 
     智能匹配 subject_type: 物理/物理类/物 → 3+3综合/物理/理科任一即可
@@ -85,12 +85,15 @@ def query_rank_for_score(province: str, year: int, subject_type: str,
 
     # 查询数据库中所有该 (province, year) 下的录取数据，按 subject_type IN (...)
     placeholders = ",".join(["?"] * len(candidates))
-    cur.execute(f"""
+    cur.execute(
+        f"""
         SELECT min_score, min_rank
         FROM admission_scores
         WHERE province = ? AND year = ? AND subject_type IN ({placeholders})
           AND min_score IS NOT NULL AND min_rank IS NOT NULL
-    """, (province, year, *candidates))
+    """,
+        (province, year, *candidates),
+    )
     rows = cur.fetchall()
     conn.close()
 
@@ -116,8 +119,7 @@ def query_rank_for_score(province: str, year: int, subject_type: str,
     return sorted_scores[-1][1] if sorted_scores else None
 
 
-def query_score_for_rank(province: str, year: int, subject_type: str,
-                          rank: int, db_path: str = None) -> int | None:
+def query_score_for_rank(province: str, year: int, subject_type: str, rank: int, db_path: str = None) -> int | None:
     """查询某位次对应的分数（等位分，等位分计算用）"""
     if db_path is None:
         db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
@@ -138,12 +140,15 @@ def query_score_for_rank(province: str, year: int, subject_type: str,
     candidates = subject_aliases.get(subject_type, [subject_type])
     placeholders = ",".join(["?"] * len(candidates))
 
-    cur.execute(f"""
+    cur.execute(
+        f"""
         SELECT min_score, min_rank
         FROM admission_scores
         WHERE province = ? AND year = ? AND subject_type IN ({placeholders})
           AND min_score IS NOT NULL AND min_rank IS NOT NULL
-    """, (province, year, *candidates))
+    """,
+        (province, year, *candidates),
+    )
     rows = cur.fetchall()
     conn.close()
 
@@ -157,7 +162,7 @@ def query_score_for_rank(province: str, year: int, subject_type: str,
 
     # 找最接近的位次
     closest = None
-    min_diff = float('inf')
+    min_diff = float("inf")
     for s, r in score_to_rank.items():
         diff = abs(r - rank)
         if diff < min_diff:
@@ -166,8 +171,7 @@ def query_score_for_rank(province: str, year: int, subject_type: str,
     return closest
 
 
-def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: str,
-                       db_path: str = None) -> int:
+def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: str, db_path: str = None) -> int:
     """
     从 CSV 文件导入一分一段表
     CSV 格式: score,count (或 score,count,cumulative_count)
@@ -178,7 +182,7 @@ def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: st
     imported = 0
     with open(csv_path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        for row in reader:
+        for _row in reader:
             imported += 1
     print(f"  {csv_path}: 解析到 {imported} 行")
     return imported
@@ -217,10 +221,13 @@ def populate_from_admission_scores(db_path: str = None) -> int:
     # 2. 批量插入 yi_fen_yi_duan，跳过重复
     inserted = 0
     for province, year, subject_type, score, rank in rows:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT OR IGNORE INTO yi_fen_yi_duan (province, year, subject_type, score, cumulative_count)
             VALUES (?, ?, ?, ?, ?)
-        """, (province, year, subject_type, score, rank))
+        """,
+            (province, year, subject_type, score, rank),
+        )
         if cur.rowcount > 0:
             inserted += 1
 

@@ -12,6 +12,7 @@ RAG 知识检索引擎 — 端到端自动化验证脚本。
     python scripts/verify_rag.py
     python scripts/verify_rag.py --verbose
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,6 +36,7 @@ PROJECT_ROOT = os.path.dirname(HERE)
 
 
 # ── 测试数据 ──────────────────────────────────────────────────
+
 
 @dataclass
 class TestQuery:
@@ -84,11 +86,13 @@ TEST_QUERIES: list[TestQuery] = [
 
 # ── 辅助函数 ──────────────────────────────────────────────────
 
+
 def count_tokens_approx(text: str) -> int:
     """粗略估算 token 数（中文 1 字 ≈ 2 token，英文 1 词 ≈ 1 token）。"""
     import re
-    chinese_chars = len(re.findall(r'[一-鿿]', text))
-    ascii_tokens = len(re.findall(r'[a-zA-Z0-9]+', text))
+
+    chinese_chars = len(re.findall(r"[一-鿿]", text))
+    ascii_tokens = len(re.findall(r"[a-zA-Z0-9]+", text))
     return chinese_chars * 2 + ascii_tokens
 
 
@@ -180,34 +184,74 @@ T1: 官方数据（教育部、省考试院）
     os.makedirs(quotes_dir, exist_ok=True)
     quotes = {
         "计算机": [
-            {"id": "q1", "text": "学计算机就要卷到底，不卷就别学。",
-             "tags": ["计算机", "努力"], "category": "zhuanye", "sentiment": "cautionary"},
-            {"id": "q2", "text": "985的计算机，不要去211的金融。",
-             "tags": ["985", "211", "计算机", "金融"], "category": "zhuanye", "sentiment": "neutral"},
+            {
+                "id": "q1",
+                "text": "学计算机就要卷到底，不卷就别学。",
+                "tags": ["计算机", "努力"],
+                "category": "zhuanye",
+                "sentiment": "cautionary",
+            },
+            {
+                "id": "q2",
+                "text": "985的计算机，不要去211的金融。",
+                "tags": ["985", "211", "计算机", "金融"],
+                "category": "zhuanye",
+                "sentiment": "neutral",
+            },
         ],
         "医学": [
-            {"id": "q3", "text": "学医就是选择了一条漫长但稳定的路。",
-             "tags": ["医学", "稳定"], "category": "zhuanye", "sentiment": "neutral"},
+            {
+                "id": "q3",
+                "text": "学医就是选择了一条漫长但稳定的路。",
+                "tags": ["医学", "稳定"],
+                "category": "zhuanye",
+                "sentiment": "neutral",
+            },
         ],
         "考公": [
-            {"id": "q4", "text": "考公不是唯一出路，但是最稳的出路之一。",
-             "tags": ["考公", "稳定"], "category": "rensheng", "sentiment": "neutral"},
+            {
+                "id": "q4",
+                "text": "考公不是唯一出路，但是最稳的出路之一。",
+                "tags": ["考公", "稳定"],
+                "category": "rensheng",
+                "sentiment": "neutral",
+            },
         ],
         "女生": [
-            {"id": "q5", "text": "女生选专业，先看就业稳定性，再看收入天花板。",
-             "tags": ["女生", "选择"], "category": "rensheng", "sentiment": "neutral"},
+            {
+                "id": "q5",
+                "text": "女生选专业，先看就业稳定性，再看收入天花板。",
+                "tags": ["女生", "选择"],
+                "category": "rensheng",
+                "sentiment": "neutral",
+            },
         ],
         "985": [
-            {"id": "q6", "text": "能上985就别去211，学校层次就是你的第一张名片。",
-             "tags": ["985", "211", "学校层次"], "category": "yuanxiao", "sentiment": "cautionary"},
+            {
+                "id": "q6",
+                "text": "能上985就别去211，学校层次就是你的第一张名片。",
+                "tags": ["985", "211", "学校层次"],
+                "category": "yuanxiao",
+                "sentiment": "cautionary",
+            },
         ],
         "转专业": [
-            {"id": "q7", "text": "转专业不是万能药，进去之前想清楚比进去之后再转好。",
-             "tags": ["转专业", "选择"], "category": "zhuanye", "sentiment": "cautionary"},
+            {
+                "id": "q7",
+                "text": "转专业不是万能药，进去之前想清楚比进去之后再转好。",
+                "tags": ["转专业", "选择"],
+                "category": "zhuanye",
+                "sentiment": "cautionary",
+            },
         ],
         "专科": [
-            {"id": "q8", "text": "专科不是终点，是另一个起点。选对专业比选对学校重要。",
-             "tags": ["专科", "选择"], "category": "zhuanye", "sentiment": "motivational"},
+            {
+                "id": "q8",
+                "text": "专科不是终点，是另一个起点。选对专业比选对学校重要。",
+                "tags": ["专科", "选择"],
+                "category": "zhuanye",
+                "sentiment": "motivational",
+            },
         ],
     }
     with open(os.path.join(quotes_dir, "_by_major.json"), "w") as f:
@@ -223,7 +267,8 @@ T1: 官方数据（教育部、省考试院）
 
 def make_full_knowledge_base() -> str:
     """模拟原始的全量 knowledge_base.md。"""
-    return """
+    return (
+        """
 # 高考志愿顾问知识库 v2.7
 
 ## 一、核心咨询哲学
@@ -275,10 +320,13 @@ T1: 官方数据 / T2: 权威数据 / T3: 行业数据 / T4: 口碑数据
 
 ## 十六、2025-2026 最新趋势
 AI 对就业的冲击。
-""" * 1  # 约 866 行的简化版
+"""
+        * 1
+    )  # 约 866 行的简化版
 
 
 # ── 验证维度 ──────────────────────────────────────────────────
+
 
 @dataclass
 class VerifyResult:
@@ -299,10 +347,7 @@ def verify_retrieval_quality(retriever: KbRetriever) -> VerifyResult:
         status = "✓" if hit else "✗"
         if hit:
             passed_count += 1
-        details.append(
-            f"  {status} \"{tq.query}\" → {result.groups} "
-            f"(期望: {tq.expected_groups})"
-        )
+        details.append(f'  {status} "{tq.query}" → {result.groups} (期望: {tq.expected_groups})')
 
     return VerifyResult(
         dimension="检索质量",
@@ -326,10 +371,7 @@ def verify_token_savings(retriever: KbRetriever) -> VerifyResult:
         retrieved_tokens = count_tokens_approx(retrieved_text)
         saving_pct = (1 - retrieved_tokens / full_tokens) * 100 if full_tokens > 0 else 0
         savings.append(saving_pct)
-        details.append(
-            f"  \"{tq.query}\" → {retrieved_tokens} tokens "
-            f"(旧: {full_tokens}) 节省 {saving_pct:.0f}%"
-        )
+        details.append(f'  "{tq.query}" → {retrieved_tokens} tokens (旧: {full_tokens}) 节省 {saving_pct:.0f}%')
 
     avg_saving = sum(savings) / len(savings) if savings else 0
     details.append(f"  平均节省: {avg_saving:.0f}%")
@@ -384,8 +426,14 @@ def verify_knowledge_integrity(retriever: KbRetriever) -> VerifyResult:
     passed_count = 0
 
     # 测试 1: 6 个知识组存在
-    expected_groups = {"G1_core_method", "G2_major_school", "G3_career_future",
-                       "G4_life_planning", "G5_data_format", "G6_quick_ref"}
+    expected_groups = {
+        "G1_core_method",
+        "G2_major_school",
+        "G3_career_future",
+        "G4_life_planning",
+        "G5_data_format",
+        "G6_quick_ref",
+    }
     actual_groups = set(retriever._groups.keys())
     groups_ok = expected_groups == actual_groups
     status = "✓" if groups_ok else "✗"
@@ -426,6 +474,7 @@ def verify_knowledge_integrity(retriever: KbRetriever) -> VerifyResult:
 
 
 # ── 主程序 ──────────────────────────────────────────────────
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="RAG 端到端自动化验证")

@@ -1,4 +1,5 @@
 """Domain schemas for the advisor pipeline."""
+
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +9,7 @@ class StructuredPlanningCard(BaseModel):
     This is the JSON payload that gets sent alongside the text reply,
     enabling rich frontend rendering with facts/suggestions/risks/actions.
     """
+
     title: str
     summary: str
     scene: str = ""

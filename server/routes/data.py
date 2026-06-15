@@ -1,4 +1,5 @@
 """Data query endpoints."""
+
 from fastapi import APIRouter, Query
 
 from server.services.data_query import (

@@ -17,6 +17,7 @@ def _get_detector():
     global _detector
     if _detector is None:
         from quality.emotion_detector import EmotionDetector
+
         _detector = EmotionDetector()
     return _detector
 
@@ -33,4 +34,5 @@ def detect_emotion(text: str) -> dict[str, Any]:
 def get_crisis_hotlines() -> list[str]:
     """Return crisis hotline numbers."""
     from quality.emotion_detector import CRISIS_HOTLINES
+
     return list(CRISIS_HOTLINES)

@@ -3,6 +3,7 @@
 高考数据模块 v2.0 — 数据库优先 + 百度搜索兜底
 数据查询优先级: 本地数据库 → 百度高考 API → 百度搜索兜底
 """
+
 import json
 import logging
 import os
@@ -23,31 +24,31 @@ POLICIES = {
         "title": "强基计划",
         "summary": "教育部自2020年起实施，聚焦高端芯片、智能科技、新材料等关键领域。36所双一流A类高校参与，高考成绩占比不低于85%。",
         "key_points": ["报名时间一般在4月", "只能报考1所高校", "录取在提前批之前", "入校后原则上不得转专业"],
-        "source": "教育部阳光高考平台"
+        "source": "教育部阳光高考平台",
     },
     "提前批": {
         "title": "提前批次录取",
         "summary": "在普通批次之前录取，包括军事、公安、公费师范生、定向医学生等。未被录取不影响后续批次。",
         "key_points": ["一般在6月底填报", "不影响后续批次录取", "部分有体检/面试要求"],
-        "source": "各省教育考试院"
+        "source": "各省教育考试院",
     },
     "综合评价": {
         "title": "综合评价招生",
         "summary": "综合高考成绩、校测成绩和学业水平考试成绩录取。高考成绩占比不低于60%。",
         "key_points": ["部分高校在部分省份试点", "需要额外申请和参加校测", "代表高校：南科大、上科大、昆山杜克"],
-        "source": "各高校招生简章"
+        "source": "各高校招生简章",
     },
     "专项计划": {
         "title": "高校专项计划",
         "summary": "面向农村和脱贫地区学生的定向招生，包括国家专项、地方专项和高校专项。可降5-20分录取。",
         "key_points": ["国家专项面向困难县", "地方专项面向各省农村学生", "高校专项95所高校需单独报名"],
-        "source": "教育部高校招生工作规定"
+        "source": "教育部高校招生工作规定",
     },
     "新高考": {
         "title": "新高考改革",
         "summary": "取消文理分科，实行3+1+2或3+3模式。选科组合直接影响可报专业范围。",
         "key_points": ["3+1+2：物理/历史二选一+其余四选二", "3+3：六选三", "赋分制按排名百分比赋分"],
-        "source": "各省教育厅"
+        "source": "各省教育厅",
     },
 }
 
@@ -80,6 +81,7 @@ HAS_DB = False
 _SessionFactory = None
 _crud = None
 
+
 def _ensure_db():
     """延迟初始化数据库连接（#7 安全加固: 不再共享全局 session）"""
     global HAS_DB, _SessionFactory, _crud
@@ -88,6 +90,7 @@ def _ensure_db():
     try:
         from db import crud as _crud_mod
         from db.database import SessionLocal, init_db
+
         init_db()
         _SessionFactory = SessionLocal
         _crud = _crud_mod
@@ -122,24 +125,25 @@ def query_enrollment_plan(school_name, province=None, year=None):
         try:
             school = _crud.get_school_by_name(db, school_name)
             if school:
-                plans = _crud.get_enrollment_plans(
-                    db, school_id=school.id, province=province, year=year
-                )
+                plans = _crud.get_enrollment_plans(db, school_id=school.id, province=province, year=year)
                 for p in plans:
                     from db.models import Major
+
                     major = db.query(Major).filter_by(id=p.major_id).first()
-                    results.append({
-                        "school": school.name,
-                        "major": major.name if major else "未知专业",
-                        "province": p.province,
-                        "year": p.year,
-                        "plan_count": p.plan_count,
-                        "subject_requirement": p.subject_requirement,
-                        "batch": p.batch,
-                        "duration": p.duration,
-                        "tuition": p.tuition,
-                        "data_source": f"数据库招生计划（{school.name} · {p.year}年）",
-                    })
+                    results.append(
+                        {
+                            "school": school.name,
+                            "major": major.name if major else "未知专业",
+                            "province": p.province,
+                            "year": p.year,
+                            "plan_count": p.plan_count,
+                            "subject_requirement": p.subject_requirement,
+                            "batch": p.batch,
+                            "duration": p.duration,
+                            "tuition": p.tuition,
+                            "data_source": f"数据库招生计划（{school.name} · {p.year}年）",
+                        }
+                    )
         except Exception as e:
             log.warning("数据库查询招生计划失败: %s", e)
         finally:
@@ -149,21 +153,24 @@ def query_enrollment_plan(school_name, province=None, year=None):
     if not results and province:
         try:
             from scrapers.baidu_gaokao import fetch_enrollment_plan
+
             api_plans = fetch_enrollment_plan(school_name, province, year)
             if api_plans:
                 for item in api_plans:
-                    results.append({
-                        "school": school_name,
-                        "major": item.get("majorName", ""),
-                        "province": province,
-                        "year": year,
-                        "plan_count": _safe_int(item.get("planCount")),
-                        "subject_requirement": item.get("subjectRequirement", ""),
-                        "batch": item.get("batchName", ""),
-                        "duration": _safe_int(item.get("duration")),
-                        "tuition": _safe_int(item.get("tuition")),
-                        "data_source": f"百度高考 API 招生计划 · {year}年数据",
-                    })
+                    results.append(
+                        {
+                            "school": school_name,
+                            "major": item.get("majorName", ""),
+                            "province": province,
+                            "year": year,
+                            "plan_count": _safe_int(item.get("planCount")),
+                            "subject_requirement": item.get("subjectRequirement", ""),
+                            "batch": item.get("batchName", ""),
+                            "duration": _safe_int(item.get("duration")),
+                            "tuition": _safe_int(item.get("tuition")),
+                            "data_source": f"百度高考 API 招生计划 · {year}年数据",
+                        }
+                    )
         except Exception as e:
             log.warning("百度高考 API 招生计划查询失败: %s", e)
 
@@ -219,9 +226,7 @@ def query_admission(school, province, year=None, major=None):
     db = _get_session()
     if db:
         try:
-            db_results = _crud.query_admission_from_db(
-                db, school, province, year=year
-            )
+            db_results = _crud.query_admission_from_db(db, school, province, year=year)
             if db_results:
                 results = db_results
                 data_source_tier = "T1"
@@ -234,14 +239,23 @@ def query_admission(school, province, year=None, major=None):
     if not results:
         try:
             from scrapers.baidu_gaokao import fetch_school_score
+
             # 根据省份选择正确的 curriculum
             _curriculums = {
-                "北京": ["3+3综合"], "天津": ["3+3综合"], "上海": ["3+3综合"],
-                "山东": ["3+3综合"], "海南": ["3+3综合"], "浙江": ["3+3综合"],
-                "四川": ["理科", "文科"], "河南": ["理科", "文科"],
-                "山西": ["理科", "文科"], "陕西": ["理科", "文科"],
-                "云南": ["理科", "文科"], "内蒙古": ["理科", "文科"],
-                "宁夏": ["理科", "文科"], "青海": ["理科", "文科"],
+                "北京": ["3+3综合"],
+                "天津": ["3+3综合"],
+                "上海": ["3+3综合"],
+                "山东": ["3+3综合"],
+                "海南": ["3+3综合"],
+                "浙江": ["3+3综合"],
+                "四川": ["理科", "文科"],
+                "河南": ["理科", "文科"],
+                "山西": ["理科", "文科"],
+                "陕西": ["理科", "文科"],
+                "云南": ["理科", "文科"],
+                "内蒙古": ["理科", "文科"],
+                "宁夏": ["理科", "文科"],
+                "青海": ["理科", "文科"],
                 "新疆": ["理科", "文科"],
             }
             # 其他省份默认 3+1+2（物理类/历史类）
@@ -251,18 +265,20 @@ def query_admission(school, province, year=None, major=None):
                 if api_scores:
                     data_source_tier = "T2"
                     for s in api_scores:
-                        results.append({
-                            "school": school,
-                            "level": "",
-                            "province": province,
-                            "year": year,
-                            "batch": s.get("batchName", ""),
-                            "subject_type": curriculum,
-                            "min_score": _safe_int(s.get("minScore")),
-                            "min_rank": _safe_int(s.get("minScoreOrder")),
-                            "major": s.get("majorGroup", "院校线"),
-                            "data_source": f"百度高考 API · {year}年数据",
-                        })
+                        results.append(
+                            {
+                                "school": school,
+                                "level": "",
+                                "province": province,
+                                "year": year,
+                                "batch": s.get("batchName", ""),
+                                "subject_type": curriculum,
+                                "min_score": _safe_int(s.get("minScore")),
+                                "min_rank": _safe_int(s.get("minScoreOrder")),
+                                "major": s.get("majorGroup", "院校线"),
+                                "data_source": f"百度高考 API · {year}年数据",
+                            }
+                        )
                     break  # 找到就停
         except Exception as e:
             log.warning("百度高考 API 查询失败: %s", e)
@@ -271,19 +287,22 @@ def query_admission(school, province, year=None, major=None):
     if not results:
         try:
             from scrapers.baidu import search_admission_snippets
+
             snippets = search_admission_snippets(school, province, year)
             if snippets:
                 data_source_tier = "T3"
             for s in snippets:
-                results.append({
-                    "school": school,
-                    "province": province,
-                    "year": year,
-                    "snippet": s[:400],
-                    "data_source": f"百度搜索 · {year}年（仅供参考，请以官方数据为准）",
-                    "min_score": None,
-                    "min_rank": None,
-                })
+                results.append(
+                    {
+                        "school": school,
+                        "province": province,
+                        "year": year,
+                        "snippet": s[:400],
+                        "data_source": f"百度搜索 · {year}年（仅供参考，请以官方数据为准）",
+                        "min_score": None,
+                        "min_rank": None,
+                    }
+                )
         except Exception as e:
             log.warning("百度搜索兜底查询失败: %s", e)
 
@@ -317,11 +336,15 @@ def query_yi_fen_yi_duan(province, score, subject_type="物理", year=None):
         # ── 优先：从 yi_fen_yi_duan 表查询真实数据 ──
         from db.models import YiFenYiDuan
 
-        yfdd_row = db.query(YiFenYiDuan).filter(
-            YiFenYiDuan.province == province,
-            YiFenYiDuan.year == year,
-            YiFenYiDuan.score == score,
-        ).first()
+        yfdd_row = (
+            db.query(YiFenYiDuan)
+            .filter(
+                YiFenYiDuan.province == province,
+                YiFenYiDuan.year == year,
+                YiFenYiDuan.score == score,
+            )
+            .first()
+        )
 
         if yfdd_row:
             return {
@@ -335,11 +358,16 @@ def query_yi_fen_yi_duan(province, score, subject_type="物理", year=None):
             }
 
         # 精确匹配未命中，尝试向下找最接近的分数
-        nearest_below = db.query(YiFenYiDuan).filter(
-            YiFenYiDuan.province == province,
-            YiFenYiDuan.year == year,
-            YiFenYiDuan.score <= score,
-        ).order_by(YiFenYiDuan.score.desc()).first()
+        nearest_below = (
+            db.query(YiFenYiDuan)
+            .filter(
+                YiFenYiDuan.province == province,
+                YiFenYiDuan.year == year,
+                YiFenYiDuan.score <= score,
+            )
+            .order_by(YiFenYiDuan.score.desc())
+            .first()
+        )
 
         if nearest_below:
             return {
@@ -354,10 +382,15 @@ def query_yi_fen_yi_duan(province, score, subject_type="物理", year=None):
             }
 
         # 该省份/年份有 yi_fen_yi_duan 数据但分数太低，取最低分
-        lowest = db.query(YiFenYiDuan).filter(
-            YiFenYiDuan.province == province,
-            YiFenYiDuan.year == year,
-        ).order_by(YiFenYiDuan.score.asc()).first()
+        lowest = (
+            db.query(YiFenYiDuan)
+            .filter(
+                YiFenYiDuan.province == province,
+                YiFenYiDuan.year == year,
+            )
+            .order_by(YiFenYiDuan.score.asc())
+            .first()
+        )
 
         if lowest:
             return {
@@ -377,13 +410,18 @@ def query_yi_fen_yi_duan(province, score, subject_type="物理", year=None):
         candidates = SUBJECT_ALIASES.get(subject_type, [subject_type])
 
         from db.models import AdmissionScore
-        query_results = db.query(AdmissionScore).filter(
-            AdmissionScore.province == province,
-            AdmissionScore.year == year,
-            AdmissionScore.subject_type.in_(candidates),
-            AdmissionScore.min_score.isnot(None),
-            AdmissionScore.min_rank.isnot(None),
-        ).all()
+
+        query_results = (
+            db.query(AdmissionScore)
+            .filter(
+                AdmissionScore.province == province,
+                AdmissionScore.year == year,
+                AdmissionScore.subject_type.in_(candidates),
+                AdmissionScore.min_score.isnot(None),
+                AdmissionScore.min_rank.isnot(None),
+            )
+            .all()
+        )
 
         if not query_results:
             return {
@@ -481,16 +519,23 @@ def query_match_schools_v2(score, province, subject_type, strategy="稳", year=N
     # Step 3: 查 min_rank 在 [lo_rank, hi_rank] 之间的录取数据
     try:
         from db.models import AdmissionScore, School
+
         candidates = SUBJECT_ALIASES.get(subject_type, [subject_type])
 
-        rows = db.query(AdmissionScore).join(School).filter(
-            AdmissionScore.province == province,
-            AdmissionScore.year == year,
-            AdmissionScore.subject_type.in_(candidates),
-            AdmissionScore.min_rank >= lo_rank,
-            AdmissionScore.min_rank <= hi_rank,
-            AdmissionScore.min_rank.isnot(None),
-        ).limit(50).all()
+        rows = (
+            db.query(AdmissionScore)
+            .join(School)
+            .filter(
+                AdmissionScore.province == province,
+                AdmissionScore.year == year,
+                AdmissionScore.subject_type.in_(candidates),
+                AdmissionScore.min_rank >= lo_rank,
+                AdmissionScore.min_rank <= hi_rank,
+                AdmissionScore.min_rank.isnot(None),
+            )
+            .limit(50)
+            .all()
+        )
 
         # 去重（按 school_id），每校取最低分（最易录取）那条
         seen = {}
@@ -501,20 +546,22 @@ def query_match_schools_v2(score, province, subject_type, strategy="稳", year=N
 
         results = []
         for r in sorted(seen.values(), key=lambda x: x.min_rank or 0, reverse=True):
-            results.append({
-                "school_id": r.school_id,
-                "school_name": r.school.name,
-                "school_level": r.school.level,
-                "is_985": r.school.is_985,
-                "is_211": r.school.is_211,
-                "province": r.province,
-                "year": r.year,
-                "batch": r.batch,
-                "subject_type": r.subject_type,
-                "min_score": r.min_score,
-                "min_rank": r.min_rank,
-                "data_source": f"数据库位次法（{year}年{province}{subject_type}，用户位次 {user_rank:,}，策略 {strategy}）",
-            })
+            results.append(
+                {
+                    "school_id": r.school_id,
+                    "school_name": r.school.name,
+                    "school_level": r.school.level,
+                    "is_985": r.school.is_985,
+                    "is_211": r.school.is_211,
+                    "province": r.province,
+                    "year": r.year,
+                    "batch": r.batch,
+                    "subject_type": r.subject_type,
+                    "min_score": r.min_score,
+                    "min_rank": r.min_rank,
+                    "data_source": f"数据库位次法（{year}年{province}{subject_type}，用户位次 {user_rank:,}，策略 {strategy}）",
+                }
+            )
         return results[:15]
     except Exception as e:
         log.warning("位次法匹配失败，降级到分数匹配: %s", e)
@@ -536,9 +583,7 @@ def query_match_schools(score, province, subject_type, strategy="稳"):
     if not db:
         return []
     try:
-        return _crud.query_match_schools(
-            db, score, province, subject_type, strategy
-        )
+        return _crud.query_match_schools(db, score, province, subject_type, strategy)
     except Exception as e:
         log.warning("分数匹配查询失败: %s", e)
         return []
@@ -582,14 +627,10 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
 
         # Step 1: 找到匹配的专业
         safe_major = _crud._escape_like(major_name)
-        matched_major = db.query(Major).filter(
-            Major.name.contains(safe_major, escape='\\')
-        ).first()
+        matched_major = db.query(Major).filter(Major.name.contains(safe_major, escape="\\")).first()
         if not matched_major:
             # 尝试更宽泛的匹配：用子类别
-            matched_major = db.query(Major).filter(
-                Major.sub_category.contains(safe_major, escape='\\')
-            ).first()
+            matched_major = db.query(Major).filter(Major.sub_category.contains(safe_major, escape="\\")).first()
         if not matched_major:
             log.info("未找到专业: %s", major_name)
             return {"chong": [], "wen": [], "bao": [], "major_name": major_name, "total": 0}
@@ -601,11 +642,16 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
         candidates = SUBJECT_ALIASES.get(subject_type, [subject_type])
 
         # 先获取该专业在指定省份有招生计划的所有 school_id
-        plan_school_ids = db.query(EnrollmentPlan.school_id).filter(
-            EnrollmentPlan.major_id == major_id,
-            EnrollmentPlan.province == province,
-            EnrollmentPlan.year == year,
-        ).distinct().all()
+        plan_school_ids = (
+            db.query(EnrollmentPlan.school_id)
+            .filter(
+                EnrollmentPlan.major_id == major_id,
+                EnrollmentPlan.province == province,
+                EnrollmentPlan.year == year,
+            )
+            .distinct()
+            .all()
+        )
         plan_school_ids = [sid for (sid,) in plan_school_ids]
 
         if not plan_school_ids:
@@ -624,13 +670,17 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
                 lo_rank = int(user_rank * lo_factor)
                 hi_rank = int(user_rank * hi_factor)
 
-                q = db.query(AdmissionScore).join(School).filter(
-                    AdmissionScore.province == province,
-                    AdmissionScore.year == year,
-                    AdmissionScore.subject_type.in_(candidates),
-                    AdmissionScore.min_rank >= lo_rank,
-                    AdmissionScore.min_rank <= hi_rank,
-                    AdmissionScore.min_rank.isnot(None),
+                q = (
+                    db.query(AdmissionScore)
+                    .join(School)
+                    .filter(
+                        AdmissionScore.province == province,
+                        AdmissionScore.year == year,
+                        AdmissionScore.subject_type.in_(candidates),
+                        AdmissionScore.min_rank >= lo_rank,
+                        AdmissionScore.min_rank <= hi_rank,
+                        AdmissionScore.min_rank.isnot(None),
+                    )
                 )
 
                 # 如果有招生计划数据，限定到那些学校
@@ -650,21 +700,23 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
                         seen[sid] = r
 
                 for r in sorted(seen.values(), key=lambda x: x.min_rank or 0, reverse=True)[:8]:
-                    results_by_strategy[strategy].append({
-                        "school_id": r.school_id,
-                        "school_name": r.school.name,
-                        "school_level": r.school.level,
-                        "is_985": r.school.is_985,
-                        "is_211": r.school.is_211,
-                        "province": r.province,
-                        "year": r.year,
-                        "batch": r.batch,
-                        "subject_type": r.subject_type,
-                        "min_score": r.min_score,
-                        "min_rank": r.min_rank,
-                        "major_name": actual_major_name,
-                        "data_source": f"数据库位次法·专业反查（{year}年{province}，用户位次 {user_rank:,}，策略 {strategy}）",
-                    })
+                    results_by_strategy[strategy].append(
+                        {
+                            "school_id": r.school_id,
+                            "school_name": r.school.name,
+                            "school_level": r.school.level,
+                            "is_985": r.school.is_985,
+                            "is_211": r.school.is_211,
+                            "province": r.province,
+                            "year": r.year,
+                            "batch": r.batch,
+                            "subject_type": r.subject_type,
+                            "min_score": r.min_score,
+                            "min_rank": r.min_rank,
+                            "major_name": actual_major_name,
+                            "data_source": f"数据库位次法·专业反查（{year}年{province}，用户位次 {user_rank:,}，策略 {strategy}）",
+                        }
+                    )
         else:
             # 没有位次信息，降级用分数区间匹配
             strategy_ranges = {
@@ -673,13 +725,17 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
                 "保": (score - 60, score),
             }
             for strategy, (lo, hi) in strategy_ranges.items():
-                q = db.query(AdmissionScore).join(School).filter(
-                    AdmissionScore.province == province,
-                    AdmissionScore.year == year,
-                    AdmissionScore.subject_type.in_(candidates),
-                    AdmissionScore.min_score >= lo,
-                    AdmissionScore.min_score <= hi,
-                    AdmissionScore.min_score.isnot(None),
+                q = (
+                    db.query(AdmissionScore)
+                    .join(School)
+                    .filter(
+                        AdmissionScore.province == province,
+                        AdmissionScore.year == year,
+                        AdmissionScore.subject_type.in_(candidates),
+                        AdmissionScore.min_score >= lo,
+                        AdmissionScore.min_score <= hi,
+                        AdmissionScore.min_score.isnot(None),
+                    )
                 )
                 if plan_school_ids:
                     q = q.filter(AdmissionScore.school_id.in_(plan_school_ids))
@@ -694,21 +750,23 @@ def query_schools_by_major(major_name, province, score, subject_type="物理", y
                         seen[sid] = r
 
                 for r in sorted(seen.values(), key=lambda x: x.min_score or 0, reverse=True)[:8]:
-                    results_by_strategy[strategy].append({
-                        "school_id": r.school_id,
-                        "school_name": r.school.name,
-                        "school_level": r.school.level,
-                        "is_985": r.school.is_985,
-                        "is_211": r.school.is_211,
-                        "province": r.province,
-                        "year": r.year,
-                        "batch": r.batch,
-                        "subject_type": r.subject_type,
-                        "min_score": r.min_score,
-                        "min_rank": r.min_rank,
-                        "major_name": actual_major_name,
-                        "data_source": f"数据库分数法·专业反查（{year}年{province}，策略 {strategy}）",
-                    })
+                    results_by_strategy[strategy].append(
+                        {
+                            "school_id": r.school_id,
+                            "school_name": r.school.name,
+                            "school_level": r.school.level,
+                            "is_985": r.school.is_985,
+                            "is_211": r.school.is_211,
+                            "province": r.province,
+                            "year": r.year,
+                            "batch": r.batch,
+                            "subject_type": r.subject_type,
+                            "min_score": r.min_score,
+                            "min_rank": r.min_rank,
+                            "major_name": actual_major_name,
+                            "data_source": f"数据库分数法·专业反查（{year}年{province}，策略 {strategy}）",
+                        }
+                    )
 
         return {
             "chong": results_by_strategy["冲"],
@@ -742,8 +800,10 @@ def format_schools_by_major(result: dict) -> str:
         lines.append(f"### {group_label}\n")
         for i, s in enumerate(schools, 1):
             tags = []
-            if s.get("is_985"): tags.append("985")
-            if s.get("is_211"): tags.append("211")
+            if s.get("is_985"):
+                tags.append("985")
+            if s.get("is_211"):
+                tags.append("211")
             level_str = " ".join(f"`{t}`" for t in tags) if tags else ""
             score_str = f"最低分 **{s.get('min_score', '?')}** / 位次 **{s.get('min_rank', '?')}**"
             lines.append(
@@ -816,18 +876,19 @@ def query_subject_ranking(school_name, category=None):
     try:
         school = _crud.get_school_by_name(db, school_name)
         if school:
-            rankings = _crud.get_subject_rankings(
-                db, school_id=school.id, major_category=category
-            )
-            return [{
-                "school": school.name,
-                "category": r.major_category,
-                "source": r.ranking_source,
-                "year": r.ranking_year,
-                "position": r.ranking_position,
-                "grade": r.grade,
-                "data_source": f"数据库（教育部官方 · {r.ranking_year}年评估）",
-            } for r in rankings]
+            rankings = _crud.get_subject_rankings(db, school_id=school.id, major_category=category)
+            return [
+                {
+                    "school": school.name,
+                    "category": r.major_category,
+                    "source": r.ranking_source,
+                    "year": r.ranking_year,
+                    "position": r.ranking_position,
+                    "grade": r.grade,
+                    "data_source": f"数据库（教育部官方 · {r.ranking_year}年评估）",
+                }
+                for r in rankings
+            ]
     except Exception as e:
         log.warning("查询学科排名失败 [%s]: %s", school_name, e)
     finally:
@@ -869,13 +930,13 @@ def format_admission_info(results):
             score_info = f"最低分{r['min_score']}"
             rank_info = f"位次{r['min_rank']}" if r.get("min_rank") else ""
             lines.append(
-                f"{i+1}. {r.get('school','')}({r.get('level','')}) {major_info} | "
-                f"{r.get('province','')} {r.get('year','')}年 {r.get('subject_type','')} | "
+                f"{i + 1}. {r.get('school', '')}({r.get('level', '')}) {major_info} | "
+                f"{r.get('province', '')} {r.get('year', '')}年 {r.get('subject_type', '')} | "
                 f"{score_info} {rank_info} | 来源：{source}{conf_tag}"
             )
         # 百度搜索结果（只有文本片段）
         elif r.get("snippet"):
-            lines.append(f"{i+1}. {r['snippet'][:300]} | 来源：{source}{conf_tag}")
+            lines.append(f"{i + 1}. {r['snippet'][:300]} | 来源：{source}{conf_tag}")
 
     return "\n".join(lines) if lines else "暂无该学校录取数据。"
 
@@ -887,6 +948,7 @@ def get_db_stats():
         return {"status": "数据库不可用"}
     try:
         from db.models import AdmissionScore, Major, School, SubjectRanking
+
         return {
             "schools": db.query(School).count(),
             "majors": db.query(Major).count(),
@@ -902,6 +964,7 @@ def get_db_stats():
 
 
 # ── 选科适配查询（对外接口） ──
+
 
 def check_user_subject_compatibility(
     user_subjects: list[str],
@@ -997,13 +1060,12 @@ def format_subject_compatibility(result: dict) -> str:
     lines.append(result.get("note", ""))
     for m in result["all_majors"][:15]:
         if m["compatible"] and m["required_subjects"]:
-            lines.append(
-                f"  ✅ {m['name']}（{m.get('category', '')}）- 需 {m['note']}"
-            )
+            lines.append(f"  ✅ {m['name']}（{m.get('category', '')}）- 需 {m['note']}")
     return "\n".join(lines)
 
 
 # ── 志愿表生成器 ──
+
 
 def generate_volunteer_table(
     score: int,
@@ -1047,9 +1109,8 @@ def generate_volunteer_table(
         # 先算用户位次（缓存结果，避免重复计算）
         rank_info = query_yi_fen_yi_duan(province, score, subject_type, year)
         user_rank = rank_info.get("rank") if rank_info else None
-        rank_note = (
-            rank_info.get("source", "")
-            + (f"（置信度：{rank_info.get('confidence', '')}）" if rank_info else "")
+        rank_note = rank_info.get("source", "") + (
+            f"（置信度：{rank_info.get('confidence', '')}）" if rank_info else ""
         )
 
         # 查冲/稳/保三个策略（query_match_schools_v2 内部会再调 query_yi_fen_yi_duan，
@@ -1128,6 +1189,7 @@ def query_admission_trend(school_name, province, subject_type, years=3):
 
     try:
         from db.models import AdmissionScore
+
         school = _crud.get_school_by_name(db, school_name)
         if not school:
             return None
@@ -1135,14 +1197,19 @@ def query_admission_trend(school_name, province, subject_type, years=3):
         candidates = SUBJECT_ALIASES.get(subject_type, [subject_type])
         year_from = current_year - years
 
-        rows = db.query(AdmissionScore).filter(
-            AdmissionScore.school_id == school.id,
-            AdmissionScore.province == province,
-            AdmissionScore.subject_type.in_(candidates),
-            AdmissionScore.year >= year_from,
-            AdmissionScore.year < current_year,
-            AdmissionScore.min_score.isnot(None),
-        ).order_by(AdmissionScore.year.asc()).all()
+        rows = (
+            db.query(AdmissionScore)
+            .filter(
+                AdmissionScore.school_id == school.id,
+                AdmissionScore.province == province,
+                AdmissionScore.subject_type.in_(candidates),
+                AdmissionScore.year >= year_from,
+                AdmissionScore.year < current_year,
+                AdmissionScore.min_score.isnot(None),
+            )
+            .order_by(AdmissionScore.year.asc())
+            .all()
+        )
 
         if not rows:
             return {
@@ -1177,11 +1244,15 @@ def query_admission_trend(school_name, province, subject_type, years=3):
             if all_up:
                 trend = "逐年上升"
                 total_change = scores[-1] - scores[0]
-                trend_detail = f"近 {len(scores)} 年最低分逐年上升（{scores[0]} → {scores[-1]}，共涨 {total_change} 分）。"
+                trend_detail = (
+                    f"近 {len(scores)} 年最低分逐年上升（{scores[0]} → {scores[-1]}，共涨 {total_change} 分）。"
+                )
             elif all_down:
                 trend = "逐年下降"
                 total_change = scores[0] - scores[-1]
-                trend_detail = f"近 {len(scores)} 年最低分逐年下降（{scores[0]} → {scores[-1]}，共降 {total_change} 分）。"
+                trend_detail = (
+                    f"近 {len(scores)} 年最低分逐年下降（{scores[0]} → {scores[-1]}，共降 {total_change} 分）。"
+                )
             elif max_diff <= 5:
                 trend = "基本持平"
                 trend_detail = f"近 {len(scores)} 年最低分基本持平（波动 ≤ {max_diff} 分）。"
@@ -1270,4 +1341,4 @@ if __name__ == "__main__":
     print("\n测试: 分数匹配 600分 湖北 物理类 稳")
     matches = query_match_schools(600, "湖北", "物理类", "稳")
     for m in matches[:5]:
-        print(f"  {m.get('school_name','')} - {m.get('min_score','')}分 {m.get('min_rank','')}位次")
+        print(f"  {m.get('school_name', '')} - {m.get('min_score', '')}分 {m.get('min_rank', '')}位次")

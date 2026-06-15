@@ -1,10 +1,11 @@
 """
 SQLite 数据库连接 — 零依赖外部服务，开箱即用
 """
+
 import os
 import stat
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,16 @@ engine = create_engine(
     echo=False,
 )
 
+
+# Enable WAL mode for better concurrent read/write performance
+@event.listens_for(engine, "connect")
+def _set_wal_mode(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -52,7 +63,7 @@ def _lock_db_permissions(db_path: str):
         if os.path.exists(path):
             try:
                 os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
-            except OSError:
+            except OSError as _e:
                 pass
 
 
@@ -72,7 +83,22 @@ def is_db_connected() -> bool:
 
 def init_db():
     """创建所有表"""
-    from db.models import School, Major, AdmissionScore, EnrollmentPlan, SubjectRanking, YiFenYiDuan, Highlight, GraduateProgram, GraduateScore, CareerTrend  # noqa
+    from db.models import (  # noqa: F401 — import to register tables with Base.metadata
+        AdmissionScore,
+        CareerTrend,
+        Conversation,
+        ConversationMessage,
+        EnrollmentPlan,
+        Feedback,
+        GraduateProgram,
+        GraduateScore,
+        Highlight,
+        Major,
+        School,
+        SubjectRanking,
+        YiFenYiDuan,
+    )
+
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _lock_db_permissions(DB_PATH)

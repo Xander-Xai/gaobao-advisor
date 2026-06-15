@@ -36,6 +36,10 @@ services:
       - api
       - frontend
 
+  # ── DEPRECATED LEGACY SERVICE ──────────────────────────
+  # Streamlit UI is replaced by React frontend (port 3080).
+  # This service is kept for development/testing only.
+  # Do NOT enable in production. Use --profile legacy to start.
   streamlit:
     build: .
     container_name: gaokao-streamlit
@@ -47,4 +51,4 @@ services:
       - legacy
     env_file: .env
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data  # LEGACY: SQLite mounted for dev convenience

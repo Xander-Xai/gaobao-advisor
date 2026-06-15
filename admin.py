@@ -38,26 +38,82 @@ SLOT_KEYS = [
 
 # 全国省份列表（用于从消息中提取省份关键词）
 PROVINCES = [
-    "北京", "天津", "上海", "重庆",
-    "河北", "山西", "辽宁", "吉林", "黑龙江",
-    "江苏", "浙江", "安徽", "福建", "江西", "山东",
-    "河南", "湖北", "湖南", "广东", "广西", "海南",
-    "四川", "贵州", "云南", "西藏",
-    "陕西", "甘肃", "青海", "宁夏", "新疆", "内蒙古",
+    "北京",
+    "天津",
+    "上海",
+    "重庆",
+    "河北",
+    "山西",
+    "辽宁",
+    "吉林",
+    "黑龙江",
+    "江苏",
+    "浙江",
+    "安徽",
+    "福建",
+    "江西",
+    "山东",
+    "河南",
+    "湖北",
+    "湖南",
+    "广东",
+    "广西",
+    "海南",
+    "四川",
+    "贵州",
+    "云南",
+    "西藏",
+    "陕西",
+    "甘肃",
+    "青海",
+    "宁夏",
+    "新疆",
+    "内蒙古",
 ]
 
 # 常见专业关键词（用于从消息中提取）
 MAJOR_KEYWORDS = [
-    "计算机", "软件工程", "人工智能", "电子信息", "通信工程",
-    "电气工程", "自动化", "机械", "土木", "建筑",
-    "临床医学", "口腔", "护理", "药学", "中医",
-    "金融", "经济学", "会计", "法学", "汉语言",
-    "英语", "新闻", "传媒", "教育学", "心理学",
-    "数学", "物理", "化学", "生物",
-    "管理", "市场营销", "人力资源",
-    "信息安全", "网络工程", "数据科学",
-    "航空航天", "船舶", "核工程",
-    "师范", "公安", "军校",
+    "计算机",
+    "软件工程",
+    "人工智能",
+    "电子信息",
+    "通信工程",
+    "电气工程",
+    "自动化",
+    "机械",
+    "土木",
+    "建筑",
+    "临床医学",
+    "口腔",
+    "护理",
+    "药学",
+    "中医",
+    "金融",
+    "经济学",
+    "会计",
+    "法学",
+    "汉语言",
+    "英语",
+    "新闻",
+    "传媒",
+    "教育学",
+    "心理学",
+    "数学",
+    "物理",
+    "化学",
+    "生物",
+    "管理",
+    "市场营销",
+    "人力资源",
+    "信息安全",
+    "网络工程",
+    "数据科学",
+    "航空航天",
+    "船舶",
+    "核工程",
+    "师范",
+    "公安",
+    "军校",
 ]
 
 
@@ -87,9 +143,9 @@ def _load_from_analytics_db(date_from: date, date_to: date) -> dict:
     cur = conn.cursor()
 
     # 检查 events 表是否存在
-    tables = [r[0] for r in cur.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='events'"
-    ).fetchall()]
+    tables = [
+        r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'").fetchall()
+    ]
     if not tables:
         conn.close()
         return {}
@@ -164,15 +220,13 @@ def _load_from_analytics_db(date_from: date, date_to: date) -> dict:
 
     # 总会话数 / 总消息数
     cur.execute(
-        "SELECT COUNT(DISTINCT session_id) FROM events "
-        "WHERE created_at >= :ts_from AND created_at < :ts_to",
+        "SELECT COUNT(DISTINCT session_id) FROM events WHERE created_at >= :ts_from AND created_at < :ts_to",
         params,
     )
     total_sessions = cur.fetchone()[0]
 
     cur.execute(
-        "SELECT COUNT(*) FROM events "
-        "WHERE created_at >= :ts_from AND created_at < :ts_to",
+        "SELECT COUNT(*) FROM events WHERE created_at >= :ts_from AND created_at < :ts_to",
         params,
     )
     total_events = cur.fetchone()[0]
@@ -203,9 +257,10 @@ def _load_from_gaokao_db(date_from: date, date_to: date) -> dict:
     cur = conn.cursor()
 
     # 检查 conversations 表是否存在
-    tables = [r[0] for r in cur.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
-    ).fetchall()]
+    tables = [
+        r[0]
+        for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'").fetchall()
+    ]
     if not tables:
         conn.close()
         return {}
@@ -279,8 +334,7 @@ def _load_from_gaokao_db(date_from: date, date_to: date) -> dict:
 
     # 总会话数 / 总消息数
     cur.execute(
-        "SELECT COUNT(*) FROM conversations "
-        "WHERE created_at >= :ts_from AND created_at < :ts_to",
+        "SELECT COUNT(*) FROM conversations WHERE created_at >= :ts_from AND created_at < :ts_to",
         params,
     )
     total_sessions = cur.fetchone()[0]
@@ -368,7 +422,7 @@ def main():
         '<div style="text-align:center; padding:0.5rem 0 1rem 0;">'
         '<h1 style="margin:0; font-size:1.8rem;">📊 高报Agent 运营看板</h1>'
         '<p style="color:#6b7280; margin:0.2rem 0 0 0;">AI 高考志愿顾问 — 运营数据总览</p>'
-        '</div>',
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -389,8 +443,7 @@ def main():
         st.caption("优先从 analytics.db 的 events 表读取；若无则降级到 gaokao.db 的 conversations 表。")
         st.markdown("---")
         st.markdown(
-            '<div style="text-align:center; font-size:0.78rem; color:#9ca3af;">'
-            '⭐ Powered by <b>gaobao</b></div>',
+            '<div style="text-align:center; font-size:0.78rem; color:#9ca3af;">⭐ Powered by <b>gaobao</b></div>',
             unsafe_allow_html=True,
         )
 
@@ -420,9 +473,7 @@ def main():
         today_sessions = daily_sessions.get(today_str, 0)
 
         week_start = (date.today() - timedelta(days=date.today().weekday())).isoformat()
-        week_sessions = sum(
-            cnt for d, cnt in daily_sessions.items() if d >= week_start
-        )
+        week_sessions = sum(cnt for d, cnt in daily_sessions.items() if d >= week_start)
 
         # 平均每会话事件数
         avg_events = round(total_events / total_sessions, 1) if total_sessions > 0 else 0
@@ -447,14 +498,10 @@ def main():
         today_user_msgs = daily_messages.get(today_str, {}).get("user", 0)
 
         week_start = (date.today() - timedelta(days=date.today().weekday())).isoformat()
-        week_sessions = sum(
-            cnt for d, cnt in daily_sessions.items() if d >= week_start
-        )
-        week_messages = sum(
-            sum(dm.values()) for d, dm in daily_messages.items() if d >= week_start
-        )
+        week_sessions = sum(cnt for d, cnt in daily_sessions.items() if d >= week_start)
+        week_messages = sum(sum(dm.values()) for d, dm in daily_messages.items() if d >= week_start)
 
-        _user_count = role_counts.get("user", 0)      # prepared for future role metrics
+        _user_count = role_counts.get("user", 0)  # prepared for future role metrics
         _assistant_count = role_counts.get("assistant", 0)  # prepared for future role metrics
         avg_msgs = round(total_messages / total_sessions, 1) if total_sessions > 0 else 0
 
@@ -546,9 +593,9 @@ def main():
                 emo_labels = {"正面": emo["positive"], "中性": emo["neutral"], "负面": emo["negative"]}
                 st.bar_chart(emo_labels)
             with col_detail:
-                st.markdown(f"**正面（平静/积极）**: {emo['positive']} ({emo['positive']/total_emo*100:.0f}%)")
-                st.markdown(f"**中性（普通）**: {emo['neutral']} ({emo['neutral']/total_emo*100:.0f}%)")
-                st.markdown(f"**负面（焦虑/紧张）**: {emo['negative']} ({emo['negative']/total_emo*100:.0f}%)")
+                st.markdown(f"**正面（平静/积极）**: {emo['positive']} ({emo['positive'] / total_emo * 100:.0f}%)")
+                st.markdown(f"**中性（普通）**: {emo['neutral']} ({emo['neutral'] / total_emo * 100:.0f}%)")
+                st.markdown(f"**负面（焦虑/紧张）**: {emo['negative']} ({emo['negative'] / total_emo * 100:.0f}%)")
                 st.markdown(f"**总计**: {total_emo} 条情绪记录")
         else:
             st.info("暂无情绪数据。")
@@ -568,9 +615,9 @@ def main():
                 st.bar_chart(emo_labels)
             with col_detail:
                 total = len(msgs)
-                st.markdown(f"**正面**: {positive_count} ({positive_count/total*100:.0f}%)")
-                st.markdown(f"**中性**: {neutral_count} ({neutral_count/total*100:.0f}%)")
-                st.markdown(f"**焦虑/负面**: {anxiety_count} ({anxiety_count/total*100:.0f}%)")
+                st.markdown(f"**正面**: {positive_count} ({positive_count / total * 100:.0f}%)")
+                st.markdown(f"**中性**: {neutral_count} ({neutral_count / total * 100:.0f}%)")
+                st.markdown(f"**焦虑/负面**: {anxiety_count} ({anxiety_count / total * 100:.0f}%)")
                 st.markdown(f"**总计**: {total} 条消息")
                 st.caption("（基于关键词简单分析，analytics.db 有精确情绪分数）")
         else:
@@ -608,9 +655,15 @@ def main():
         slot_counter = analytics_data["slot_counter"]
         # slot_counter 的 key 是 slot_type（如"家庭""诉求""兴趣"）
         _slot_mapping = {
-            "省份": "province", "分数": "score_rank", "位次": "score_rank",
-            "选科": "subject", "兴趣": "interest", "专业": "interest",
-            "地域": "region", "家庭": "family", "诉求": "goal",
+            "省份": "province",
+            "分数": "score_rank",
+            "位次": "score_rank",
+            "选科": "subject",
+            "兴趣": "interest",
+            "专业": "interest",
+            "地域": "region",
+            "家庭": "family",
+            "诉求": "goal",
         }
         slot_data = {}
         for slot_type, cnt in slot_counter.most_common():
@@ -631,9 +684,7 @@ def main():
     if has_analytics and analytics_data.get("event_counts"):
         st.markdown("### 📋 事件类型分布")
         event_counts = analytics_data["event_counts"]
-        event_labels = {
-            k: v for k, v in sorted(event_counts.items(), key=lambda x: -x[1])
-        }
+        event_labels = {k: v for k, v in sorted(event_counts.items(), key=lambda x: -x[1])}
         st.bar_chart(event_labels)
         for event_type, cnt in event_labels.items():
             st.markdown(f"- **{event_type}**: {cnt} 次")
@@ -645,12 +696,14 @@ def main():
     _, gaokao_db_path = _get_db_paths()
     if os.path.exists(gaokao_db_path):
         import sqlite3 as _sqlite3
+
         _conn = _sqlite3.connect(gaokao_db_path)
         _cur = _conn.cursor()
         # 检查 feedbacks 表是否存在
-        _tables = [r[0] for r in _cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='feedbacks'"
-        ).fetchall()]
+        _tables = [
+            r[0]
+            for r in _cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='feedbacks'").fetchall()
+        ]
         if _tables:
             _cur.execute("SELECT COUNT(*) FROM feedbacks WHERE rating = 'helpful'")
             _fb_helpful = _cur.fetchone()[0]
@@ -671,8 +724,7 @@ def main():
 
             # 最近反馈（按时间倒序）
             _cur.execute(
-                "SELECT session_id, message_index, rating, created_at "
-                "FROM feedbacks ORDER BY created_at DESC LIMIT 10"
+                "SELECT session_id, message_index, rating, created_at FROM feedbacks ORDER BY created_at DESC LIMIT 10"
             )
             _recent = _cur.fetchall()
             if _recent:
@@ -691,10 +743,10 @@ def main():
     st.markdown("---")
     st.markdown(
         '<div style="text-align:center; color:#9ca3af; font-size:0.78rem;">'
-        f'数据范围: {date_from.isoformat()} ~ {date_to.isoformat()} | '
-        f'数据来源: {"analytics.db (events)" if has_analytics else "gaokao.db (conversations)"} | '
-        f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
-        '</div>',
+        f"数据范围: {date_from.isoformat()} ~ {date_to.isoformat()} | "
+        f"数据来源: {'analytics.db (events)' if has_analytics else 'gaokao.db (conversations)'} | "
+        f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        "</div>",
         unsafe_allow_html=True,
     )
 

@@ -1,4 +1,5 @@
 """RAG 知识检索集成测试 — 验证 7 个核心查询场景。"""
+
 import json
 import os
 import sys
@@ -107,34 +108,74 @@ T1: 官方数据（教育部、省考试院）
     os.makedirs(quotes_dir, exist_ok=True)
     quotes = {
         "计算机": [
-            {"id": "q1", "text": "学计算机就要卷到底，不卷就别学。",
-             "tags": ["计算机", "努力"], "category": "zhuanye", "sentiment": "cautionary"},
-            {"id": "q2", "text": "985的计算机，不要去211的金融。",
-             "tags": ["985", "211", "计算机", "金融"], "category": "zhuanye", "sentiment": "neutral"},
+            {
+                "id": "q1",
+                "text": "学计算机就要卷到底，不卷就别学。",
+                "tags": ["计算机", "努力"],
+                "category": "zhuanye",
+                "sentiment": "cautionary",
+            },
+            {
+                "id": "q2",
+                "text": "985的计算机，不要去211的金融。",
+                "tags": ["985", "211", "计算机", "金融"],
+                "category": "zhuanye",
+                "sentiment": "neutral",
+            },
         ],
         "医学": [
-            {"id": "q3", "text": "学医就是选择了一条漫长但稳定的路。",
-             "tags": ["医学", "稳定"], "category": "zhuanye", "sentiment": "neutral"},
+            {
+                "id": "q3",
+                "text": "学医就是选择了一条漫长但稳定的路。",
+                "tags": ["医学", "稳定"],
+                "category": "zhuanye",
+                "sentiment": "neutral",
+            },
         ],
         "考公": [
-            {"id": "q4", "text": "考公不是唯一出路，但是最稳的出路之一。",
-             "tags": ["考公", "稳定"], "category": "rensheng", "sentiment": "neutral"},
+            {
+                "id": "q4",
+                "text": "考公不是唯一出路，但是最稳的出路之一。",
+                "tags": ["考公", "稳定"],
+                "category": "rensheng",
+                "sentiment": "neutral",
+            },
         ],
         "女生": [
-            {"id": "q5", "text": "女生选专业，先看就业稳定性，再看收入天花板。",
-             "tags": ["女生", "选择"], "category": "rensheng", "sentiment": "neutral"},
+            {
+                "id": "q5",
+                "text": "女生选专业，先看就业稳定性，再看收入天花板。",
+                "tags": ["女生", "选择"],
+                "category": "rensheng",
+                "sentiment": "neutral",
+            },
         ],
         "985": [
-            {"id": "q6", "text": "能上985就别去211，学校层次就是你的第一张名片。",
-             "tags": ["985", "211", "学校层次"], "category": "yuanxiao", "sentiment": "cautionary"},
+            {
+                "id": "q6",
+                "text": "能上985就别去211，学校层次就是你的第一张名片。",
+                "tags": ["985", "211", "学校层次"],
+                "category": "yuanxiao",
+                "sentiment": "cautionary",
+            },
         ],
         "转专业": [
-            {"id": "q7", "text": "转专业不是万能药，进去之前想清楚比进去之后再转好。",
-             "tags": ["转专业", "选择"], "category": "zhuanye", "sentiment": "cautionary"},
+            {
+                "id": "q7",
+                "text": "转专业不是万能药，进去之前想清楚比进去之后再转好。",
+                "tags": ["转专业", "选择"],
+                "category": "zhuanye",
+                "sentiment": "cautionary",
+            },
         ],
         "专科": [
-            {"id": "q8", "text": "专科不是终点，是另一个起点。选对专业比选对学校重要。",
-             "tags": ["专科", "选择"], "category": "zhuanye", "sentiment": "motivational"},
+            {
+                "id": "q8",
+                "text": "专科不是终点，是另一个起点。选对专业比选对学校重要。",
+                "tags": ["专科", "选择"],
+                "category": "zhuanye",
+                "sentiment": "motivational",
+            },
         ],
     }
     with open(os.path.join(quotes_dir, "_by_major.json"), "w") as f:
@@ -159,14 +200,11 @@ class Test7CoreQueries:
 
     def _check_groups(self, result, expected_groups, query_desc):
         hit = any(g in result.groups for g in expected_groups)
-        assert hit, (
-            f"Query '{query_desc}': expected one of {expected_groups}, got {result.groups}"
-        )
+        assert hit, f"Query '{query_desc}': expected one of {expected_groups}, got {result.groups}"
 
     def test_query_1_coding_career(self):
         result = self.retriever.search("学码农以后还能找到工作吗", {})
-        self._check_groups(result, ["G2_major_school", "G3_career_future"],
-                           "学码农以后还能找到工作吗")
+        self._check_groups(result, ["G2_major_school", "G3_career_future"], "学码农以后还能找到工作吗")
 
     def test_query_2_civil_service(self):
         result = self.retriever.search("进体制内稳不稳", {})
@@ -178,13 +216,11 @@ class Test7CoreQueries:
 
     def test_query_4_rural_low_score(self):
         result = self.retriever.search("农村的，分数不高，能报什么", {})
-        self._check_groups(result, ["G1_core_method", "G2_major_school"],
-                           "农村的，分数不高，能报什么")
+        self._check_groups(result, ["G1_core_method", "G2_major_school"], "农村的，分数不高，能报什么")
 
     def test_query_5_clinical_medicine(self):
         result = self.retriever.search("临床医学出来好找工吗", {})
-        self._check_groups(result, ["G2_major_school", "G3_career_future"],
-                           "临床医学出来好找工吗")
+        self._check_groups(result, ["G2_major_school", "G3_career_future"], "临床医学出来好找工吗")
 
     def test_query_6_school_comparison(self):
         result = self.retriever.search("帮我对比武汉大学和华中科技大学", {})

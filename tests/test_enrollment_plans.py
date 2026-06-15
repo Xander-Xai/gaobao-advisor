@@ -1,4 +1,5 @@
 """Tests for enrollment plan query with graceful empty-state fallback."""
+
 import os
 import sys
 
@@ -7,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 import gaokao_data
 
 

@@ -4,7 +4,6 @@ Adapted from EduAgent backend/app/modules/voice/service.py.
 """
 
 import os
-from typing import Optional
 
 VOICE_RENDER_SYSTEM_PROMPT = (
     "你是教育规划电话模式助手。\n"
@@ -43,8 +42,7 @@ class VoiceService:
                 messages=[
                     {
                         "role": "system",
-                        "content": VOICE_RENDER_SYSTEM_PROMPT
-                        + f"\n语气风格：{style}",
+                        "content": VOICE_RENDER_SYSTEM_PROMPT + f"\n语气风格：{style}",
                     },
                     {
                         "role": "user",
@@ -63,7 +61,7 @@ class VoiceService:
         return bool(self.chat_api_key)
 
 
-_voice_service: Optional[VoiceService] = None
+_voice_service: VoiceService | None = None
 
 
 def get_voice_service() -> VoiceService:

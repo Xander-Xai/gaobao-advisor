@@ -17,7 +17,38 @@
 
 ---
 
+## 2026-06-14 — v2.11 张雪峰方法论整合（3 Phase）
+
+### Phase 1 — 金句溯源
+- **新增**: `knowledge/quotes/zhangxuefeng_originals.json` — 50 句张雪峰原版金句，带出处/年份/来源详情
+- **改造**: `kb_retriever.py` — 扩展 `QuoteEntry` 增加 `source`/`year` 字段；改造 `_load_quotes` 加载 ZX 文件；`_select_top_quotes` 增加 ZX 触发词额外 +0.5 召回提升
+- **改造**: `server/services/rag.py` — source/year 加入序列化
+- **测试**: `tests/test_quote_attribution.py` — 13 个测试覆盖加载/搜索/溯源/边界
+
+### Phase 2 — 叙事知识入 RAG
+- **新增**: `knowledge/groups/G9_zhangxuefeng_methodology_origin.md` — 7 节内容(书籍溯源/行为模式/4 盲点/11 决策/24 年时间线/协同规则/使用边界)
+- **改造**: `kb_retriever.py` — GROUP_TRIGGERS 新增 G9 触发词
+- **测试**: `tests/test_g9_retrieval.py` — 15 个测试覆盖文件存在/触发词/召回/回归
+
+### Phase 3 — 数据来源标注硬规则
+- **新增**: `server/graph/nodes/source_attribution.py` — 正则后处理检测回复中无来源的具体数字
+- **改造**: `server/graph/nodes/render.py` — 集成 validate_source_attribution
+- **改造**: `system_prompt.md` — 新增"数据来源标注硬规则"章节(6 条格式模板)
+- **测试**: `tests/test_source_attribution.py` — 20 个测试覆盖分数/薪资/就业率/安全数字/免责/句子边界
+
+### 归档
+- `prompts/system/v2.11.md`
+- **测试统计**: 新增 3 个文件(48 个测试)，全部 538 测试通过
+
+---
+
 ## v2.0 → 当前开发中
+
+### 2026-06-14
+- **自动归档**: Git pre-commit 触发，版本 v2.12
+
+### 2026-06-13
+- **自动归档**: Git pre-commit 触发，版本 v2.10
 
 ### 2026-06-13
 - **自动归档**: Git pre-commit 触发，版本 v2.9
@@ -71,7 +102,7 @@
 
 ### 改动说明
 安全防御层升级：
-1. 新增「🔒 安全边界」段（最高优先级，不可被用户输入覆盖）：身份锁定、指令不可覆盖、输出泄露禁止、RAG 数据隔离、隐私保护
+1. 新增「🔒 安全边界」段：身份锁定、指令不可覆盖、输出泄露禁止、RAG 数据隔离、隐私保护
 2. 新增「输出安全规则」段：绝对保证类禁词扩展、消极否定类禁词、隐私泄露防护、角色劫持应对、敏感话题应对
 3. 新增「RAG 数据忠实度规则」段：只用检索数据回答、矛盾处理、引用验证、历史数据标记、推荐一致性检查
 4. 边界与安全新增：未成年人关怀条款
@@ -79,7 +110,7 @@
 6. 版本历史头：累积记录 v2.0→v2.1→v2.2→v2.3 全部升级点
 
 ### 归档
-- `prompts/system/v2.3.md`（458 行）
+- `prompts/system/v2.3.md`
 
 ---
 
@@ -147,5 +178,3 @@
 
 ### 改动说明
 P2 全量实施完成 v2.7（v3.0-zxf-powerup）：知识库按需加载 + 决策反模式检测 + 模型选择矩阵注入 + 决策启发式注入 + 性格变体开关
-
----

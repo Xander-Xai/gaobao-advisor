@@ -1,4 +1,5 @@
 """Tests for enhanced import functions."""
+
 import os
 import sys
 
@@ -34,14 +35,16 @@ def test_import_schools_fills_missing_city():
     }
 
     with patch("scrapers.baidu_gaokao.iter_schools", return_value=iter([mock_item])):
-        stats = import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
+        import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
 
     # Verify city was filled (was empty)
     assert mock_school.city == "广州", f"city should be filled from API, got {mock_school.city}"
     # Verify ranking was filled (was None)
     assert mock_school.ranking == 50, f"ranking should be filled from API, got {mock_school.ranking}"
     # Verify description was filled (was None)
-    assert mock_school.description == "211重点大学", f"description should be filled from API, got {mock_school.description}"
+    assert mock_school.description == "211重点大学", (
+        f"description should be filled from API, got {mock_school.description}"
+    )
 
 
 def test_import_schools_does_not_overwrite_existing_city():
@@ -70,7 +73,7 @@ def test_import_schools_does_not_overwrite_existing_city():
     }
 
     with patch("scrapers.baidu_gaokao.iter_schools", return_value=iter([mock_item])):
-        stats = import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
+        import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
 
     # City should NOT be overwritten
     assert mock_school.city == "深圳"
@@ -93,7 +96,9 @@ def test_import_scores_uses_province_curriculums():
 
     with patch("scrapers.baidu_gaokao.fetch_school_score", return_value=[]) as mock_fetch:
         import_scores_to_db(
-            mock_session, MagicMock(), MagicMock(),
+            mock_session,
+            MagicMock(),
+            MagicMock(),
             schools=[mock_school],
             provinces=["北京"],
             years=[2024],
@@ -119,7 +124,9 @@ def test_import_scores_checkpoint_saves_progress(tmp_path):
 
     with patch("scrapers.baidu_gaokao.fetch_school_score", return_value=[]):
         import_scores_to_db(
-            mock_session, MagicMock(), MagicMock(),
+            mock_session,
+            MagicMock(),
+            MagicMock(),
             schools=[mock_school],
             provinces=["北京"],
             years=[2024],
@@ -127,4 +134,5 @@ def test_import_scores_checkpoint_saves_progress(tmp_path):
         )
 
     import os
+
     assert os.path.exists(checkpoint_file)

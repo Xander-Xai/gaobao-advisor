@@ -55,13 +55,11 @@ class TestEventTracker(unittest.TestCase):
         # 验证 session_id 和 event_type 正确
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT session_id, event_type FROM events ORDER BY id"
-        ).fetchall()
+        rows = conn.execute("SELECT session_id, event_type FROM events ORDER BY id").fetchall()
         conn.close()
 
         expected_types = [EVENT_SESSION_START, EVENT_QUERY_SUBMITTED, EVENT_EMOTION_SCORED]
-        for row, expected_type in zip(rows, expected_types):
+        for row, expected_type in zip(rows, expected_types, strict=False):
             self.assertEqual(row["session_id"], sid)
             self.assertEqual(row["event_type"], expected_type)
 
@@ -74,25 +72,15 @@ class TestEventTracker(unittest.TestCase):
         # Session A
         self.tracker.log_event("s1", EVENT_SESSION_START)
         self.tracker.log_event("s1", EVENT_QUERY_SUBMITTED, {"q_len": 30})
-        self.tracker.log_event(
-            "s1", EVENT_EMOTION_SCORED, {"label": "positive", "score": 0.8}
-        )
-        self.tracker.log_event(
-            "s1", EVENT_EMOTION_SCORED, {"label": "neutral", "score": 0.5}
-        )
-        self.tracker.log_event(
-            "s1", EVENT_MAJORS_VIEWED, {"majors": ["计算机科学", "人工智能", "数据科学"]}
-        )
+        self.tracker.log_event("s1", EVENT_EMOTION_SCORED, {"label": "positive", "score": 0.8})
+        self.tracker.log_event("s1", EVENT_EMOTION_SCORED, {"label": "neutral", "score": 0.5})
+        self.tracker.log_event("s1", EVENT_MAJORS_VIEWED, {"majors": ["计算机科学", "人工智能", "数据科学"]})
 
         # Session B
         self.tracker.log_event("s2", EVENT_SESSION_START)
         self.tracker.log_event("s2", EVENT_QUERY_SUBMITTED, {"q_len": 50})
-        self.tracker.log_event(
-            "s2", EVENT_EMOTION_SCORED, {"label": "negative", "score": 0.2}
-        )
-        self.tracker.log_event(
-            "s2", EVENT_MAJORS_VIEWED, {"majors": ["人工智能", "软件工程"]}
-        )
+        self.tracker.log_event("s2", EVENT_EMOTION_SCORED, {"label": "negative", "score": 0.2})
+        self.tracker.log_event("s2", EVENT_MAJORS_VIEWED, {"majors": ["人工智能", "软件工程"]})
 
         stats = self.tracker.get_stats(days=1)
 
@@ -122,9 +110,7 @@ class TestEventTracker(unittest.TestCase):
     def test_privacy_no_raw_text(self) -> None:
         """确认超长文本被截断，不会原样存入数据库。"""
         long_text = "这是一段很长的用户原始输入，" * 100  # 远超 200 字符
-        self.tracker.log_event(
-            "s-privacy", EVENT_QUERY_SUBMITTED, {"raw_text": long_text}
-        )
+        self.tracker.log_event("s-privacy", EVENT_QUERY_SUBMITTED, {"raw_text": long_text})
 
         conn = sqlite3.connect(self.db_path)
         cur = conn.execute("SELECT event_data FROM events LIMIT 1")

@@ -20,6 +20,7 @@
 - 双一流 147 校 × 30 省 × 3 年: ~90 分钟
 - 全量 3000 校 × 30 省 × 3 年: ~20 小时（建议 --resume 分批运行）
 """
+
 import argparse
 import os
 import sys
@@ -28,18 +29,18 @@ import time
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, Major, School
-from scrapers.baidu_gaokao import (
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, Major, School  # noqa: E402
+from scrapers.baidu_gaokao import (  # noqa: E402
     import_schools_to_db,
     import_scores_to_db,
 )
-from scrapers.checkpoint import clear_checkpoint, load_checkpoint
-from scrapers.provinces import ALL_PROVINCES
+from scrapers.checkpoint import clear_checkpoint, load_checkpoint  # noqa: E402
+from scrapers.provinces import ALL_PROVINCES  # noqa: E402
 
 # ── 院校层级筛选参数 ──
 LAYER_FILTERS = {
-    1: "双一流",   # is_double_first_class == 1
+    1: "双一流",  # is_double_first_class == 1
     2: "省属重点",  # ranking <= 300 且非双一流
     3: "一般本科",  # school_type != '专科' 且非双一流/省重点
     4: "专科/职业",  # school_type == '专科'
@@ -60,18 +61,26 @@ def select_schools_by_layers(db, layers: list[int], limit: int = None) -> list:
         layer1 = db.query(School).filter(School.is_double_first_class == 1).all()
 
     if 2 in layers:
-        layer2 = db.query(School).filter(
-            School.is_double_first_class == 0,
-            School.ranking <= 300,
-            School.ranking.isnot(None),
-        ).all()
+        layer2 = (
+            db.query(School)
+            .filter(
+                School.is_double_first_class == 0,
+                School.ranking <= 300,
+                School.ranking.isnot(None),
+            )
+            .all()
+        )
 
     if 3 in layers:
-        layer3 = db.query(School).filter(
-            School.is_double_first_class == 0,
-            (School.ranking > 300) | (School.ranking.is_(None)),
-            School.school_type != "专科",
-        ).all()
+        layer3 = (
+            db.query(School)
+            .filter(
+                School.is_double_first_class == 0,
+                (School.ranking > 300) | (School.ranking.is_(None)),
+                School.school_type != "专科",
+            )
+            .all()
+        )
 
     # 按层级顺序合并，去重
     seen_ids = set()
@@ -95,20 +104,26 @@ def main():
     parser.add_argument("--schools-only", action="store_true", help="只采集院校列表")
     parser.add_argument("--scores-only", action="store_true", help="只采集分数线")
     parser.add_argument("--full", action="store_true", help="全量模式（= --layer 1,2,3,4）")
-    parser.add_argument("--layer", type=str, default=None,
-                        help="院校层级，逗号分隔: 1=双一流 2=省属重点 3=一般本科 4=专科")
-    parser.add_argument("--top-n", type=int, default=80,
-                        help="分数线采集的院校上限")
-    parser.add_argument("--max-schools", type=int, default=None,
-                        help="院校列表采集上限")
-    parser.add_argument("--provinces", nargs="+", default=None,
-                        help="指定省份，或 ALL 表示 30 省全覆盖")
-    parser.add_argument("--years", nargs="+", type=int, default=[2024, 2023, 2022],
-                        help="采集的年份")
-    parser.add_argument("--resume", action="store_true",
-                        help="从上次断点继续")
-    parser.add_argument("--checkpoint", type=str, default="data/import_checkpoint.json",
-                        help="断点文件路径（默认 data/import_checkpoint.json）")
+    parser.add_argument(
+        "--layer", type=str, default=None, help="院校层级，逗号分隔: 1=双一流 2=省属重点 3=一般本科 4=专科"
+    )
+    parser.add_argument("--top-n", type=int, default=80, help="分数线采集的院校上限")
+    parser.add_argument("--max-schools", type=int, default=None, help="院校列表采集上限")
+    parser.add_argument("--provinces", nargs="+", default=None, help="指定省份，或 ALL 表示 30 省全覆盖")
+    parser.add_argument("--years", nargs="+", type=int, default=[2024, 2023, 2022], help="采集的年份")
+    parser.add_argument("--resume", action="store_true", help="从上次断点继续")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="data/import_checkpoint.json",
+        help="断点文件路径（默认 data/import_checkpoint.json）",
+    )
+    parser.add_argument(
+        "--async",
+        dest="async_mode",
+        action="store_true",
+        help="使用异步并行模式（更快，需 httpx）",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -148,8 +163,9 @@ def main():
         # 1. 采集院校列表（补全信息）
         if not args.scores_only:
             print("\n>>> 阶段 1: 采集院校列表（补全基础信息）")
-            school_stats = import_schools_to_db(
-                db, School,
+            import_schools_to_db(
+                db,
+                School,
                 max_schools=args.max_schools,
                 skip_existing=True,
             )
@@ -171,9 +187,9 @@ def main():
                 target_schools = select_schools_by_layers(db, layers, limit=args.top_n)
             else:
                 # 默认：985 + 头部 211
-                target_schools = db.query(School).filter(
-                    (School.is_985 == 1) | (School.level == "211")
-                ).limit(args.top_n).all()
+                target_schools = (
+                    db.query(School).filter((School.is_985 == 1) | (School.level == "211")).limit(args.top_n).all()
+                )
 
             # 断点续传：跳过已完成的学校
             if start_index > 0:
@@ -183,14 +199,35 @@ def main():
             print(f"  省份: {provinces or '默认 10 省'}")
             print(f"  年份: {args.years}")
 
-            score_stats = import_scores_to_db(
-                db, School, AdmissionScore,
-                schools=target_schools,
-                provinces=provinces,
-                years=args.years,
-                checkpoint_path=args.checkpoint,
-                start_school_index=start_index,
-            )
+            if args.async_mode:
+                import asyncio
+
+                from scrapers.baidu_gaokao import import_scores_async
+
+                print("  模式: 异步并行")
+                asyncio.run(
+                    import_scores_async(
+                        db,
+                        School,
+                        AdmissionScore,
+                        schools=target_schools,
+                        provinces=provinces,
+                        years=args.years,
+                        checkpoint_path=args.checkpoint,
+                        start_school_index=start_index,
+                    )
+                )
+            else:
+                import_scores_to_db(
+                    db,
+                    School,
+                    AdmissionScore,
+                    schools=target_schools,
+                    provinces=provinces,
+                    years=args.years,
+                    checkpoint_path=args.checkpoint,
+                    start_school_index=start_index,
+                )
 
             # 全量导入完成后清除断点
             if not layers or set(layers) == {1, 2, 3, 4}:
@@ -208,7 +245,7 @@ def main():
         print(f"  院校: {school_count} 条")
         print(f"  专业: {major_count} 条")
         print(f"  录取分数线: {score_count} 条")
-        print(f"  耗时: {elapsed/60:.1f} 分钟")
+        print(f"  耗时: {elapsed / 60:.1f} 分钟")
         print("=" * 60)
 
     finally:

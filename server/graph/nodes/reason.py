@@ -1,4 +1,5 @@
 """Reasoning node — assembles the reasoning context for response generation."""
+
 from __future__ import annotations
 
 import json
@@ -35,10 +36,7 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
 
         match_schools = data.get("match_schools", [])
         if match_schools:
-            school_names = [
-                s.get("school_name", s.get("name", ""))
-                for s in match_schools[:5]
-            ]
+            school_names = [s.get("school_name", s.get("name", "")) for s in match_schools[:5]]
             parts.append(f"匹配院校: {', '.join(s for s in school_names if s)}")
 
         rank_info = data.get("rank_info")

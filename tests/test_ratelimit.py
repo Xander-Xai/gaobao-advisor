@@ -1,4 +1,5 @@
 """限流器单元测试 — 先写测试，验证行为，再实现。"""
+
 import os
 import sys
 import time
@@ -30,7 +31,7 @@ def test_token_bucket_refill():
     assert bucket.allow() is True
 
 
-from ratelimit import RateLimiter
+from ratelimit import RateLimiter  # noqa: E402
 
 
 def test_rate_limiter_separates_keys():

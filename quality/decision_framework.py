@@ -60,7 +60,6 @@ HEURISTICS: dict[str, dict[str, str]] = {
 SCENARIO_HEURISTICS: dict[str, list[str]] = {
     # 通用咨询（必选）
     "default": ["soul_interrogation", "family_routing"],
-
     # 专业/行业评估
     "major_evaluation": ["median_principle", "irreplaceability", "fortune500_test"],
     # 院校/城市选择
@@ -81,6 +80,7 @@ SCENARIO_HEURISTICS: dict[str, list[str]] = {
 
 
 # ── 槽位 → 场景推断 ─────────────────────────────────────────
+
 
 def infer_scenario(slots: dict[str, Any]) -> str:
     """根据已采集的槽位推断当前场景。
@@ -123,6 +123,7 @@ def infer_scenario(slots: dict[str, Any]) -> str:
 
 
 # ── 主 API ──────────────────────────────────────────────────
+
 
 def recommend_heuristics(slots: dict[str, Any], scenario: str | None = None) -> list[dict]:
     """根据用户槽位推荐适用的决策启发式。

@@ -1,6 +1,7 @@
 """
 AI时代专业风险评估模块 — 结构化风险数据查询。
 """
+
 import json
 import os
 
@@ -22,6 +23,8 @@ def _load_data() -> dict:
 
 def get_major_risk(major_name: str) -> dict | None:
     """查询专业的AI风险评估。精确匹配优先，模糊匹配兜底。"""
+    if not major_name or not isinstance(major_name, str):
+        return None
     data = _load_data()
     if major_name in data:
         return data[major_name]

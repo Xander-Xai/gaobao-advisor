@@ -1,4 +1,5 @@
 """RAG retrieval node — fetches knowledge chunks and expert quotes."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,15 +37,19 @@ def rag_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
                     parts.append(content)
             knowledge_context = "\n\n".join(parts)
 
-    except Exception:
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).debug("RAG retrieval failed: %s", exc, exc_info=True)
         # RAG not configured or error — continue without knowledge
-        pass
 
     trace = list(state.get("trace", []))
-    trace.append({
-        "node": "rag_retrieve",
-        "event": f"chunks={len(rag_chunks)},quotes={len(expert_quotes)}",
-    })
+    trace.append(
+        {
+            "node": "rag_retrieve",
+            "event": f"chunks={len(rag_chunks)},quotes={len(expert_quotes)}",
+        }
+    )
 
     return {
         "rag_chunks": rag_chunks,

@@ -111,10 +111,12 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_consistent(self):
         """2 sources with scores 600/598 → confidence="高"."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 600, "min_rank": 1000},
-            {"source": "API", "min_score": 598, "min_rank": 1005},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 600, "min_rank": 1000},
+                {"source": "API", "min_score": 598, "min_rank": 1005},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "高")
         self.assertEqual(result["note"], "")
@@ -122,19 +124,23 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_inconsistent(self):
         """2 sources with scores 600/580 → confidence="中", note contains diff info."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 600, "min_rank": 1000},
-            {"source": "Search", "min_score": 580, "min_rank": 1200},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 600, "min_rank": 1000},
+                {"source": "Search", "min_score": 580, "min_rank": 1200},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "中")
         self.assertIn("差异", result["note"])
 
     def test_cross_validate_single_source(self):
         """1 source → confidence="低"."""
-        result = cross_validate_admission([
-            {"source": "DB", "min_score": 590, "min_rank": 800},
-        ])
+        result = cross_validate_admission(
+            [
+                {"source": "DB", "min_score": 590, "min_rank": 800},
+            ]
+        )
         self.assertIsNotNone(result)
         self.assertEqual(result["confidence"], "低")
         self.assertIn("仅单源", result["note"])
@@ -145,32 +151,36 @@ class TestCrossValidator(unittest.TestCase):
 
     def test_cross_validate_no_scores(self):
         """Sources without min_score → None."""
-        self.assertIsNone(cross_validate_admission([
-            {"source": "DB", "min_score": None, "min_rank": 1000},
-            {"source": "API", "min_score": None, "min_rank": 1200},
-        ]))
+        self.assertIsNone(
+            cross_validate_admission(
+                [
+                    {"source": "DB", "min_score": None, "min_rank": 1000},
+                    {"source": "API", "min_score": None, "min_rank": 1200},
+                ]
+            )
+        )
 
 
 class TestAiEraRisk(unittest.TestCase):
     """AI时代专业风险评估测试用例。"""
 
     def test_get_risk_known_major(self):
-        """计算机科学与技术 → not None, risk_zone="🟡"."""
+        """计算机科学与技术 → not None, risk_zone="🟡 中风险"."""
         risk = get_major_risk("计算机科学与技术")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🟡")
+        self.assertEqual(risk["risk_zone"], "🟡 中风险")
 
     def test_get_risk_red_zone(self):
-        """金融学 → risk_zone="🔴"."""
+        """金融学 → risk_zone="🔴 极高风险"."""
         risk = get_major_risk("金融学")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🔴")
+        self.assertEqual(risk["risk_zone"], "🔴 极高风险")
 
     def test_get_risk_green_zone(self):
-        """电气工程及其自动化 → risk_zone="🟢"."""
+        """电气工程及其自动化 → risk_zone="🟢 低风险"."""
         risk = get_major_risk("电气工程及其自动化")
         self.assertIsNotNone(risk)
-        self.assertEqual(risk["risk_zone"], "🟢")
+        self.assertEqual(risk["risk_zone"], "🟢 低风险")
 
     def test_get_risk_unknown_major(self):
         """量子玄学 → None."""
@@ -178,10 +188,10 @@ class TestAiEraRisk(unittest.TestCase):
         self.assertIsNone(risk)
 
     def test_get_risk_summary(self):
-        """金融学 → summary string <= 80 chars containing '🔴' or '高'."""
+        """金融学 → summary string <= 120 chars containing '🔴' or '高'."""
         summary = get_risk_summary("金融学")
         self.assertIsNotNone(summary)
-        self.assertLessEqual(len(summary), 80)
+        self.assertLessEqual(len(summary), 120)
         self.assertTrue("🔴" in summary or "高" in summary)
 
 

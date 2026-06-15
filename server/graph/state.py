@@ -1,5 +1,6 @@
 """AdvisorState — TypedDict defining the full graph state."""
-from typing import TypedDict, Literal
+
+from typing import Literal, TypedDict
 
 
 class AdvisorState(TypedDict, total=False):

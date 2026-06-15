@@ -9,11 +9,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { renderMarkdown } from '../../utils/sanitize'
 const props = defineProps({ message: Object })
 const renderedContent = computed(() => {
-  let text = props.message.content || ''
-  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/\n/g, '<br>')
-  return text
+  return renderMarkdown(props.message.content || '')
 })
 </script>

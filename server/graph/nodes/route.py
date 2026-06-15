@@ -1,4 +1,5 @@
 """Scene routing node — configures required slots per scene."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,7 +7,7 @@ from typing import Any
 # Required slot keys for each scene
 SCENE_CONFIGS: dict[str, dict[str, list[str]]] = {
     "gaokao": {
-        "required_slots": ["province", "score", "subject", "interest"],
+        "required_slots": ["province", "score_rank", "subject", "interest"],
     },
     "kaoyan": {
         "required_slots": ["interest", "goal"],
@@ -30,9 +31,11 @@ def scene_route_node(state: dict[str, Any]) -> dict[str, Any]:
     config = SCENE_CONFIGS.get(scene, SCENE_CONFIGS["general"])
 
     trace = list(state.get("trace", []))
-    trace.append({
-        "node": "scene_route",
-        "event": f"scene={scene}",
-        "required_slots": config["required_slots"],
-    })
+    trace.append(
+        {
+            "node": "scene_route",
+            "event": f"scene={scene}",
+            "required_slots": config["required_slots"],
+        }
+    )
     return {"trace": trace}
