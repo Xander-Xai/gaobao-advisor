@@ -200,9 +200,10 @@ def main():
             print(f"  年份: {args.years}")
 
             if args.async_mode:
+                import asyncio
+
                 from scrapers.baidu_gaokao import import_scores_async
 
-                import asyncio
                 print("  模式: 异步并行")
                 asyncio.run(
                     import_scores_async(
