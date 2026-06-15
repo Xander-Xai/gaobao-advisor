@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from server import __version__
 from server.middleware.ratelimit import RateLimitMiddleware
 from server.middleware.security import SecurityMiddleware
+from server.monitoring import init_sentry
 from server.routes.chat import router as chat_router
 from server.routes.data import router as data_router
 from server.routes.health import router as health_router
@@ -21,6 +22,8 @@ from server.routes.voice import router as voice_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
+    init_sentry()
+
     from db.database import init_db
 
     init_db()
