@@ -19,8 +19,8 @@ import time
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, Major, School, SubjectRanking
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, Major, School, SubjectRanking  # noqa: E402
 
 # ══════════════════════════════════════════════════════════
 # 第一部分：985/211/双一流 院校基础数据

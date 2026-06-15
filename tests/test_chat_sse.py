@@ -5,12 +5,14 @@ import json
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from server.auth import create_session_token
 from server.main import app
 
 
 @pytest.mark.asyncio
 async def test_chat_sse_emits_structured_card():
     """SSE response should include a structured card event with all required fields."""
+    token = create_session_token("test-sse-001")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/v1/chat",
@@ -19,6 +21,7 @@ async def test_chat_sse_emits_structured_card():
                 "scene": "gaokao",
                 "message": "河北考生600分物理类想学计算机普通家庭想就业",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
     assert response.status_code == 200
     assert "text/event-stream" in response.headers.get("content-type", "")

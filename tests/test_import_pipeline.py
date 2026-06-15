@@ -35,7 +35,7 @@ def test_import_schools_fills_missing_city():
     }
 
     with patch("scrapers.baidu_gaokao.iter_schools", return_value=iter([mock_item])):
-        stats = import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
+        import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
 
     # Verify city was filled (was empty)
     assert mock_school.city == "广州", f"city should be filled from API, got {mock_school.city}"
@@ -73,7 +73,7 @@ def test_import_schools_does_not_overwrite_existing_city():
     }
 
     with patch("scrapers.baidu_gaokao.iter_schools", return_value=iter([mock_item])):
-        stats = import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
+        import_schools_to_db(mock_session, MagicMock(), max_schools=1, skip_existing=True)
 
     # City should NOT be overwritten
     assert mock_school.city == "深圳"

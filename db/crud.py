@@ -130,7 +130,11 @@ def get_admission_scores(
 
 
 def get_scores_by_school(db: Session, school_id: int, province: str | None = None, year: int | None = None) -> list:
-    q = db.query(AdmissionScore).filter(AdmissionScore.school_id == school_id)
+    q = (
+        db.query(AdmissionScore)
+        .options(joinedload(AdmissionScore.major))
+        .filter(AdmissionScore.school_id == school_id)
+    )
     if province:
         q = q.filter(AdmissionScore.province == province)
     if year:

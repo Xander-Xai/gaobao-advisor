@@ -25,7 +25,10 @@ class _FakeGraph:
 class TestChatTokenIssuance:
     def test_chat_returns_session_token_in_done_event(self, monkeypatch):
         """Chat SSE response should include a session_token in the done event."""
+        from server.auth import create_session_token
+
         monkeypatch.setattr("server.routes.chat.get_advisor_graph", lambda: _FakeGraph())
+        token = create_session_token("test-auth-001")
 
         response = client.post(
             "/api/v1/chat",
@@ -34,6 +37,7 @@ class TestChatTokenIssuance:
                 "message": "你好",
                 "scene": "gaokao",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
 
         events = []

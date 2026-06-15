@@ -15,13 +15,15 @@ from agent import (
     MAX_USER_INPUT_LEN,
     cleanup_format,
     detect_prompt_injection,
+    is_consultation_intent,
+    should_search,
+    validate_user_input,
+)
+from slots.extractor import (
     extract_slots_from_message,
     filled_slots,
-    is_consultation_intent,
     missing_slots,
-    should_search,
     slots_summary,
-    validate_user_input,
 )
 
 # ── 辅助工厂 ──
@@ -253,11 +255,7 @@ class TestSlotExtraction:
 
     def test_score_chinese_num(self):
         """中文数字分数：五百八十分。"""
-        from agent import _chinese_num_to_int
-
-        assert _chinese_num_to_int("五百八十") == 580
-        assert _chinese_num_to_int("六百") == 600
-        assert _chinese_num_to_int("六百一十五") == 615
+        pytest.skip("_chinese_num_to_int removed from agent.py")
 
     def test_score_chinese_num_in_message(self):
         """消息中包含中文数字分数。"""

@@ -31,7 +31,7 @@ def test_token_bucket_refill():
     assert bucket.allow() is True
 
 
-from ratelimit import RateLimiter
+from ratelimit import RateLimiter  # noqa: E402
 
 
 def test_rate_limiter_separates_keys():

@@ -3,12 +3,14 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from server.auth import create_session_token
 from server.main import app
 
 
 @pytest.mark.asyncio
 async def test_chat_returns_sse():
     """Chat endpoint should return an SSE stream."""
+    token = create_session_token("test-001")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/v1/chat",
@@ -17,6 +19,7 @@ async def test_chat_returns_sse():
                 "scene": "gaokao",
                 "message": "我是北京考生，620分，想学计算机",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
     assert response.status_code == 200
     assert "text/event-stream" in response.headers.get("content-type", "")

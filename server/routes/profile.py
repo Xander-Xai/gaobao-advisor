@@ -79,7 +79,7 @@ async def update_profile_field(session_id: str, req: ProfileUpdateRequest, autho
                 raise ValueError
             profile.score = val
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Score must be integer between 100 and 750")
+            raise HTTPException(status_code=400, detail="Score must be integer between 100 and 750") from None
     else:
         setattr(profile, req.field, req.value)
 
@@ -159,7 +159,7 @@ def _save_query_state(session_id: str, state: QueryState) -> None:
 
     db = get_session()
     try:
-        conv = get_or_create_conversation(db, session_id)
+        get_or_create_conversation(db, session_id)
         slot_data = {
             "_query_state": {
                 "round_count": state.round_count,

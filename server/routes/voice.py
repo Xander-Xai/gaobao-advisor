@@ -6,6 +6,7 @@ import re
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from server.auth import verify_session_token
 from server.graph.graph import get_advisor_graph
 from server.services.voice import get_voice_service
 
@@ -19,6 +20,7 @@ async def voice_call(
     websocket: WebSocket,
     session_id: str = "default",
     scene: str = "gaokao",
+    token: str = "",
 ) -> None:
     """Real-time voice call endpoint.
 
@@ -34,7 +36,13 @@ async def voice_call(
     # Validate session_id
     if not _SESSION_ID_RE.match(session_id):
         await websocket.send_json({"type": "error", "message": "session_id 格式无效：4-64位字母数字下划线连字符"})
-        await websocket.close(code=4000, reason="invalid session_id")
+        await websocket.close(code=4000, reason="invalid_session_id")
+        return
+
+    # Validate session token (from query param)
+    if not token or not verify_session_token(session_id, token):
+        await websocket.send_json({"type": "error", "message": "Session token 无效或已过期"})
+        await websocket.close(code=4001, reason="invalid_token")
         return
 
     voice_service = get_voice_service()

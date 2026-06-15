@@ -109,7 +109,8 @@ try:
 
     _tracker = EventTracker()
     HAS_TRACKER = True
-except Exception:
+except Exception as _e:
+    log.warning("EventTracker init failed: %s", _e)
     _tracker = None
     HAS_TRACKER = False
 
@@ -136,8 +137,8 @@ def read_clipboard():
                 data = data[:MAX_CLIPBOARD_LEN] + f"...(截断，原文{len(data)}字)"
             return data
         win32clipboard.CloseClipboard()
-    except Exception:
-        pass
+    except Exception as _e:
+        log.warning("Clipboard read failed: %s", _e)
     return None
 
 
@@ -177,7 +178,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(HERE, ".env"))
 
 # ── LLM 配置（从 YAML + 环境变量加载）──────────────
-from config.loader import load_llm_config
+from config.loader import load_llm_config  # noqa: E402
 
 CONFIG = load_llm_config()
 SEARCH_ENGINE = "https://www.baidu.com/s?wd="
@@ -264,7 +265,7 @@ def load_file(path):
 
 
 # ── 槽位管理器（从 slots 模块导入）──────────────────
-from slots.extractor import (
+from slots.extractor import (  # noqa: E402
     DEFAULT_SLOTS,
     extract_slots_from_message,
     filled_slots,
@@ -338,7 +339,8 @@ def _is_safe_url(url: str) -> bool:
             if hostname.endswith(suffix):
                 return False
         return True
-    except Exception:
+    except Exception as _e:
+        log.warning("SSRF check failed: %s", _e)
         return False
 
 
@@ -384,7 +386,8 @@ def web_search(query, max_results=3):
                 # 取有效内容（100-500字）
                 if len(clean) > 100:
                     results.append(clean[:500] + "...")
-            except Exception:
+            except Exception as _e:
+                log.debug("Search result parse failed: %s", _e)
                 continue
 
         if not results:
@@ -828,8 +831,8 @@ class GaokaoAdvisor:
                                     if _compat:
                                         _compat_note = format_subject_compatibility(_compat)
                                         data_hints.append(f"【选科匹配】{_compat_note}")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.warning("选科兼容性查询失败: %s", e)
             except Exception as e:
                 logging.warning("data_hints 查询失败: %s", e)
 
@@ -909,8 +912,8 @@ class GaokaoAdvisor:
                         adm = query_admission(name, prov)
                         if adm:
                             contrast_parts.append(f"\n▸ {name} 录取数据:\n{format_admission_info(adm[:3])}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning("录取数据查询失败（对比）: %s", e)
                     try:
                         info = query_school_info(name)
                         if info:
@@ -926,8 +929,8 @@ class GaokaoAdvisor:
                                 f"  院校属性: {level_str} | {info.get('school_type', '')} | "
                                 f"排名{info.get('ranking', '未知')}"
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning("学校基本信息查询失败（对比）: %s", e)
 
                 # 查询历年趋势（P2-3 联动）
                 for name in [school_a, school_b]:
@@ -935,8 +938,8 @@ class GaokaoAdvisor:
                         trend = query_admission_trend(name, prov, subject)
                         if trend and trend["trend"] != "数据不足":
                             contrast_parts.append(f"\n▸ {name} 趋势: {trend['trend_detail']}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning("录取趋势查询失败（对比）: %s", e)
 
                 data_hints.append("\n".join(contrast_parts))
             except Exception as e:
@@ -1027,13 +1030,16 @@ class GaokaoAdvisor:
                                 )
                                 if directions:
                                     card += f" | 就业方向:{','.join(directions[:5])}"
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.warning("就业方向解析失败: %s", e)
                         if mj.get("description"):
                             card += f"\n简介: {mj['description'][:200]}"
                         data_hints.append(card)
             except Exception as e:
                 logging.warning("专业百科卡片注入失败: %s", e)
+
+        # 提取分数（7、8 共用）
+        score_match = re.search(r"(\d{3})\s*分", user_msg)
 
         # 7. 专业→院校反查（P1-6）：检测"学XX""读XX专业""XX专业能上什么学校"等模式
         _major_first_patterns = [
@@ -1078,7 +1084,6 @@ class GaokaoAdvisor:
                 logging.warning("专业→院校反查失败: %s", e)
 
         # 8. 如果有分数+省份+选科信息，做位次法匹配推荐
-        score_match = re.search(r"(\d{3})\s*分", user_msg)
         if score_match and prov_match and not school_match and not getattr(self, "_major_reverse_done", False):
             data_hints.extend(self._query_rank_recommendations(int(score_match.group(1)), prov_match[0], user_msg))
         # 清除标记
@@ -1130,8 +1135,8 @@ class GaokaoAdvisor:
                                 compat = check_user_subject_compatibility(user_subj_list)
                                 if compat and compat.get("compatible") is False:
                                     subj_note = " ⚠️选科可能不符"
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.warning("选科兼容性检查失败: %s", e)
                         match_lines.append(
                             f"  {m.get('school_name', '')[:15]:15}({badge}{m.get('school_level', '')}) "
                             f"{m.get('batch', '')[:8]:8} "
@@ -1290,8 +1295,8 @@ class GaokaoAdvisor:
                 messages.append(
                     {"role": "system", "content": f"【决策启发式提示】本回答请优先参考以下启发式：\n{h_descs}"}
                 )
-            except Exception:
-                pass  # 静默降级
+            except Exception as e:
+                logging.warning("决策启发式提示注入失败: %s", e)
 
         # ── P2-2: 模型选择矩阵提示注入 ──
         if HAS_MODEL_SELECTOR:
@@ -1304,8 +1309,8 @@ class GaokaoAdvisor:
                         [t["action"] for t in model_result["downgrade_triggers"]]
                     )
                 messages.append({"role": "system", "content": model_hint})
-            except Exception:
-                pass  # 静默降级
+            except Exception as e:
+                logging.warning("模型选择矩阵提示注入失败: %s", e)
 
         # 数据查询（数据库优先 + 百度兜底）
         data_hints = self._query_data_hints(user_msg)
@@ -1318,8 +1323,8 @@ class GaokaoAdvisor:
                 ctx_kb = load_contextual_knowledge(user_msg, self.slots)
                 if ctx_kb:
                     messages.append({"role": "system", "content": f"【补充知识库（按需加载）】\n{ctx_kb}"})
-            except Exception:
-                pass  # 静默降级
+            except Exception as e:
+                logging.warning("知识库按需加载失败: %s", e)
 
         # ── P2-3: 性格变体开关 ──
         if self.persona_enabled:
@@ -1356,8 +1361,8 @@ class GaokaoAdvisor:
                     error_count = sum(1 for m in ap_matches if m.severity == "error")
                     if error_count > 0:
                         log.warning(f"anti_pattern_error count={error_count} preview={reply[:80]}")
-            except Exception:
-                pass  # 静默降级
+            except Exception as e:
+                logging.warning("反模式检查失败: %s", e)
 
         # P1-7: 对话质量自评
         eval_score, eval_highlights = self._self_evaluate(reply)
@@ -1749,7 +1754,7 @@ class GaokaoAdvisor:
 
         score = 0
         highlights: list[str] = []
-        lines = [l.strip() for l in reply.strip().splitlines() if l.strip()]
+        lines = [line.strip() for line in reply.strip().splitlines() if line.strip()]
 
         # a. 第一句话给明确判断（不含问候寒暄，15 分）
         first_line = lines[0] if lines else ""

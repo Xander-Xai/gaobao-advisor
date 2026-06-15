@@ -59,7 +59,7 @@ class TestCompressHistory:
         """对话超过 40 条（20轮）时触发压缩。"""
         adv = _make_advisor()
         # 填充 42 条对话（21 轮）
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": "推荐你武汉大学"})
         assert len(adv.conversation) == 42
@@ -72,7 +72,7 @@ class TestCompressHistory:
     def test_compression_extracts_province(self):
         """摘要应提取省份信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -82,7 +82,7 @@ class TestCompressHistory:
     def test_compression_extracts_score(self):
         """摘要应提取分数信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -92,7 +92,7 @@ class TestCompressHistory:
     def test_compression_extracts_subject(self):
         """摘要应提取选科信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "选的物理，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -102,7 +102,7 @@ class TestCompressHistory:
     def test_compression_extracts_interest(self):
         """摘要应提取专业兴趣。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -112,7 +112,7 @@ class TestCompressHistory:
     def test_compression_extracts_goal(self):
         """摘要应提取核心诉求。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -122,7 +122,7 @@ class TestCompressHistory:
     def test_compression_extracts_schools(self):
         """摘要应提取 assistant 推荐过的学校。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "推荐学校"})
             adv.conversation.append({"role": "assistant", "content": "推荐武汉大学和华中科技大学"})
         adv._compress_history()
@@ -161,7 +161,7 @@ class TestCompressHistory:
     def test_compression_repeated_idempotent(self):
         """连续调用压缩不会出错。"""
         adv = _make_advisor()
-        for i in range(22):
+        for _i in range(22):
             adv.conversation.append({"role": "user", "content": "山东考生"})
             adv.conversation.append({"role": "assistant", "content": "武汉大学推荐"})
         adv._compress_history()
@@ -179,7 +179,7 @@ class TestCompressHistory:
     def test_compression_with_all_fields(self):
         """当所有字段都能提取时，摘要包含全部。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append(
                 {"role": "user", "content": "我是山东考生，580分，选的物理，想学计算机，看重就业，想去北京"}
             )

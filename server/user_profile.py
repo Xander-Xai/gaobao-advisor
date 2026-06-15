@@ -184,7 +184,7 @@ def save_profile(session_id: str, profile: UserProfile) -> None:
 
     db = get_session()
     try:
-        conv = get_or_create_conversation(db, session_id)
+        get_or_create_conversation(db, session_id)
         # Extract slots from profile fields
         slots = {}
         if profile.province:

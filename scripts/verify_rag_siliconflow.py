@@ -28,7 +28,7 @@ if not api_key or api_key.startswith("sk-your"):
 # Override to siliconflow (ignore the env-var auto-detection default)
 os.environ["RAG_EMBEDDING_PROVIDER"] = "siliconflow"
 
-from kb_retriever import KbRetriever, create_embedding_provider
+from kb_retriever import KbRetriever, create_embedding_provider  # noqa: E402
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _groups_dir = os.path.join(_project_root, "knowledge", "groups")

@@ -182,7 +182,7 @@ def import_yifenyd_csv(csv_path: str, province: str, year: int, subject_type: st
     imported = 0
     with open(csv_path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        for row in reader:
+        for _row in reader:
             imported += 1
     print(f"  {csv_path}: 解析到 {imported} 行")
     return imported

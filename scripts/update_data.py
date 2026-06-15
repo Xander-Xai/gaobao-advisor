@@ -38,10 +38,10 @@ import urllib.request
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, School, YiFenYiDuan
-from scrapers.baidu_gaokao import DELAY, _fetch_json, fetch_school_score
-from utils import safe_int
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, School, YiFenYiDuan  # noqa: E402
+from scrapers.baidu_gaokao import DELAY, _fetch_json, fetch_school_score  # noqa: E402
+from utils import safe_int  # noqa: E402
 
 # ── 31 个省份 ──
 ALL_PROVINCES = [

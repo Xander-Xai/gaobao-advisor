@@ -16,7 +16,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-import numpy as np
+import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 

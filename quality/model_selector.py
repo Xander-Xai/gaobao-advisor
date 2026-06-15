@@ -206,7 +206,7 @@ def infer_phase(slots: dict[str, Any], conversation_round: int = 1) -> str:
     score_filled = bool(slots.get("score"))
     province_filled = bool(slots.get("province"))
     goal_filled = bool(slots.get("goal"))
-    family_filled = bool(slots.get("family"))
+    bool(slots.get("family"))
 
     # 核心槽位齐全 → 精准推荐期
     if score_filled and province_filled and goal_filled:

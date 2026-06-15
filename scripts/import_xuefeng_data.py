@@ -30,8 +30,8 @@ XUEFENG_DB = os.path.join(XUEFENG_DIR, "admission_clean.db")
 
 sys.path.insert(0, PROJECT_ROOT)
 
-from db.database import SessionLocal, init_db
-from db.models import AdmissionScore, School
+from db.database import SessionLocal, init_db  # noqa: E402
+from db.models import AdmissionScore, School  # noqa: E402
 
 
 def decompress_db_if_needed() -> str:
@@ -167,7 +167,7 @@ def import_data(dry_run: bool = False, verbose: bool = False) -> None:
                 try:
                     province = row["province"] or ""
                     school_name = (row["school"] or "").strip()
-                    major_name = (row["major"] or "").strip()
+                    (row["major"] or "").strip()
                     score = row["score"]
                     rank = row["rank"]
                     year = row["year"]
