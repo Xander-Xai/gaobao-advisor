@@ -1,4 +1,5 @@
 """Pre-warm skill assets on startup."""
+
 import logging
 from pathlib import Path
 

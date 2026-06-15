@@ -63,6 +63,14 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "-v",
+    "--cov=server",
+    "--cov=quality",
+    "--cov=analytics",
+    "--cov=slots",
+    "--cov=config",
+    "--cov=db",
+    "--cov-report=term-missing",
+    "--cov-fail-under=70",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

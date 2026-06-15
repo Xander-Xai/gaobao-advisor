@@ -3,17 +3,18 @@
 数据质量验证脚本 — 导入完成后运行，检查数据完整性。
 用法: python scripts/validate_data.py
 """
+
 import os
 import sys
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from sqlalchemy import func
+from sqlalchemy import func  # noqa: E402
 
-from db.database import get_session, init_db
-from db.models import AdmissionScore, School
-from scrapers.provinces import ALL_PROVINCES
+from db.database import get_session, init_db  # noqa: E402
+from db.models import AdmissionScore, School  # noqa: E402
+from scrapers.provinces import ALL_PROVINCES  # noqa: E402
 
 
 def validate() -> None:
@@ -32,16 +33,18 @@ def validate() -> None:
     print("\n总体统计:")
     print(f"  院校总数: {total_schools}")
     print(f"  录取分数记录: {total_scores}")
-    print(f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({schools_with_scores/total_schools*100:.1f}%)")
+    print(
+        f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({schools_with_scores / total_schools * 100:.1f}%)"
+    )
 
     # 2. 省份覆盖
     print("\n省份覆盖:")
-    province_stats = db.query(
-        AdmissionScore.province,
-        func.count(AdmissionScore.id)
-    ).group_by(AdmissionScore.province).order_by(
-        func.count(AdmissionScore.id).desc()
-    ).all()
+    province_stats = (
+        db.query(AdmissionScore.province, func.count(AdmissionScore.id))
+        .group_by(AdmissionScore.province)
+        .order_by(func.count(AdmissionScore.id).desc())
+        .all()
+    )
 
     provinces_with_data = set(p for p, _ in province_stats)
     missing_provinces = set(ALL_PROVINCES) - provinces_with_data
@@ -56,10 +59,12 @@ def validate() -> None:
 
     # 3. 年份覆盖
     print("\n年份覆盖:")
-    year_stats = db.query(
-        AdmissionScore.year,
-        func.count(AdmissionScore.id)
-    ).group_by(AdmissionScore.year).order_by(AdmissionScore.year.desc()).all()
+    year_stats = (
+        db.query(AdmissionScore.year, func.count(AdmissionScore.id))
+        .group_by(AdmissionScore.year)
+        .order_by(AdmissionScore.year.desc())
+        .all()
+    )
 
     for y, c in year_stats:
         print(f"  {y}: {c:,} 条")
@@ -68,32 +73,32 @@ def validate() -> None:
     print("\n数据质量:")
 
     # 分数范围 — 海南省使用标准分制度（满分900），分数 >750 是正常的
-    bad_scores = db.query(AdmissionScore).filter(
-        (AdmissionScore.min_score < 100) |
-        ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
-    ).count()
+    bad_scores = (
+        db.query(AdmissionScore)
+        .filter(
+            (AdmissionScore.min_score < 100) | ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
+        )
+        .count()
+    )
     print(f"  异常分数（<100 或 >750，海南除外）: {bad_scores}")
 
     # 位次范围
-    bad_ranks = db.query(AdmissionScore).filter(
-        AdmissionScore.min_rank < 0
-    ).count()
+    bad_ranks = db.query(AdmissionScore).filter(AdmissionScore.min_rank < 0).count()
     print(f"  负数位次: {bad_ranks}")
 
     # 空分数
-    null_scores = db.query(AdmissionScore).filter(
-        AdmissionScore.min_score.is_(None)
-    ).count()
+    null_scores = db.query(AdmissionScore).filter(AdmissionScore.min_score.is_(None)).count()
     print(f"  空分数记录: {null_scores}")
 
     # 5. 批次分布
     print("\n批次分布:")
-    batch_stats = db.query(
-        AdmissionScore.batch,
-        func.count(AdmissionScore.id)
-    ).group_by(AdmissionScore.batch).order_by(
-        func.count(AdmissionScore.id).desc()
-    ).limit(10).all()
+    batch_stats = (
+        db.query(AdmissionScore.batch, func.count(AdmissionScore.id))
+        .group_by(AdmissionScore.batch)
+        .order_by(func.count(AdmissionScore.id).desc())
+        .limit(10)
+        .all()
+    )
 
     for b, c in batch_stats:
         print(f"  {b}: {c:,} 条")

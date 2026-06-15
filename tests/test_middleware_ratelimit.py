@@ -1,6 +1,7 @@
 """Tests for rate limit middleware."""
-import pytest
+
 import time
+
 from server.middleware.ratelimit import TokenBucketLimiter
 
 

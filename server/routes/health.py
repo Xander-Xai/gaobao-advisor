@@ -1,4 +1,5 @@
 """Health check endpoint."""
+
 from fastapi import APIRouter
 
 from db.database import is_db_connected

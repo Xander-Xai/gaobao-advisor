@@ -4,6 +4,7 @@ P2 新质量控制模块测试
 - anti_pattern_checker: 8 条反模式检测
 - model_selector: 模型选择矩阵
 """
+
 from quality.anti_pattern_checker import (
     check_anti_patterns,
     format_report,
@@ -25,6 +26,7 @@ from quality.model_selector import (
 )
 
 # ── decision_framework ─────────────────────────────────────
+
 
 class TestDecisionFramework:
     def test_list_heuristics_has_8(self):
@@ -69,6 +71,7 @@ class TestDecisionFramework:
 
 
 # ── anti_pattern_checker ────────────────────────────────────
+
 
 class TestAntiPatternChecker:
     def test_no_anti_patterns(self):
@@ -127,6 +130,7 @@ class TestAntiPatternChecker:
 
     def test_should_rewrite_error_threshold(self):
         from quality.anti_pattern_checker import AntiPatternMatch
+
         matches = [
             AntiPatternMatch(1, "模糊", "reason", "fix", severity="error"),
             AntiPatternMatch(6, "hedging", "reason", "fix", severity="warn"),
@@ -135,6 +139,7 @@ class TestAntiPatternChecker:
 
     def test_should_rewrite_false_for_warn_only(self):
         from quality.anti_pattern_checker import AntiPatternMatch
+
         matches = [
             AntiPatternMatch(6, "hedging", "reason", "fix", severity="warn"),
         ]
@@ -145,6 +150,7 @@ class TestAntiPatternChecker:
 
 
 # ── model_selector ──────────────────────────────────────────
+
 
 class TestModelSelector:
     def test_infer_scenario_normal_family(self):

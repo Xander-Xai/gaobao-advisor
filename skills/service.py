@@ -1,15 +1,16 @@
 """Skill methodology service — loads skill files and builds strategy/context."""
+
 from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class Scene(str, Enum):
     """Supported conversation scenes."""
+
     GAOKAO = "gaokao"
     KAO_YAN = "kaoyan"
     CAREER = "career"
@@ -22,6 +23,7 @@ _MAX_DISPLAY_FIELDS = 3
 
 class SkillStrategy(BaseModel):
     """Structured strategy output for a scene."""
+
     scene: str
     heuristics: list[str] = Field(default_factory=list)
     output_style: list[str] = Field(default_factory=list)

@@ -398,7 +398,25 @@ knowledge/
 
 > ⭐ **完全零基础、不懂编程？** → [小白教程：10分钟，复制粘贴搞定](小白教程-零基础也能用.md)
 
-### 三步跑起来
+### 推荐方式：Docker Compose（一键启动）
+
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env，填入 LLM_API_KEY=你的key
+
+# 2. 一键启动（FastAPI + Frontend + Nginx）
+docker-compose up -d
+
+# 3. 访问
+open http://localhost          # 前端页面
+open http://localhost:8000/docs  # API 文档
+```
+
+> 前端通过 Nginx 代理到 `localhost`，API 服务在 `localhost:8000`。
+> 数据库文件在 `./data/` 目录，通过 volume 挂载到容器中，重启不丢失。
+
+### 本地开发
 
 ```bash
 # 1. 安装依赖
@@ -406,107 +424,14 @@ pip install -r requirements.txt
 
 # 2. 配置 API Key
 cp .env.example .env
-# 用记事本打开 .env，填入 LLM_API_KEY=你的key
+# 编辑 .env，填入 LLM_API_KEY=你的key
 
-# 3. 运行
-python agent.py
+# 3. 启动 API 服务
+uvicorn server.main:app --host 0.0.0.0 --port 8000
+
+# 4. 启动前端（新终端）
+cd frontend && npm install && npm run dev
 ```
-
-> API 接口模式需额外安装：`pip install -r requirements-api.txt`
-
-Windows 用户直接双击 **`启动.bat`**。
-
-### 🌐 Web 版（推荐）
-
-> 不想装 Python？Web 版直接在浏览器里用，还能在微信中分享！
-
-```bash
-# 安装依赖（已含 CLI 版所需的所有包）
-pip install -r requirements.txt
-
-# 启动 Web 版
-streamlit run app.py
-```
-
-浏览器自动打开 `http://localhost:8501`，支持：
-- 📱 移动端友好的聊天界面
-- 🔄 实时显示信息采集进度
-- 💬 对话持久化（关闭页面不丢失）
-- ⚡ 快速提问按钮，一键开始对话
-
-Windows 用户也可以双击 **`启动Web版.bat`**。
-
-**部署到公网**：推送到 GitHub 后，用 [Streamlit Cloud](https://share.streamlit.io) 免费部署，获得可分享的链接。
-详见 [Web版部署指南](docs/web-deployment-guide.md)。
-
-### Docker 部署
-
-```bash
-# 1. 配置环境变量
-cp .env.example .env
-# 编辑 .env 填入 LLM_API_KEY
-
-# 2. 启动服务
-docker-compose up -d
-
-# 3. 访问
-open http://localhost:8501
-```
-
-查看日志：
-```bash
-docker-compose logs -f advisor
-```
-
-停止服务：
-```bash
-docker-compose down
-```
-
-SQLite 数据库文件在 `./data/` 目录，通过 volume 挂载到容器中，重启不丢失。
-
-> 如需 HTTPS，在 `docker-compose.yml` 中启用 Nginx 服务，将 SSL 证书放入 `certs/` 目录并取消 volumes 中的注释。
-
-### API 接口（H5/小程序用）
-
-将核心对话能力封装为 REST API，供微信 H5、小程序或任意前端调用。
-
-```bash
-# 安装依赖
-pip install -r requirements-api.txt
-
-# 启动 API 服务
-uvicorn api_server:app --host 0.0.0.0 --port 8000
-```
-
-启动后访问 `http://localhost:8000/docs` 可查看自动生成的 Swagger 文档。
-
-**POST /api/chat** — 同步对话
-
-请求体: `{"message": "我是山东考生，580分", "session_id": "可选"}`
-响应: `{"reply": "...", "session_id": "...", "slots": {...}}`
-
-**POST /api/chat/stream** — SSE 流式对话
-
-逐步返回 AI 回复 chunk，最终返回完整回复和槽位状态。
-事件格式:
-```
-data: {"chunk": "部分文本"}
-data: {"done": true, "reply": "完整回复", "slots": {...}}
-data: [DONE]
-```
-
-**GET /api/health** — 健康检查
-
-返回 `{"status": "ok", "active_sessions": N}`。
-
-**POST /api/reset** — 重置会话
-
-请求体: `{"session_id": "xxx"}`
-
-**GET /api/slots/{session_id}** — 查询槽位
-
-返回指定会话当前的信息采集状态。
 
 ### 模型选择
 
@@ -613,9 +538,17 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 ## 项目结构
 
 ```
-├── agent.py              # ⭐ 核心 Agent（槽位采集 + RAG检索 + 搜索链 + LLM 对话）
-├── app.py                # Streamlit Web 前端（2092 行）
-├── api_server.py         # FastAPI REST API（SSE 流式对话，供 H5/小程序调用）
+├── server/               # ⭐ FastAPI 后端（主入口）
+│   ├── main.py           # FastAPI 应用入口
+│   ├── routes/           # API 路由（chat / data / health / knowledge / onboarding / profile / voice）
+│   ├── services/         # 业务逻辑（RAG / 会话管理等）
+│   ├── middleware/       # 中间件（限流 / 安全）
+│   └── ...
+├── frontend/             # 前端（Vite + React）
+│   ├── src/              # 源码
+│   └── Dockerfile        # 前端独立构建
+├── agent.py              # 核心 Agent（槽位采集 + RAG检索 + 搜索链 + LLM 对话）
+├── app.py                # ⚠️ DEPRECATED — Streamlit Web 前端（遗留）
 ├── admin.py              # 📊 运营看板（密码保护，独立启动）
 ├── gaokao_data.py        # 数据查询层（DB→百度API→搜索 三级链路）
 ├── kb_retriever.py       # RAG 知识检索引擎（混合向量+关键词，6 个知识组）
@@ -626,12 +559,13 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 ├── logger.py             # 结构化日志
 ├── system_prompt.md      # v2.7 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP）
 ├── knowledge_base.md     # 主知识库（838 行，17 个核心模块）
-├── requirements.txt      # CLI + Web 依赖
-├── requirements-api.txt  # API 服务依赖（FastAPI + Uvicorn）
+├── requirements.txt      # Python 依赖
 ├── requirements-dev.txt  # 开发依赖（pytest, ruff）
 ├── pyproject.toml        # 项目元数据 + 工具配置
 ├── Makefile              # 构建/测试/Lint 命令
 ├── .env.example          # 配置模板
+├── Dockerfile            # FastAPI 后端镜像
+├── docker-compose.yml    # 一键启动（FastAPI + Frontend + Nginx）
 ├── db/                   # 数据库 ORM 层
 │   ├── database.py       # SQLite 连接（零依赖，开箱即用）
 │   ├── models.py         # 10 张表（院校/专业/分数线/招生计划/学科排名/对话/反馈等）

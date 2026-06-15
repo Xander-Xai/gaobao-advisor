@@ -1,6 +1,7 @@
 """
 P1 功能测试：多轮对话上下文压缩 + 多数据源置信度评分
 """
+
 import os
 import sys
 
@@ -11,16 +12,17 @@ from gaokao_data import format_admission_info
 
 # ── 辅助工厂 ──
 
+
 def _make_slots():
     """创建干净的槽位副本，避免测试间污染。"""
     return {
-        "province":     {"label": "省份", "filled": False, "value": ""},
-        "score_rank":   {"label": "分数/位次", "filled": False, "value": ""},
-        "subject":      {"label": "选科", "filled": False, "value": ""},
-        "interest":     {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
-        "region":       {"label": "地域偏好", "filled": False, "value": ""},
-        "family":       {"label": "家庭资源", "filled": False, "value": ""},
-        "goal":         {"label": "核心诉求", "filled": False, "value": ""},
+        "province": {"label": "省份", "filled": False, "value": ""},
+        "score_rank": {"label": "分数/位次", "filled": False, "value": ""},
+        "subject": {"label": "选科", "filled": False, "value": ""},
+        "interest": {"label": "专业兴趣/厌恶", "filled": False, "value": ""},
+        "region": {"label": "地域偏好", "filled": False, "value": ""},
+        "family": {"label": "家庭资源", "filled": False, "value": ""},
+        "goal": {"label": "核心诉求", "filled": False, "value": ""},
     }
 
 
@@ -37,6 +39,7 @@ def _make_advisor():
 # ══════════════════════════════════════════════════════
 #  P1-1: 多轮对话上下文压缩测试
 # ══════════════════════════════════════════════════════
+
 
 class TestCompressHistory:
     """_compress_history() 方法测试。"""
@@ -56,7 +59,7 @@ class TestCompressHistory:
         """对话超过 40 条（20轮）时触发压缩。"""
         adv = _make_advisor()
         # 填充 42 条对话（21 轮）
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": "推荐你武汉大学"})
         assert len(adv.conversation) == 42
@@ -69,7 +72,7 @@ class TestCompressHistory:
     def test_compression_extracts_province(self):
         """摘要应提取省份信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -79,7 +82,7 @@ class TestCompressHistory:
     def test_compression_extracts_score(self):
         """摘要应提取分数信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我是山东考生，考了580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -89,7 +92,7 @@ class TestCompressHistory:
     def test_compression_extracts_subject(self):
         """摘要应提取选科信息。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "选的物理，580分"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -99,7 +102,7 @@ class TestCompressHistory:
     def test_compression_extracts_interest(self):
         """摘要应提取专业兴趣。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -109,7 +112,7 @@ class TestCompressHistory:
     def test_compression_extracts_goal(self):
         """摘要应提取核心诉求。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "我想学计算机，看重就业"})
             adv.conversation.append({"role": "assistant", "content": "你好"})
         adv._compress_history()
@@ -119,7 +122,7 @@ class TestCompressHistory:
     def test_compression_extracts_schools(self):
         """摘要应提取 assistant 推荐过的学校。"""
         adv = _make_advisor()
-        for i in range(21):
+        for _i in range(21):
             adv.conversation.append({"role": "user", "content": "推荐学校"})
             adv.conversation.append({"role": "assistant", "content": "推荐武汉大学和华中科技大学"})
         adv._compress_history()
@@ -158,7 +161,7 @@ class TestCompressHistory:
     def test_compression_repeated_idempotent(self):
         """连续调用压缩不会出错。"""
         adv = _make_advisor()
-        for i in range(22):
+        for _i in range(22):
             adv.conversation.append({"role": "user", "content": "山东考生"})
             adv.conversation.append({"role": "assistant", "content": "武汉大学推荐"})
         adv._compress_history()
@@ -176,15 +179,11 @@ class TestCompressHistory:
     def test_compression_with_all_fields(self):
         """当所有字段都能提取时，摘要包含全部。"""
         adv = _make_advisor()
-        for i in range(21):
-            adv.conversation.append({
-                "role": "user",
-                "content": "我是山东考生，580分，选的物理，想学计算机，看重就业，想去北京"
-            })
-            adv.conversation.append({
-                "role": "assistant",
-                "content": "推荐你北京理工大学和武汉大学"
-            })
+        for _i in range(21):
+            adv.conversation.append(
+                {"role": "user", "content": "我是山东考生，580分，选的物理，想学计算机，看重就业，想去北京"}
+            )
+            adv.conversation.append({"role": "assistant", "content": "推荐你北京理工大学和武汉大学"})
         adv._compress_history()
         summary = adv.conversation[0]["content"]
         assert "山东" in summary
@@ -198,12 +197,14 @@ class TestCompressHistory:
 #  P1-2: 多数据源置信度评分测试
 # ══════════════════════════════════════════════════════
 
+
 class TestConfidenceScore:
     """置信度评分（confidence_score / data_tier）测试。"""
 
     def test_admission_returns_empty_with_confidence_fields(self):
         """空结果列表应正常返回，不报错。"""
         from gaokao_data import query_admission
+
         # 数据库和百度搜索都不可用时，应返回空列表
         results = query_admission("不存在的大学", "不存在的省")
         assert isinstance(results, list)
@@ -270,6 +271,7 @@ class TestConfidenceScore:
     def test_yi_fen_yi_duan_confidence_score_on_success(self):
         """query_yi_fen_yi_duan 返回结果应包含 confidence_score。"""
         from gaokao_data import query_yi_fen_yi_duan
+
         result = query_yi_fen_yi_duan("湖北", 600, "物理类", 2025)
         # 无论数据库是否有数据，只要返回 dict 就应有 confidence_score
         if result is not None:
@@ -279,6 +281,7 @@ class TestConfidenceScore:
     def test_yi_fen_yi_duan_confidence_score_range(self):
         """confidence_score 应在合理范围内。"""
         from gaokao_data import query_yi_fen_yi_duan
+
         result = query_yi_fen_yi_duan("湖北", 600, "物理类", 2025)
         if result is not None and result.get("confidence_score"):
             assert 0 <= result["confidence_score"] <= 100
@@ -286,6 +289,7 @@ class TestConfidenceScore:
     def test_admission_confidence_score_range(self):
         """query_admission 返回的 confidence_score 应在合理范围内。"""
         from gaokao_data import query_admission
+
         results = query_admission("武汉大学", "湖北")
         for r in results:
             if "confidence_score" in r:
@@ -294,6 +298,7 @@ class TestConfidenceScore:
     def test_admission_data_tier_field(self):
         """query_admission 返回结果应包含 data_tier 字段。"""
         from gaokao_data import query_admission
+
         results = query_admission("武汉大学", "湖北")
         for r in results:
             if "data_tier" in r:

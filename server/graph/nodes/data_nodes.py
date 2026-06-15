@@ -1,4 +1,5 @@
 """Data query node — fetches admission and school data."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,7 +26,9 @@ def data_query_node(state: dict[str, Any]) -> dict[str, Any]:
 
             if province and score and subject:
                 # Normalize subject for query
-                subject_type = "物理" if subject in ("理科", "物理") else "历史" if subject in ("文科", "历史") else subject
+                subject_type = (
+                    "物理" if subject in ("理科", "物理") else "历史" if subject in ("文科", "历史") else subject
+                )
 
                 # Match schools
                 results["match_schools"] = dq.query_match_schools_v2(
@@ -42,7 +45,9 @@ def data_query_node(state: dict[str, Any]) -> dict[str, Any]:
 
             # School by major
             if interest and province and score:
-                subject_type = "物理" if subject in ("理科", "物理") else "历史" if subject in ("文科", "历史") else "物理"
+                subject_type = (
+                    "物理" if subject in ("理科", "物理") else "历史" if subject in ("文科", "历史") else "物理"
+                )
                 results["schools_by_major"] = dq.query_schools_by_major(
                     major_name=interest,
                     province=province,
@@ -67,9 +72,11 @@ def data_query_node(state: dict[str, Any]) -> dict[str, Any]:
         results["error"] = str(exc)
 
     trace = list(state.get("trace", []))
-    trace.append({
-        "node": "data_query",
-        "event": f"keys={list(results.keys())}",
-    })
+    trace.append(
+        {
+            "node": "data_query",
+            "event": f"keys={list(results.keys())}",
+        }
+    )
 
     return {"data_query_results": results, "trace": trace}

@@ -1,4 +1,5 @@
 """Quality orchestration node — runs the full quality pipeline."""
+
 from __future__ import annotations
 
 import threading
@@ -54,20 +55,21 @@ def quality_orchestrate_node(state: dict[str, Any]) -> dict[str, Any]:
     # Decision heuristics
     heuristics_raw = orch.recommend_heuristics(slots)
     decision_heuristics = [
-        h.get("description", h.get("name", ""))
-        for h in (heuristics_raw if isinstance(heuristics_raw, list) else [])
+        h.get("description", h.get("name", "")) for h in (heuristics_raw if isinstance(heuristics_raw, list) else [])
     ]
 
     # Skill context for the scene
     skill_context = skill_svc.build_context(scene)
 
     trace = list(state.get("trace", []))
-    trace.append({
-        "node": "quality_orchestrate",
-        "event": f"emotion={emotion_state}",
-        "model": cognitive_model,
-        "skill_scene": scene,
-    })
+    trace.append(
+        {
+            "node": "quality_orchestrate",
+            "event": f"emotion={emotion_state}",
+            "model": cognitive_model,
+            "skill_scene": scene,
+        }
+    )
 
     return {
         "emotion_state": emotion_state,

@@ -1,4 +1,5 @@
 """Tests for skills/service.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,8 +32,6 @@ class TestLoadAssets:
     def test_load_assets_idempotent(self, service: SkillService) -> None:
         """Loading twice doesn't reload."""
         service.load_assets()
-        original_mental_models = service._mental_models
-        original_loaded = service._loaded
 
         # Modify the content after first load
         service._mental_models = "modified content"
@@ -69,8 +68,7 @@ class TestBuildContext:
         context = service.build_context("gaokao")
 
         # Safety rules should be included
-        assert "身份锁定" in context or "安全" in context, \
-            "Context should contain safety-related content"
+        assert "身份锁定" in context or "安全" in context, "Context should contain safety-related content"
 
 
 class TestBuildStrategy:

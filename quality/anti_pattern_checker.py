@@ -14,6 +14,7 @@ from dataclasses import dataclass
 @dataclass
 class AntiPatternMatch:
     """单条反模式命中结果。"""
+
     rule_id: int
     pattern: str
     reason: str
@@ -29,9 +30,13 @@ _RULES: list[dict] = [
         "id": 1,
         "name": "模糊判断",
         "patterns": [
-            r"这取决于", r"具体看你怎么选", r"因人而异",
-            r"需要综合考虑", r"每个人情况不同",
-            r"没有绝对的", r"不好一概而论",
+            r"这取决于",
+            r"具体看你怎么选",
+            r"因人而异",
+            r"需要综合考虑",
+            r"每个人情况不同",
+            r"没有绝对的",
+            r"不好一概而论",
         ],
         "reason": "模糊 = 骑墙，不是顾问",
         "fix": "给明确判断，错了再修，不留灰色",
@@ -41,8 +46,11 @@ _RULES: list[dict] = [
         "id": 2,
         "name": "未问家庭即给热爱建议",
         "patterns": [
-            r"追随你的热爱", r"跟随你的兴趣", r"做你喜欢的",
-            r"兴趣是最好的老师", r"热爱可抵.*漫长",
+            r"追随你的热爱",
+            r"跟随你的兴趣",
+            r"做你喜欢的",
+            r"兴趣是最好的老师",
+            r"热爱可抵.*漫长",
         ],
         "reason": "阶层现实主义被架空",
         "fix": "第一句必反问家庭和分数",
@@ -65,9 +73,13 @@ _RULES: list[dict] = [
         "id": 4,
         "name": "学院派引经据典",
         "patterns": [
-            r"波普尔说", r"科斯定理", r"马斯洛.*需求层次",
-            r"据.*研究表明", r"学术界认为",
-            r"根据.*理论", r"根据经济学.*原理",
+            r"波普尔说",
+            r"科斯定理",
+            r"马斯洛.*需求层次",
+            r"据.*研究表明",
+            r"学术界认为",
+            r"根据.*理论",
+            r"根据经济学.*原理",
         ],
         "reason": "顾问不引学术名词，引数据+身边真实案例",
         "fix": "删学术引用，换成数据或真实案例",
@@ -77,8 +89,10 @@ _RULES: list[dict] = [
         "id": 5,
         "name": "无数据空谈",
         "patterns": [
-            r"AI时代.{0,10}怎么选", r"未来趋势.{0,10}(?:好|有前景)",
-            r"发展前景.{0,10}(?:好|广阔|光明)", r"就业前景.{0,10}(?:好|不错)",
+            r"AI时代.{0,10}怎么选",
+            r"未来趋势.{0,10}(?:好|有前景)",
+            r"发展前景.{0,10}(?:好|广阔|光明)",
+            r"就业前景.{0,10}(?:好|不错)",
         ],
         "reason": "凭语料编造 = 骗普通家庭",
         "fix": "没数据就明说'我得查一下'，不要空谈",
@@ -104,9 +118,13 @@ _RULES: list[dict] = [
         "id": 8,
         "name": "学术腔开头",
         "patterns": [
-            r"^综上所述", r"^值得注意的是", r"^从理论上来说",
-            r"^根据分析", r"^首先.*其次.*最后",
-            r"^综合来看", r"^总的来说",
+            r"^综上所述",
+            r"^值得注意的是",
+            r"^从理论上来说",
+            r"^根据分析",
+            r"^首先.*其次.*最后",
+            r"^综合来看",
+            r"^总的来说",
         ],
         "reason": "表达 DNA 被破坏",
         "fix": "用'我跟你说''你听我说'开场",
@@ -170,27 +188,31 @@ def check_anti_patterns(text: str, family_known: bool = False) -> list[AntiPatte
                 if len(sent.strip()) < 5:
                     continue
                 if _count_hedging(sent) >= 2:
-                    results.append(AntiPatternMatch(
-                        rule_id=6,
-                        pattern=rule["name"],
-                        reason=rule["reason"],
-                        fix=rule["fix"],
-                        matched_text=sent.strip()[:60],
-                        severity=rule["severity"],
-                    ))
+                    results.append(
+                        AntiPatternMatch(
+                            rule_id=6,
+                            pattern=rule["name"],
+                            reason=rule["reason"],
+                            fix=rule["fix"],
+                            matched_text=sent.strip()[:60],
+                            severity=rule["severity"],
+                        )
+                    )
                     break  # 只报一次
 
         elif rule["id"] == 7:
             # 规则 7：铺垫过长
             if _check_long_preamble(text):
-                results.append(AntiPatternMatch(
-                    rule_id=7,
-                    pattern=rule["name"],
-                    reason=rule["reason"],
-                    fix=rule["fix"],
-                    matched_text="前4段未见明确判断",
-                    severity=rule["severity"],
-                ))
+                results.append(
+                    AntiPatternMatch(
+                        rule_id=7,
+                        pattern=rule["name"],
+                        reason=rule["reason"],
+                        fix=rule["fix"],
+                        matched_text="前4段未见明确判断",
+                        severity=rule["severity"],
+                    )
+                )
 
         elif rule["id"] == 2:
             # 规则 2：未问家庭即给热爱建议 — 如果已知家庭则跳过
@@ -199,14 +221,16 @@ def check_anti_patterns(text: str, family_known: bool = False) -> list[AntiPatte
             for pat in rule["patterns"]:
                 m = re.search(pat, text)
                 if m:
-                    results.append(AntiPatternMatch(
-                        rule_id=2,
-                        pattern=rule["name"],
-                        reason=rule["reason"],
-                        fix=rule["fix"],
-                        matched_text=m.group()[:60],
-                        severity=rule["severity"],
-                    ))
+                    results.append(
+                        AntiPatternMatch(
+                            rule_id=2,
+                            pattern=rule["name"],
+                            reason=rule["reason"],
+                            fix=rule["fix"],
+                            matched_text=m.group()[:60],
+                            severity=rule["severity"],
+                        )
+                    )
                     break
 
         else:
@@ -215,14 +239,16 @@ def check_anti_patterns(text: str, family_known: bool = False) -> list[AntiPatte
                 flags = re.IGNORECASE if rule["id"] == 8 else 0
                 m = re.search(pat, text, flags=flags)
                 if m:
-                    results.append(AntiPatternMatch(
-                        rule_id=rule["id"],
-                        pattern=rule["name"],
-                        reason=rule["reason"],
-                        fix=rule["fix"],
-                        matched_text=m.group()[:60],
-                        severity=rule["severity"],
-                    ))
+                    results.append(
+                        AntiPatternMatch(
+                            rule_id=rule["id"],
+                            pattern=rule["name"],
+                            reason=rule["reason"],
+                            fix=rule["fix"],
+                            matched_text=m.group()[:60],
+                            severity=rule["severity"],
+                        )
+                    )
                     break  # 每条规则只报一次
 
     return results

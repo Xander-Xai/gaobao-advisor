@@ -2,19 +2,19 @@
 百度搜索采集器 — 兜底方案（T4 级数据源）
 当 API 不可用时，用百度搜索获取基本信息
 """
+
 import re
 import time
 import urllib.parse
 import urllib.request
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 
 def _sanitize_html(text: str) -> str:
     """强化 HTML 清理，防止 XSS 残留。委托给 utils.sanitize_html。"""
     from utils import sanitize_html
+
     return sanitize_html(text)
 
 
@@ -27,9 +27,7 @@ def search_baidu_snippets(query, max_results=5):
             html = resp.read().decode("utf-8", errors="ignore")
 
         # 提取摘要（使用强化清理）
-        snippets = re.findall(
-            r'<span class="content-right_[^"]*">(.*?)</span>', html
-        )
+        snippets = re.findall(r'<span class="content-right_[^"]*">(.*?)</span>', html)
         results = []
         for s in snippets[:max_results]:
             clean = _sanitize_html(s)
@@ -39,7 +37,7 @@ def search_baidu_snippets(query, max_results=5):
         # 降级：提取任意包含数字的段落
         if not results:
             text = _sanitize_html(html)
-            paras = [p.strip() for p in text.split('。') if any(c.isdigit() for c in p) and len(p) > 20]
+            paras = [p.strip() for p in text.split("。") if any(c.isdigit() for c in p) and len(p) > 20]
             results = paras[:max_results]
 
         return results if results else []

@@ -2,6 +2,7 @@
 3-step onboarding flow tests.
 Covers: OnboardingState dataclass, province mapping, to_slots, step progression.
 """
+
 import os
 import sys
 
@@ -53,9 +54,21 @@ class TestProvinceData:
 
     def test_312_provinces_correct(self):
         expected_312 = {
-            "河北", "辽宁", "江苏", "福建", "湖北", "湖南",
-            "广东", "重庆", "安徽", "江西", "贵州", "广西",
-            "甘肃", "黑龙江", "吉林",
+            "河北",
+            "辽宁",
+            "江苏",
+            "福建",
+            "湖北",
+            "湖南",
+            "广东",
+            "重庆",
+            "安徽",
+            "江西",
+            "贵州",
+            "广西",
+            "甘肃",
+            "黑龙江",
+            "吉林",
         }
         for prov in expected_312:
             assert PROVINCE_MODES[prov] == "3+1+2", f"{prov} should be 3+1+2"
