@@ -2,6 +2,7 @@
 """实时数据库状态快照"""
 import json
 import sqlite3
+
 conn = sqlite3.connect('data/gaokao.db')
 c = conn.cursor()
 print('=== 当前数据库统计 ===')
