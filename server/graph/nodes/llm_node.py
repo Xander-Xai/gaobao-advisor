@@ -64,6 +64,8 @@ def _get_llm_client() -> OpenAI:
                 _client = OpenAI(
                     api_key=api_key,
                     base_url=cfg["base_url"],
+                    timeout=cfg.get("timeout", 120.0),
+                    max_retries=2,
                 )
     return _client
 
