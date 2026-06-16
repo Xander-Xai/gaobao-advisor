@@ -30,6 +30,7 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 data/*.db.backup.*
+data/import_checkpoint.json
 gaokao_cache.db
 
 # 开发备份
