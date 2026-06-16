@@ -1,0 +1,94 @@
+# Alert Rules for Gaokao Advisor
+
+groups:
+  - name: gaokao_alerts
+    rules:
+      # ── High Error Rate ─────────────────────────────────
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (> 5%) for the last 2 minutes"
+
+      # ── High Response Latency ───────────────────────────
+      - alert: HighResponseLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response latency"
+          description: "95th percentile latency is {{ $value }}s (> 3s)"
+
+      # ── LLM API Failures ────────────────────────────────
+      - alert: LLMAPIFailureRate
+        expr: rate(llm_api_errors_total[5m]) / rate(llm_api_calls_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High LLM API failure rate"
+          description: "LLM API failure rate is {{ $value | humanizePercentage }} (> 10%)"
+
+      # ── Database Connection Failures ────────────────────
+      - alert: DatabaseConnectionFailure
+        expr: rate(db_connection_errors_total[1m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failures detected"
+          description: "{{ $value }} database connection errors in the last minute"
+
+      # ── High Memory Usage ───────────────────────────────
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}GB (> 90% of limit)"
+
+      # ── Disk Space Low ──────────────────────────────────
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value | humanizePercentage }} available (< 20%)"
+
+      # ── Service Down ────────────────────────────────────
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      # ── Redis Connection Issues ─────────────────────────
+      - alert: RedisConnectionFailure
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis connection failed"
+          description: "Redis instance {{ $labels.instance }} is unreachable"
+
+      # ── RAG Cache Hit Rate Low ──────────────────────────
+      - alert: RagCacheHitRateLow
+        expr: rate(rag_cache_hits_total[5m]) / (rate(rag_cache_hits_total[5m]) + rate(rag_cache_misses_total[5m])) < 0.3
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low RAG cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (< 30%)"

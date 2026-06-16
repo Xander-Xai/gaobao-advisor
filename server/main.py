@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server import __version__
+from server.metrics import metrics_app, metrics_middleware
+from server.middleware.csp import CSPMiddleware
 from server.middleware.ratelimit import RateLimitMiddleware
 from server.middleware.security import SecurityMiddleware
 from server.monitoring import init_sentry
@@ -51,27 +53,46 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: lock down for production, dev-friendly defaults
-_cors_origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3080,http://localhost:8501,http://localhost:8000",
-).split(",")
+# ── CORS Configuration ────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# Security (middle)
-app.add_middleware(SecurityMiddleware)
-# Rate limit (outermost = first to inspect request)
-app.add_middleware(RateLimitMiddleware, rate=20, capacity=40)
 
+# ── Security Middleware ───────────────────────────────────
+app.add_middleware(SecurityMiddleware)
+
+# ── CSP Middleware (nonce-based) ──────────────────────────
+app.add_middleware(CSPMiddleware)
+
+# ── Rate Limiting Middleware ──────────────────────────────
+app.add_middleware(RateLimitMiddleware)
+
+# ── Prometheus Metrics Middleware ─────────────────────────
+app.middleware("http")(metrics_middleware)
+
+# ── Mount Prometheus Metrics Endpoint ─────────────────────
+app.mount("/metrics", metrics_app)
+
+# ── Include Routers ───────────────────────────────────────
 app.include_router(health_router)
-app.include_router(chat_router)
 app.include_router(onboarding_router)
+app.include_router(chat_router)
 app.include_router(profile_router)
 app.include_router(data_router)
 app.include_router(knowledge_router)
 app.include_router(voice_router)
+
+
+@app.get("/")
+async def root():
+    """Root endpoint with API info."""
+    return {
+        "service": "gaobao-advisor",
+        "version": __version__,
+        "docs": "/docs",
+        "metrics": "/metrics",
+    }
