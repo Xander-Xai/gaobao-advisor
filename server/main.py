@@ -19,6 +19,7 @@ from server.routes.knowledge import router as knowledge_router
 from server.routes.onboarding import router as onboarding_router
 from server.routes.profile import router as profile_router
 from server.routes.voice import router as voice_router
+from server.report.routes import router as report_router
 
 
 @asynccontextmanager
@@ -88,6 +89,7 @@ app.include_router(profile_router)
 app.include_router(data_router)
 app.include_router(knowledge_router)
 app.include_router(voice_router)
+app.include_router(report_router)
 
 
 @app.get("/")
