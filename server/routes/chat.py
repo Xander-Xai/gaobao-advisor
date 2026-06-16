@@ -86,10 +86,14 @@ async def _sse_generator(
     else:
         # LLM reply: stream tokens one by one
         full_reply = []
-        for token in llm_node_stream(result):
+        degraded = False
+        for token, is_degraded in llm_node_stream(result):
             full_reply.append(token)
+            degraded = is_degraded
             yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
         result["reply"] = "".join(full_reply)
+        if degraded:
+            yield f"data: {json.dumps({'type': 'degraded', 'message': 'AI 服务暂时不稳定，已启用降级回复'})}\n\n"
 
     yield f"data: {json.dumps({'type': 'done', 'message_id': f'{session_id}-response', 'session_token': create_session_token(session_id)})}\n\n"
 
