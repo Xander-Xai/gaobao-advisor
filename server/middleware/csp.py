@@ -71,6 +71,10 @@ class CSPMiddleware(BaseHTTPMiddleware):
         if "text/html" not in content_type:
             return response
 
+        # Guard: response may be a streaming response without a .body attribute
+        if not hasattr(response, "body"):
+            return response
+
         # Build CSP header with nonce
         csp_header = self.policy_template.format(nonce=nonce)
 
