@@ -44,6 +44,16 @@ jobs:
       - name: Run pip-audit
         run: pip-audit --strict --requirement requirements.lock
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run npm audit
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
