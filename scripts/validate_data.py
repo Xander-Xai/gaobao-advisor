@@ -73,14 +73,17 @@ def validate() -> None:
     print("\n数据质量:")
 
     # 分数范围 — 海南省使用标准分制度（满分900），分数 >750 是正常的
+    # 阈值说明：
+    #   - < 60：真正的异常（无分数线低于60）
+    #   - 60-99：专科批/提前批综合评估招生的合法低分（天津专科、昆山杜克大学等）
     bad_scores = (
         db.query(AdmissionScore)
         .filter(
-            (AdmissionScore.min_score < 100) | ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
+            (AdmissionScore.min_score < 60) | ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
         )
         .count()
     )
-    print(f"  异常分数（<100 或 >750，海南除外）: {bad_scores}")
+    print(f"  异常分数（<60 或 >750，海南除外）: {bad_scores}")
 
     # 位次范围
     bad_ranks = db.query(AdmissionScore).filter(AdmissionScore.min_rank < 0).count()
