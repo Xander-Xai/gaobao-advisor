@@ -1,0 +1,984 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "gaobao-advisor",
+    "description": "AI 高考志愿顾问 — 考研规划 — 职业方向",
+    "version": "3.0.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Basic liveness probe with DB status.",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/onboarding": {
+      "post": {
+        "tags": [
+          "onboarding"
+        ],
+        "summary": "Onboarding Step",
+        "operationId": "onboarding_step_api_v1_onboarding_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat",
+        "operationId": "chat_api_v1_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/{session_id}": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get Profile",
+        "description": "Get current user profile and completeness status.",
+        "operationId": "get_profile_api_v1_profile__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Update Profile Field",
+        "description": "Update a single profile field.",
+        "operationId": "update_profile_field_api_v1_profile__session_id__put",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/{session_id}/next-question": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get Next Question",
+        "description": "Get the next soul query question for this session.",
+        "operationId": "get_next_question_api_v1_profile__session_id__next_question_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextQuestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/{session_id}/skip": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Skip Field",
+        "description": "Skip an optional field (uses default value).",
+        "operationId": "skip_field_api_v1_profile__session_id__skip_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkipFieldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/schools": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Schools",
+        "description": "Search schools by name, province, or level.",
+        "operationId": "get_schools_api_v1_data_schools_get",
+        "parameters": [
+          {
+            "name": "school_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "学校名称关键词",
+              "title": "School Name"
+            },
+            "description": "学校名称关键词"
+          },
+          {
+            "name": "province",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "省份",
+              "title": "Province"
+            },
+            "description": "省份"
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "学校层次",
+              "title": "Level"
+            },
+            "description": "学校层次"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/scores": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Scores",
+        "description": "Query admission scores for a school.",
+        "operationId": "get_scores_api_v1_data_scores_get",
+        "parameters": [
+          {
+            "name": "school_name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "学校名称",
+              "title": "School Name"
+            },
+            "description": "学校名称"
+          },
+          {
+            "name": "province",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "省份",
+              "title": "Province"
+            },
+            "description": "省份"
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "年份",
+              "title": "Year"
+            },
+            "description": "年份"
+          },
+          {
+            "name": "major",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "专业",
+              "title": "Major"
+            },
+            "description": "专业"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/plans": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Plans",
+        "description": "Query enrollment plans for a school.",
+        "operationId": "get_plans_api_v1_data_plans_get",
+        "parameters": [
+          {
+            "name": "school_name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "学校名称",
+              "title": "School Name"
+            },
+            "description": "学校名称"
+          },
+          {
+            "name": "province",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "省份",
+              "title": "Province"
+            },
+            "description": "省份"
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "年份",
+              "title": "Year"
+            },
+            "description": "年份"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/search": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Search Knowledge",
+        "description": "Search the knowledge base for relevant content.\n\nReturns empty results when RAG is not configured (e.g. during tests).",
+        "operationId": "search_knowledge_api_v1_knowledge_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/quotes": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Quotes",
+        "description": "Get expert quotes, optionally filtered by major.\n\nReturns empty results when RAG is not configured (e.g. during tests).",
+        "operationId": "get_quotes_api_v1_knowledge_quotes_get",
+        "parameters": [
+          {
+            "name": "major",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "专业名称",
+              "title": "Major"
+            },
+            "description": "专业名称"
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 5,
+              "title": "Top K"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint with API info.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 4,
+            "pattern": "^[a-zA-Z0-9_\\-]+$",
+            "title": "Session Id",
+            "description": "会话ID：4-64位字母数字下划线连字符"
+          },
+          "scene": {
+            "type": "string",
+            "title": "Scene",
+            "default": "gaokao"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "slots": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KnowledgeSearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups"
+          },
+          "top_k": {
+            "type": "integer",
+            "title": "Top K",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "KnowledgeSearchRequest"
+      },
+      "NextQuestionResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "round_count": {
+            "type": "integer",
+            "title": "Round Count"
+          },
+          "is_complete": {
+            "type": "boolean",
+            "title": "Is Complete"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "question",
+          "round_count",
+          "is_complete"
+        ],
+        "title": "NextQuestionResponse"
+      },
+      "OnboardingRequest": {
+        "properties": {
+          "step": {
+            "type": "integer",
+            "title": "Step"
+          },
+          "data": {
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "data"
+        ],
+        "title": "OnboardingRequest"
+      },
+      "ProfileResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "profile": {
+            "type": "object",
+            "title": "Profile"
+          },
+          "is_complete": {
+            "type": "boolean",
+            "title": "Is Complete"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "profile",
+          "is_complete",
+          "missing_fields"
+        ],
+        "title": "ProfileResponse"
+      },
+      "ProfileUpdateRequest": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Field"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "value"
+        ],
+        "title": "ProfileUpdateRequest"
+      },
+      "SkipFieldRequest": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Field"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "title": "SkipFieldRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

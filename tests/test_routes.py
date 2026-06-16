@@ -121,8 +121,9 @@ async def test_data_schools():
         response = await client.get("/api/v1/data/schools", params={"school_name": "清华大学"})
     assert response.status_code == 200
     data = response.json()
-    assert "count" in data
-    assert "results" in data
+    # Can return either legacy format or cursor-based pagination
+    assert "count" in data or "items" in data
+    assert "results" in data or "items" in data
 
 
 @pytest.mark.asyncio
@@ -135,8 +136,9 @@ async def test_data_scores():
         )
     assert response.status_code == 200
     data = response.json()
-    assert "count" in data
-    assert "results" in data
+    # Cursor-based pagination format
+    assert "items" in data or "count" in data
+    assert "results" in data or "items" in data
 
 
 @pytest.mark.asyncio
@@ -149,8 +151,9 @@ async def test_data_plans():
         )
     assert response.status_code == 200
     data = response.json()
-    assert "count" in data
-    assert "results" in data
+    # Cursor-based pagination format
+    assert "items" in data or "count" in data
+    assert "results" in data or "items" in data
 
 
 @pytest.mark.asyncio
