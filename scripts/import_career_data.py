@@ -30,9 +30,8 @@ from datetime import datetime
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from sqlalchemy import text
-from db.database import SessionLocal, engine
-from db.models import Base
+from db.database import SessionLocal, engine  # noqa: E402
+from db.models import Base  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -41,12 +40,12 @@ logger = logging.getLogger(__name__)
 def create_tables():
     """Create Career-related tables."""
     logger.info("Creating Career tables...")
-    
-    from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON
-    
+
+    from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+
     class Career(Base):
         __tablename__ = "careers"
-        
+
         id = Column(Integer, primary_key=True, autoincrement=True)
         title = Column(String(200), nullable=False, index=True)  # Job title
         category = Column(String(100), index=True)  # IT, Finance, Education, etc.
@@ -56,20 +55,20 @@ def create_tables():
         experience_years = Column(Integer)  # Required experience (years)
         career_path = Column(JSON)  # Progression path
         created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     class CareerSkill(Base):
         __tablename__ = "career_skills"
-        
+
         id = Column(Integer, primary_key=True, autoincrement=True)
         career_id = Column(Integer, index=True)
         skill_name = Column(String(200), nullable=False)
         importance = Column(String(20))  # Essential, Preferred, Nice-to-have
         proficiency_level = Column(String(20))  # Beginner, Intermediate, Advanced, Expert
         created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     class SalaryRange(Base):
         __tablename__ = "salary_ranges"
-        
+
         id = Column(Integer, primary_key=True, autoincrement=True)
         career_id = Column(Integer, index=True)
         city = Column(String(50), index=True)
@@ -79,21 +78,21 @@ def create_tables():
         avg_salary = Column(Integer)
         year = Column(Integer, default=2024)
         created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Create tables
     Base.metadata.create_all(engine, tables=[
         Career.__table__,
         CareerSkill.__table__,
         SalaryRange.__table__,
     ])
-    
+
     logger.info("✓ Career tables created")
 
 
 def import_sample_data(test_mode: bool = False):
     """Import sample career data."""
     logger.info("Importing sample career data...")
-    
+
     session = SessionLocal()
     try:
         # Sample careers
@@ -171,7 +170,7 @@ def import_sample_data(test_mode: bool = False):
                 "career_path": ["市场专员", "市场主管", "市场经理", "市场总监", "CMO"]
             },
         ]
-        
+
         # Sample skills for careers
         career_skills = [
             {"career_title": "软件工程师", "skill_name": "Python", "importance": "Essential", "proficiency_level": "Intermediate"},
@@ -179,40 +178,40 @@ def import_sample_data(test_mode: bool = False):
             {"career_title": "软件工程师", "skill_name": "JavaScript", "importance": "Preferred", "proficiency_level": "Beginner"},
             {"career_title": "软件工程师", "skill_name": "数据结构", "importance": "Essential", "proficiency_level": "Advanced"},
             {"career_title": "软件工程师", "skill_name": "算法", "importance": "Essential", "proficiency_level": "Advanced"},
-            
+
             {"career_title": "产品经理", "skill_name": "需求分析", "importance": "Essential", "proficiency_level": "Advanced"},
             {"career_title": "产品经理", "skill_name": "原型设计", "importance": "Essential", "proficiency_level": "Intermediate"},
             {"career_title": "产品经理", "skill_name": "数据分析", "importance": "Preferred", "proficiency_level": "Intermediate"},
             {"career_title": "产品经理", "skill_name": "沟通协调", "importance": "Essential", "proficiency_level": "Advanced"},
-            
+
             {"career_title": "数据分析师", "skill_name": "SQL", "importance": "Essential", "proficiency_level": "Advanced"},
             {"career_title": "数据分析师", "skill_name": "Python", "importance": "Essential", "proficiency_level": "Intermediate"},
             {"career_title": "数据分析师", "skill_name": "统计学", "importance": "Essential", "proficiency_level": "Advanced"},
             {"career_title": "数据分析师", "skill_name": "可视化", "importance": "Preferred", "proficiency_level": "Intermediate"},
         ]
-        
+
         # Sample salary ranges
         salary_ranges = [
             {"career_title": "软件工程师", "city": "北京", "experience_level": "Entry", "min_salary": 15000, "max_salary": 25000, "avg_salary": 20000},
             {"career_title": "软件工程师", "city": "北京", "experience_level": "Mid", "min_salary": 25000, "max_salary": 40000, "avg_salary": 32000},
             {"career_title": "软件工程师", "city": "北京", "experience_level": "Senior", "min_salary": 40000, "max_salary": 70000, "avg_salary": 55000},
-            
+
             {"career_title": "软件工程师", "city": "上海", "experience_level": "Entry", "min_salary": 14000, "max_salary": 23000, "avg_salary": 18000},
             {"career_title": "软件工程师", "city": "上海", "experience_level": "Mid", "min_salary": 23000, "max_salary": 38000, "avg_salary": 30000},
-            
+
             {"career_title": "产品经理", "city": "北京", "experience_level": "Entry", "min_salary": 12000, "max_salary": 20000, "avg_salary": 16000},
             {"career_title": "产品经理", "city": "北京", "experience_level": "Mid", "min_salary": 20000, "max_salary": 35000, "avg_salary": 27000},
-            
+
             {"career_title": "数据分析师", "city": "北京", "experience_level": "Entry", "min_salary": 13000, "max_salary": 22000, "avg_salary": 17000},
             {"career_title": "数据分析师", "city": "北京", "experience_level": "Mid", "min_salary": 22000, "max_salary": 35000, "avg_salary": 28000},
         ]
-        
+
         if test_mode:
             logger.info(f"[TEST MODE] Would insert {len(careers)} careers")
             logger.info(f"[TEST MODE] Would insert {len(career_skills)} skills")
             logger.info(f"[TEST MODE] Would insert {len(salary_ranges)} salary ranges")
             return
-        
+
         # Insert careers
         from db.models import Career as C
         for career_data in careers:
@@ -220,10 +219,10 @@ def import_sample_data(test_mode: bool = False):
             if not existing:
                 career = C(**career_data)
                 session.add(career)
-        
+
         session.commit()
         logger.info(f"✓ Inserted {len(careers)} careers")
-        
+
         # Insert skills
         from db.models import CareerSkill as CS
         for skill_data in career_skills:
@@ -231,19 +230,19 @@ def import_sample_data(test_mode: bool = False):
             if career:
                 skill_data["career_id"] = career.id
                 del skill_data["career_title"]
-                
+
                 existing = session.query(CS).filter(
                     CS.career_id == skill_data["career_id"],
                     CS.skill_name == skill_data["skill_name"]
                 ).first()
-                
+
                 if not existing:
                     skill = CS(**skill_data)
                     session.add(skill)
-        
+
         session.commit()
         logger.info(f"✓ Inserted {len(career_skills)} skills")
-        
+
         # Insert salary ranges
         from db.models import SalaryRange as SR
         for salary_data in salary_ranges:
@@ -251,20 +250,20 @@ def import_sample_data(test_mode: bool = False):
             if career:
                 salary_data["career_id"] = career.id
                 del salary_data["career_title"]
-                
+
                 existing = session.query(SR).filter(
                     SR.career_id == salary_data["career_id"],
                     SR.city == salary_data["city"],
                     SR.experience_level == salary_data["experience_level"]
                 ).first()
-                
+
                 if not existing:
                     salary = SR(**salary_data)
                     session.add(salary)
-        
+
         session.commit()
         logger.info(f"✓ Inserted {len(salary_ranges)} salary ranges")
-        
+
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to import data: {e}")
@@ -277,17 +276,17 @@ def main():
     parser = argparse.ArgumentParser(description="Import Career data")
     parser.add_argument("--test", action="store_true", help="Test mode (don't insert)")
     args = parser.parse_args()
-    
+
     logger.info("=" * 60)
     logger.info("Career Data Import Tool")
     logger.info("=" * 60)
-    
+
     # Create tables
     create_tables()
-    
+
     # Import data
     import_sample_data(test_mode=args.test)
-    
+
     logger.info("=" * 60)
     logger.info("Import completed successfully!")
     logger.info("=" * 60)

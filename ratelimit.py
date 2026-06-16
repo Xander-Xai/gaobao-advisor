@@ -12,4 +12,4 @@ warnings.warn(
 )
 
 # Re-export from legacy module (which has the original TokenBucket and RateLimiter)
-from legacy.ratelimit import TokenBucket, RateLimiter  # noqa: F401,E402
+from legacy.ratelimit import RateLimiter, TokenBucket  # noqa: F401,E402

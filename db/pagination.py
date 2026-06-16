@@ -30,7 +30,7 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import ColumnElement
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Session
 
 T = TypeVar("T")
 

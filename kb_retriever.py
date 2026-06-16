@@ -13,8 +13,9 @@ warnings.warn(
 
 # Forward all imports — including private names tests depend on
 from server.services.kb_retriever import (  # noqa: F401,E402
-    Chunk,
+    _ZX_TRIGGERS,
     GROUP_TRIGGERS,
+    Chunk,
     KbRetriever,
     KeywordOnlyEmbedding,
     QuoteEntry,
@@ -23,5 +24,4 @@ from server.services.kb_retriever import (  # noqa: F401,E402
     keyword_match_score,
     load_all_groups,
     split_group,
-    _ZX_TRIGGERS,
 )

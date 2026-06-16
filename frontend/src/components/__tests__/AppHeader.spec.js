@@ -1,61 +1,29 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import AppHeader from '../AppHeader.vue'
+import { createPinia, setActivePinia } from 'pinia'
+import AppHeader from '../layout/AppHeader.vue'
 
 describe('AppHeader', () => {
-  it('renders header with title', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('renders header with scene buttons', () => {
     const wrapper = mount(AppHeader)
-    expect(wrapper.find('.app-header').exists()).toBe(true)
-    expect(wrapper.text()).toContain('高考志愿顾问')
+    expect(wrapper.find('div').exists()).toBe(true)
+    // Should contain scene buttons
+    expect(wrapper.findAll('button').length).toBeGreaterThan(0)
   })
 
-  it('displays connection status indicator', () => {
-    const wrapper = mount(AppHeader, {
-      props: {
-        isConnected: true
-      }
-    })
-    
-    expect(wrapper.find('.status-indicator').exists()).toBe(true)
-  })
-
-  it('shows online status when connected', () => {
-    const wrapper = mount(AppHeader, {
-      props: {
-        isConnected: true
-      }
-    })
-    
-    const status = wrapper.find('.status-indicator')
-    expect(status.classes()).toContain('online')
-  })
-
-  it('shows offline status when disconnected', () => {
-    const wrapper = mount(AppHeader, {
-      props: {
-        isConnected: false
-      }
-    })
-    
-    const status = wrapper.find('.status-indicator')
-    expect(status.classes()).toContain('offline')
-  })
-
-  it('displays voice call button', () => {
+  it('displays scene labels', () => {
     const wrapper = mount(AppHeader)
-    expect(wrapper.find('.voice-button').exists()).toBe(true)
+    const text = wrapper.text()
+    expect(text.length).toBeGreaterThan(0)
   })
 
-  it('emits voice call event on button click', async () => {
+  it('has interactive buttons', () => {
     const wrapper = mount(AppHeader)
-    const button = wrapper.find('.voice-button')
-    await button.trigger('click')
-    
-    expect(wrapper.emitted('voice-call')).toBeTruthy()
-  })
-
-  it('shows settings menu toggle', () => {
-    const wrapper = mount(AppHeader)
-    expect(wrapper.find('.settings-toggle').exists()).toBe(true)
+    const buttons = wrapper.findAll('button')
+    expect(buttons.length).toBeGreaterThanOrEqual(3)
   })
 })

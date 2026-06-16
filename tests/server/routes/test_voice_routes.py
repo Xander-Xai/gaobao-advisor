@@ -211,6 +211,7 @@ class TestVoiceEndpointErrorHandling:
     async def test_disconnect_handled_gracefully(self):
         """Voice endpoint should handle WebSocketDisconnect gracefully."""
         from fastapi import WebSocketDisconnect
+
         from server.routes.voice import voice_call
 
         mock_ws = AsyncMock()

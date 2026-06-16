@@ -1,6 +1,6 @@
 """Tests for server/routes/profile.py — Profile endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -161,7 +161,7 @@ class TestUpdateProfileField:
              patch("server.routes.profile.load_profile", return_value=mock_profile), \
              patch("server.routes.profile.save_profile"):
 
-            result = await update_profile_field("session123", req, "Bearer valid-token")
+            await update_profile_field("session123", req, "Bearer valid-token")
 
             assert mock_profile.score == 650
 
@@ -275,7 +275,7 @@ class TestSkipField:
     @pytest.mark.asyncio
     async def test_skip_field_success(self):
         """Skipping a field should succeed."""
-        from server.routes.profile import skip_field, SkipFieldRequest
+        from server.routes.profile import SkipFieldRequest, skip_field
 
         mock_engine = MagicMock()
         mock_query_state = MagicMock()

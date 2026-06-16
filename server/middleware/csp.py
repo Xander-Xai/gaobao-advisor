@@ -9,7 +9,7 @@ This eliminates the need for 'unsafe-inline' in script-src, improving security.
 
 Usage:
     from server.middleware.csp import CSPMiddleware
-    
+
     app.add_middleware(CSPMiddleware)
 """
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 import base64
 import os
 import re
-from typing import Callable
+from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -43,7 +43,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
         self.nonce_length = nonce_length
-        
+
         # Default policy with nonce placeholder
         self.policy_template = policy or (
             "default-src 'self'; "
@@ -79,14 +79,14 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
         # Inject nonce into HTML (for inline scripts/styles)
         body = response.body.decode("utf-8")
-        
+
         # Add nonce to <script> tags without src
         body = re.sub(
             r'<script([^>]*)>',
             lambda m: f'<script{m.group(1)} nonce="{nonce}">' if 'src=' not in m.group(1) else f'<script{m.group(1)}>',
             body
         )
-        
+
         # Add nonce to <style> tags
         body = re.sub(
             r'<style([^>]*)>',

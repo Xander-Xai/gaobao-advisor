@@ -54,9 +54,12 @@ app = FastAPI(
 )
 
 # ── CORS Configuration ────────────────────────────────────
+cors_origins_str = os.getenv("CORS_ORIGINS", "")
+cors_origins = [o.strip() for o in cors_origins_str.split(",")] if cors_origins_str else ["http://localhost:8000", "http://localhost:8501", "http://localhost:3080"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

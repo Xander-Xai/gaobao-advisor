@@ -7,16 +7,16 @@ search and NumPy for metadata storage.
 
 Usage:
     from server.services.vector_index import VectorIndexStore
-    
+
     store = VectorIndexStore(index_dir="data/vector_index")
-    
+
     # Save embeddings
     store.save_embeddings(chunk_ids, embeddings, metadata)
-    
+
     # Load embeddings (fast startup)
     if store.exists():
         store.load_embeddings()
-    
+
     # Search
     results = store.search(query_embedding, top_k=5)
 """
@@ -123,7 +123,7 @@ class VectorIndexStore:
         self._index.add(embeddings_array)
 
         # Update metadata
-        for i, (chunk_id, meta) in enumerate(zip(chunk_ids, metadata_list)):
+        for i, (chunk_id, meta) in enumerate(zip(chunk_ids, metadata_list, strict=False)):
             self._metadata.append({
                 "chunk_id": chunk_id,
                 "index": self.size - len(chunk_ids) + i,
@@ -167,7 +167,7 @@ class VectorIndexStore:
             self._dimension = self._index.d
 
             # Load metadata
-            with open(self.metadata_path, "r", encoding="utf-8") as f:
+            with open(self.metadata_path, encoding="utf-8") as f:
                 self._metadata = json.load(f)
 
             logger.info(
@@ -206,7 +206,7 @@ class VectorIndexStore:
 
         # Build results
         results = []
-        for score, idx in zip(scores[0], indices[0]):
+        for score, idx in zip(scores[0], indices[0], strict=False):
             if idx == -1:  # FAISS returns -1 for empty slots
                 continue
             metadata = self._metadata[idx] if idx < len(self._metadata) else {}
