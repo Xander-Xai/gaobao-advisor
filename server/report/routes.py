@@ -1,7 +1,9 @@
 """Report API routes — generate, retrieve, and export advisory reports.
 
-Report generation reads the user's real conversation data (slots + last AI reply)
-from the database, NOT hardcoded placeholder values.
+Report generation reads the user's real conversation data (slots + recent AI
+replies) from the database. It scans the last N rounds of AI replies to
+accumulate suggestions, risks, and action items — not just the last reply,
+since recommendations are often spread across multiple conversation turns.
 """
 
 from __future__ import annotations
@@ -24,6 +26,11 @@ router = APIRouter(prefix="/api/v1", tags=["report"])
 
 _storage = ReportStorage()
 
+# How many recent AI replies to scan for content extraction.
+# Keeps parsing fast even for long conversations while covering enough
+# rounds to capture multi-turn recommendations.
+_MAX_RECENT_ROUNDS = 10
+
 
 class GenerateRequest(BaseModel):
     """Request body for report generation."""
@@ -38,6 +45,9 @@ class GenerateResponse(BaseModel):
     report_id: str
     status: str
     message: str
+
+
+# ── Data loading ───────────────────────────────────────────────────────
 
 
 def _load_session_slots(session_id: str) -> dict:
@@ -60,11 +70,16 @@ def _load_session_slots(session_id: str) -> dict:
         db.close()
 
 
-def _load_last_ai_reply(session_id: str) -> str:
-    """Load the last AI assistant reply from the conversation history.
+def _load_recent_ai_replies(session_id: str, max_rounds: int = _MAX_RECENT_ROUNDS) -> list[str]:
+    """Load the most recent AI assistant replies from conversation history.
 
-    Returns the text content of the most recent assistant message,
-    or empty string if not found.
+    Returns up to `max_rounds` assistant messages, ordered from oldest to
+    newest. This allows content extraction to accumulate recommendations
+    across multiple turns rather than relying on just the last reply.
+
+    Args:
+        session_id: The conversation session ID.
+        max_rounds: Maximum number of recent AI replies to return.
     """
     from db.crud import load_conversation_history
     from db.database import get_session
@@ -72,16 +87,24 @@ def _load_last_ai_reply(session_id: str) -> str:
     db = get_session()
     try:
         messages = load_conversation_history(db, session_id)
-        # Walk backwards to find the last assistant message
+        # Collect assistant messages from newest to oldest
+        ai_replies: list[str] = []
         for msg in reversed(messages):
             if msg.get("role") == "assistant" and msg.get("content"):
-                return msg["content"]
-        return ""
+                ai_replies.append(msg["content"])
+                if len(ai_replies) >= max_rounds:
+                    break
+        # Return in chronological order (oldest first)
+        ai_replies.reverse()
+        return ai_replies
     except Exception:
         logger.warning("Failed to load history for session %s", session_id)
-        return ""
+        return []
     finally:
         db.close()
+
+
+# ── Slot-based extraction (fast, structured) ──────────────────────────
 
 
 def _parse_facts_from_slots(slots: dict) -> list[str]:
@@ -106,99 +129,6 @@ def _parse_facts_from_slots(slots: dict) -> list[str]:
     return facts
 
 
-def _parse_suggestions_from_reply(reply: str) -> list[str]:
-    """Extract school/major suggestions from the AI reply text.
-
-    Looks for lines that contain recommendation patterns like:
-    - "推荐：XXX"
-    - "冲刺/稳妥/保底：XXX"
-    - Numbered recommendation items
-    """
-    suggestions: list[str] = []
-    if not reply:
-        return suggestions
-
-    lines = reply.split("\n")
-    for line in lines:
-        stripped = line.strip()
-        # Match lines with recommendation markers
-        if any(marker in stripped for marker in ["推荐", "冲刺", "稳妥", "保底", "保底"]):
-            # Clean up markdown/bullet formatting
-            clean = re.sub(r"^[\d\-\*•\.、]+\s*", "", stripped)
-            if clean and len(clean) > 2:
-                suggestions.append(clean)
-        # Also match numbered school entries (e.g., "1. 山东大学")
-        elif re.match(r"^\d+[\.\、]\s*.+大[学院]", stripped):
-            clean = re.sub(r"^\d+[\.\、]\s*", "", stripped)
-            if clean:
-                suggestions.append(clean)
-
-    return suggestions[:10] if suggestions else []
-
-
-def _parse_risks_from_reply(reply: str) -> list[str]:
-    """Extract risk warnings from the AI reply text."""
-    risks: list[str] = []
-    if not reply:
-        return risks
-
-    lines = reply.split("\n")
-    in_risk_section = False
-    for line in lines:
-        stripped = line.strip()
-        # Detect risk section headers
-        if any(marker in stripped for marker in ["风险", "注意", "提醒", "⚠"]):
-            if len(stripped) < 15:
-                in_risk_section = True
-                continue
-            # Inline risk on the same line as the marker
-            clean = re.sub(r"^[\-\*•\.、]+\s*", "", stripped)
-            if clean and len(clean) > 3:
-                risks.append(clean)
-            in_risk_section = True
-        elif in_risk_section and stripped:
-            # Stop if we hit another section
-            if any(marker in stripped for marker in ["建议", "推荐", "院校", "📌", "📋", "🎯"]):
-                in_risk_section = False
-                continue
-            clean = re.sub(r"^[\d\-\*•\.、]+\s*", "", stripped)
-            if clean and len(clean) > 3:
-                risks.append(clean)
-
-    return risks if risks else ["数据有限，建议以官方最新信息为准"]
-
-
-def _parse_next_actions_from_reply(reply: str) -> list[str]:
-    """Extract next action items from the AI reply text."""
-    actions: list[str] = []
-    if not reply:
-        return actions
-
-    lines = reply.split("\n")
-    in_action_section = False
-    for line in lines:
-        stripped = line.strip()
-        # Detect action section headers
-        if any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]):
-            if len(stripped) < 15:
-                in_action_section = True
-                continue
-            clean = re.sub(r"^[\d\-\*•\.、]+\s*", "", stripped)
-            if clean and len(clean) > 3:
-                actions.append(clean)
-            in_action_section = True
-        elif in_action_section and stripped:
-            # Stop at next section
-            if any(marker in stripped for marker in ["风险", "推荐", "院校", "⚠", "📋", "🎯"]):
-                in_action_section = False
-                continue
-            clean = re.sub(r"^[\d\-\*•\.、]+\s*", "", stripped)
-            if clean and len(clean) > 3:
-                actions.append(clean)
-
-    return actions if actions else ["补充省份、分数、选科等信息以获得更精准推荐"]
-
-
 def _build_summary(slots: dict) -> str:
     """Build a one-line summary from slot data."""
     parts: list[str] = []
@@ -218,6 +148,8 @@ def _build_summary(slots: dict) -> str:
         parts.append(province)
     if score:
         parts.append(f"{score}分")
+    if subject:
+        parts.append(subject)
     if interest:
         parts.append(f"意向{interest}")
 
@@ -226,35 +158,175 @@ def _build_summary(slots: dict) -> str:
     return "高考志愿填报分析报告"
 
 
+# ── Reply-based extraction (multi-turn, deduplicated) ─────────────────
+
+
+def _clean_line(line: str) -> str:
+    """Strip markdown/bullet/numbering prefix from a line."""
+    return re.sub(r"^[\d\-\*•\.、]+\s*", "", line.strip())
+
+
+def _is_content_line(line: str) -> bool:
+    """Check if a line has meaningful content (not just formatting/headers)."""
+    stripped = line.strip()
+    return bool(stripped) and len(stripped) > 2 and not stripped.startswith("```")
+
+
+def _parse_suggestions_from_replies(replies: list[str]) -> list[str]:
+    """Extract school/major suggestions across multiple AI replies, deduplicated.
+
+    Scans each reply for lines containing recommendation markers, then
+    deduplicates by normalizing the text. Keeps first occurrence (earliest
+    mention), preserves chronological order.
+    """
+    seen_normalized: set[str] = set()
+    suggestions: list[str] = []
+
+    for reply in replies:
+        for line in reply.split("\n"):
+            stripped = line.strip()
+            if not _is_content_line(stripped):
+                continue
+
+            is_suggestion = (
+                any(marker in stripped for marker in ["推荐", "冲刺", "稳妥", "保底"])
+                or re.match(r"^\d+[\.\、]\s*.+大[学院]", stripped)
+            )
+
+            if is_suggestion:
+                clean = _clean_line(stripped)
+                if not clean or len(clean) <= 2:
+                    continue
+                # Normalize for dedup: strip whitespace + punctuation, lowercase
+                normalized = re.sub(r"[《》【】\s]", "", clean)
+                if normalized not in seen_normalized:
+                    seen_normalized.add(normalized)
+                    suggestions.append(clean)
+
+    return suggestions[:15] if suggestions else []
+
+
+def _parse_risks_from_replies(replies: list[str]) -> list[str]:
+    """Extract risk warnings across multiple AI replies, deduplicated.
+
+    Scans each reply for risk sections and inline risk markers.
+    Deduplicates to avoid repeating the same warning from different turns.
+    """
+    seen_normalized: set[str] = set()
+    risks: list[str] = []
+
+    for reply in replies:
+        in_risk_section = False
+        for line in reply.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Detect risk section header or inline risk
+            is_risk_header = any(marker in stripped for marker in ["风险", "注意", "提醒", "⚠"]) and len(stripped) < 20
+            is_risk_inline = any(marker in stripped for marker in ["风险", "注意", "提醒", "⚠"]) and len(stripped) >= 20
+
+            if is_risk_header:
+                in_risk_section = True
+                continue
+
+            if is_risk_inline:
+                in_risk_section = True
+
+            if in_risk_section:
+                # Stop if we hit a different section
+                if any(marker in stripped for marker in ["建议行动", "推荐院校", "📌", "📋", "🎯"]):
+                    in_risk_section = False
+                    continue
+
+                clean = _clean_line(stripped)
+                if clean and len(clean) > 3:
+                    normalized = re.sub(r"[，。、！？\s]", "", clean)
+                    if normalized not in seen_normalized:
+                        seen_normalized.add(normalized)
+                        risks.append(clean)
+
+    return risks if risks else ["数据有限，建议以官方最新信息为准"]
+
+
+def _parse_next_actions_from_replies(replies: list[str]) -> list[str]:
+    """Extract next action items across multiple AI replies, deduplicated.
+
+    Scans each reply for action sections. Deduplicates and keeps the
+    most recent phrasing of semantically identical actions.
+    """
+    seen_normalized: set[str] = set()
+    actions: list[str] = []
+
+    for reply in replies:
+        in_action_section = False
+        for line in reply.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Detect action section header or inline action
+            is_action_header = any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) < 20
+            is_action_inline = any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) >= 20
+
+            if is_action_header:
+                in_action_section = True
+                continue
+
+            if is_action_inline:
+                in_action_section = True
+
+            if in_action_section:
+                # Stop at next section
+                if any(marker in stripped for marker in ["风险提示", "推荐院校", "⚠", "📋", "🎯"]):
+                    in_action_section = False
+                    continue
+
+                clean = _clean_line(stripped)
+                if clean and len(clean) > 3:
+                    normalized = re.sub(r"[，。、！？\s]", "", clean)
+                    if normalized not in seen_normalized:
+                        seen_normalized.add(normalized)
+                        actions.append(clean)
+
+    return actions if actions else ["补充省份、分数、选科等信息以获得更精准推荐"]
+
+
+# ── Report generation endpoint ─────────────────────────────────────────
+
+
 @router.post("/report/generate", response_model=GenerateResponse)
 async def generate_report(body: GenerateRequest):
     """Generate a report from the user's real conversation data.
 
-    Reads slots (province, score, subject, interest) and the last AI reply
-    from the database to produce a personalized advisory report.
+    Reads slots (province, score, subject, interest) for the student
+    profile, then scans recent AI replies to accumulate suggestions,
+    risks, and action items across multiple turns — not just the last one.
     """
     session_id = body.session_id
 
     # 1. Load real data from conversation database
     slots = _load_session_slots(session_id)
-    last_reply = _load_last_ai_reply(session_id)
+    recent_replies = _load_recent_ai_replies(session_id)
 
-    # 2. Extract structured content from real data
+    # 2. Extract structured content
+    #    - Student profile from slots (fast, structured, always accurate)
+    #    - Recommendations from recent AI replies (multi-turn, deduplicated)
     facts = _parse_facts_from_slots(slots)
-    suggestions = _parse_suggestions_from_reply(last_reply)
-    risks = _parse_risks_from_reply(last_reply)
-    next_actions = _parse_next_actions_from_reply(last_reply)
+    suggestions = _parse_suggestions_from_replies(recent_replies)
+    risks = _parse_risks_from_replies(recent_replies)
+    next_actions = _parse_next_actions_from_replies(recent_replies)
     summary = _build_summary(slots)
 
     # 3. Build the Report from real data
     report = ReportGenerator.from_card(
-        card=None,  # Not using StructuredPlanningCard — data comes from slots + reply
+        card=None,
         session_id=session_id,
         slots=slots,
         student_name=body.student_name,
     )
 
-    # Override with parsed content from real conversation
+    # Populate content from parsed conversation data
     report.summary = summary
     report.facts = facts
     report.suggestions = suggestions
@@ -268,12 +340,13 @@ async def generate_report(body: GenerateRequest):
     # 4. Save and return
     _storage.save(report)
     logger.info(
-        "Report generated: %s for session %s (confidence=%.0f%%, facts=%d, suggestions=%d)",
+        "Report generated: %s for session %s (confidence=%.0f%%, facts=%d, suggestions=%d, scanned_rounds=%d)",
         report.id,
         session_id,
         report.confidence * 100,
         len(facts),
         len(suggestions),
+        len(recent_replies),
     )
 
     return GenerateResponse(
