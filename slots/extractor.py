@@ -11,7 +11,7 @@ import copy
 import re
 from typing import Any
 
-from constants import PROVINCES
+from config.constants import PROVINCES
 from slots.patterns import (
     CHINESE_DIGIT_MAP,
     CHINESE_UNIT_MAP,
@@ -35,7 +35,7 @@ PROVINCES_33 = {"浙江", "上海", "北京", "天津", "山东", "海南"}
 
 # ── 3+3 全部20种选科组合（在初始化时从 constants 模块获取） ──
 try:
-    from constants import SUBJECT_COMBOS_33, SUBJECT_SINGLE_33
+    from config.constants import SUBJECT_COMBOS_33, SUBJECT_SINGLE_33
 except ImportError:
     SUBJECT_COMBOS_33 = [
         "物化生",

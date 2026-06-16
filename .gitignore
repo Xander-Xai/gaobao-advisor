@@ -9,7 +9,13 @@ logs/
 
 # API 密钥配置文件（包含真实 key，禁止提交）
 .env
+.env.production
+.env.staging
+.env.*.local
 .streamlit/secrets.toml
+
+# 会话密钥
+data/.session_secret
 
 # Python
 __pycache__/
@@ -19,9 +25,12 @@ __pycache__/
 .ruff_cache/
 
 # 运行时数据库（自动生成）
-data/analytics.db
+data/*.db
 data/*.db-journal
-gaobao_cache.db
+data/*.db-wal
+data/*.db-shm
+data/*.db.backup.*
+gaokao_cache.db
 
 # 开发备份
 backup/

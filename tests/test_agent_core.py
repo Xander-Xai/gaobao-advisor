@@ -11,7 +11,7 @@ import pytest
 # 确保项目根目录在 path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import (
+from legacy.agent import (
     MAX_USER_INPUT_LEN,
     cleanup_format,
     detect_prompt_injection,
@@ -543,14 +543,14 @@ class TestSlotHelpers:
 
 class TestSharedConstants:
     def test_subject_aliases_completeness(self):
-        from gaokao_data import SUBJECT_ALIASES
+        from legacy.gaokao_data import SUBJECT_ALIASES
 
         required_keys = ["物理", "物理类", "历史", "历史类", "理科", "文科"]
         for k in required_keys:
             assert k in SUBJECT_ALIASES, f"SUBJECT_ALIASES 缺少 key: {k}"
 
     def test_rank_factors_keys(self):
-        from gaokao_data import RANK_FACTORS
+        from legacy.gaokao_data import RANK_FACTORS
 
         assert "冲" in RANK_FACTORS
         assert "稳" in RANK_FACTORS
@@ -561,7 +561,7 @@ class TestSharedConstants:
         assert hi > 1.0  # 保的上限应该更宽松
 
     def test_safe_int(self):
-        from utils import safe_int
+        from legacy.utils import safe_int
 
         assert safe_int(42) == 42
         assert safe_int("123") == 123
@@ -575,6 +575,6 @@ class TestSharedConstants:
     def test_data_year(self):
         from datetime import datetime
 
-        from gaokao_data import DATA_YEAR
+        from legacy.gaokao_data import DATA_YEAR
 
         assert DATA_YEAR == datetime.now().year - 1

@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from onboarding import (
+from legacy.onboarding import (
     INTERESTS,
     PROVINCE_MODES,
     PROVINCES,

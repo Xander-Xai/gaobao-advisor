@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import DATA_YEAR, ensure_disclaimer, ensure_year_label
+from legacy.agent import DATA_YEAR, ensure_disclaimer, ensure_year_label
 
 DISCLAIMER_TEXT = "以上数据仅供参考"
 

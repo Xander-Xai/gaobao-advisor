@@ -48,7 +48,7 @@ def _get_retriever():
     """Lazy-init the KbRetriever singleton with the configured provider."""
     global _retriever
     if _retriever is None:
-        from kb_retriever import KbRetriever, create_embedding_provider
+        from server.services.kb_retriever import KbRetriever, create_embedding_provider
 
         provider_name = _active_provider if _active_provider != "unknown" else _default_provider()
         embedder = create_embedding_provider(provider_name)
