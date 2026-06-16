@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import (
+from legacy.agent import (
     PROVINCES_33,
     SUBJECT_COMBOS_33,
     extract_slots_from_message,

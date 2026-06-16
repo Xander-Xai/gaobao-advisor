@@ -5,7 +5,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ratelimit import TokenBucket
+from legacy.ratelimit import TokenBucket
 
 
 def test_token_bucket_initial_allow():
@@ -31,7 +31,7 @@ def test_token_bucket_refill():
     assert bucket.allow() is True
 
 
-from ratelimit import RateLimiter  # noqa: E402
+from legacy.ratelimit import RateLimiter  # noqa: E402
 
 
 def test_rate_limiter_separates_keys():

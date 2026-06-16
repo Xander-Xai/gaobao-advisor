@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import gaokao_data
+from legacy import gaokao_data
 
 
 @pytest.fixture(autouse=True)

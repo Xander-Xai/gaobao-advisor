@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from gaokao_data import get_db_stats
+from legacy.gaokao_data import get_db_stats
 
 
 def test_get_db_stats_no_name_error():

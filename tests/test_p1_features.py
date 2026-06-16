@@ -7,8 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent import GaokaoAdvisor
-from gaokao_data import format_admission_info
+from legacy.agent import GaokaoAdvisor
+from legacy.gaokao_data import format_admission_info
 
 # ── 辅助工厂 ──
 
@@ -203,7 +203,7 @@ class TestConfidenceScore:
 
     def test_admission_returns_empty_with_confidence_fields(self):
         """空结果列表应正常返回，不报错。"""
-        from gaokao_data import query_admission
+        from legacy.gaokao_data import query_admission
 
         # 数据库和百度搜索都不可用时，应返回空列表
         results = query_admission("不存在的大学", "不存在的省")
@@ -270,7 +270,7 @@ class TestConfidenceScore:
 
     def test_yi_fen_yi_duan_confidence_score_on_success(self):
         """query_yi_fen_yi_duan 返回结果应包含 confidence_score。"""
-        from gaokao_data import query_yi_fen_yi_duan
+        from legacy.gaokao_data import query_yi_fen_yi_duan
 
         result = query_yi_fen_yi_duan("湖北", 600, "物理类", 2025)
         # 无论数据库是否有数据，只要返回 dict 就应有 confidence_score
@@ -280,7 +280,7 @@ class TestConfidenceScore:
 
     def test_yi_fen_yi_duan_confidence_score_range(self):
         """confidence_score 应在合理范围内。"""
-        from gaokao_data import query_yi_fen_yi_duan
+        from legacy.gaokao_data import query_yi_fen_yi_duan
 
         result = query_yi_fen_yi_duan("湖北", 600, "物理类", 2025)
         if result is not None and result.get("confidence_score"):
@@ -288,7 +288,7 @@ class TestConfidenceScore:
 
     def test_admission_confidence_score_range(self):
         """query_admission 返回的 confidence_score 应在合理范围内。"""
-        from gaokao_data import query_admission
+        from legacy.gaokao_data import query_admission
 
         results = query_admission("武汉大学", "湖北")
         for r in results:
@@ -297,7 +297,7 @@ class TestConfidenceScore:
 
     def test_admission_data_tier_field(self):
         """query_admission 返回结果应包含 data_tier 字段。"""
-        from gaokao_data import query_admission
+        from legacy.gaokao_data import query_admission
 
         results = query_admission("武汉大学", "湖北")
         for r in results:

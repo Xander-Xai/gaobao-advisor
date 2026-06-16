@@ -7,7 +7,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from kb_retriever import (
+from server.services.kb_retriever import (
     KbRetriever,
     KeywordOnlyEmbedding,
     RetrievalResult,

@@ -27,7 +27,7 @@ import httpx
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from utils import safe_int  # noqa: E402
+from legacy.utils import safe_int  # noqa: E402
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -42,8 +42,8 @@ PAGE_SIZE = 20
 DELAY = 0.2  # 秒，请求间隔（从 0.4 降至 0.2，平衡速度与限频）
 
 # Async/parallel mode
-ASYNC_CONCURRENCY = 5       # 最大并发请求数
-ASYNC_TIMEOUT = 15           # 单请求超时秒数
+ASYNC_CONCURRENCY = 5  # 最大并发请求数
+ASYNC_TIMEOUT = 15  # 单请求超时秒数
 
 
 def _fetch_json(url: str, retries: int = 3) -> dict | None:
@@ -637,16 +637,22 @@ async def import_scores_async(
             school_new_count = 0
 
             # 构建需要抓取的任务列表（跳过已有数据）
-            tasks = _build_fetch_tasks(
-                db_session, AdmissionScore, school, provinces, years, semaphore
-            )
+            tasks = _build_fetch_tasks(db_session, AdmissionScore, school, provinces, years, semaphore)
 
             if tasks:
                 # 并行获取
                 coros = [
                     _fetch_school_batch(
-                        client, db_session, AdmissionScore, school,
-                        prov, yr, cur, max_per_school, stats, semaphore,
+                        client,
+                        db_session,
+                        AdmissionScore,
+                        school,
+                        prov,
+                        yr,
+                        cur,
+                        max_per_school,
+                        stats,
+                        semaphore,
                     )
                     for prov, yr, cur in tasks
                 ]
@@ -665,6 +671,7 @@ async def import_scores_async(
             # 定期保存断点
             if checkpoint_path and (idx + 1) % 10 == 0:
                 from scrapers.checkpoint import save_checkpoint
+
                 save_checkpoint(
                     checkpoint_path,
                     {
@@ -679,11 +686,14 @@ async def import_scores_async(
             if on_progress:
                 on_progress(actual_idx + 1, total, stats)
             else:
-                print(f"  [{actual_idx + 1}/{total}] {school.name}: {school_new_count} 条新增 (总计 {stats['new_scores']})")
+                print(
+                    f"  [{actual_idx + 1}/{total}] {school.name}: {school_new_count} 条新增 (总计 {stats['new_scores']})"
+                )
 
     # 最终保存断点
     if checkpoint_path:
         from scrapers.checkpoint import save_checkpoint
+
         save_checkpoint(
             checkpoint_path,
             {

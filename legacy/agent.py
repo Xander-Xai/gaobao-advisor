@@ -25,12 +25,12 @@ from typing import Any
 
 from openai import OpenAI
 
-from constants import PROVINCES
-from logger import log
+from legacy.constants import PROVINCES
+from legacy.logger import log
 
 # 高考数据模块（数据库优先 + 百度搜索兜底）
 try:
-    from gaokao_data import (
+    from legacy.gaokao_data import (
         format_admission_info,
         format_schools_by_major,
         get_db_stats,
@@ -116,7 +116,7 @@ except Exception as _e:
 
 # ── 知识检索引擎（可选） ──
 try:
-    from kb_retriever import KbRetriever, create_embedding_provider
+    from server.services.kb_retriever import KbRetriever, create_embedding_provider
 
     HAS_KB_RETRIEVER = True
 except ImportError:
@@ -346,7 +346,7 @@ def _is_safe_url(url: str) -> bool:
 
 def _sanitize_html(text: str) -> str:
     """强化HTML清理，防止XSS残留（#6）。委托给 utils.sanitize_html。"""
-    from utils import sanitize_html
+    from legacy.utils import sanitize_html
 
     return sanitize_html(text)
 
@@ -717,7 +717,7 @@ class GaokaoAdvisor:
         if not (HAS_DATA_MODULE and self.slots.get("subject", {}).get("filled") and is_consultation_intent(user_msg)):
             return
         try:
-            from gaokao_data import check_user_subject_compatibility, format_subject_compatibility
+            from legacy.gaokao_data import check_user_subject_compatibility, format_subject_compatibility
 
             user_subj_text = self.slots["subject"]["value"]
             _known_subjects = ["物理", "历史", "化学", "生物", "政治", "地理"]
@@ -822,7 +822,7 @@ class GaokaoAdvisor:
                             _user_subj_list = [s for s in _known if s in _user_subj_text]
                             if _user_subj_list:
                                 try:
-                                    from gaokao_data import (
+                                    from legacy.gaokao_data import (
                                         check_user_subject_compatibility,
                                         format_subject_compatibility,
                                     )
@@ -1005,7 +1005,7 @@ class GaokaoAdvisor:
         major百科_hits = [mk for mk in major_keywords if mk in user_msg]
         if major百科_hits and HAS_DATA_MODULE:
             try:
-                from gaokao_data import query_major_info as _qmi
+                from legacy.gaokao_data import query_major_info as _qmi
 
                 for mj_name in major百科_hits[:2]:
                     mj = _qmi(mj_name)
@@ -1130,7 +1130,7 @@ class GaokaoAdvisor:
                         # 选科过滤：检查推荐学校的选科匹配
                         if user_subj_list:
                             try:
-                                from gaokao_data import check_user_subject_compatibility
+                                from legacy.gaokao_data import check_user_subject_compatibility
 
                                 compat = check_user_subject_compatibility(user_subj_list)
                                 if compat and compat.get("compatible") is False:

@@ -71,6 +71,19 @@ def quality_orchestrate_node(state: dict[str, Any]) -> dict[str, Any]:
         }
     )
 
+    # Analytics event logging
+    try:
+        from analytics import EventTracker
+        tracker = EventTracker()
+        session_id = state.get("session_id", "default")
+        tracker.log_event(session_id, "query_submitted", {"input_text": text[:100], "scene": scene})
+        tracker.log_event(session_id, "emotion_scored", {"label": emotion_state})
+        if emotion_state == "negative":
+            tracker.log_event(session_id, "emotion_detected", {"level": "crisis_detected"})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Analytics logging failed: %s", e)
+
     return {
         "emotion_state": emotion_state,
         "cognitive_model": cognitive_model,

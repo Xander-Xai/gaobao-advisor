@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from constants import PROVINCES
+from legacy.constants import PROVINCES
 
 # ── Province modes (UI display — extended with traditional mode) ──
 PROVINCE_MODES: dict[str, str] = {

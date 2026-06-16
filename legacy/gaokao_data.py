@@ -9,7 +9,7 @@ import logging
 import os
 from datetime import datetime
 
-from utils import safe_int as _safe_int
+from legacy.utils import safe_int as _safe_int
 
 log = logging.getLogger(__name__)
 

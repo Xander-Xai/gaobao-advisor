@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from kb_retriever import GROUP_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
+from server.services.kb_retriever import GROUP_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
 
 _QUOTES_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "quotes")
 _GROUPS_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "groups")

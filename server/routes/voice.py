@@ -58,6 +58,12 @@ async def voice_call(
 
                 if msg.get("type") == "asr_result" and msg.get("text"):
                     user_text = msg["text"]
+                    from server.middleware.security import detect_injection, sanitize_input
+                    if detect_injection(user_text):
+                        await websocket.send_json({"type": "error", "message": "输入内容包含不允许的指令"})
+                        await websocket.close(code=4002, reason="prompt_injection")
+                        return
+                    user_text = sanitize_input(user_text)
                     await websocket.send_json({"type": "user_text", "text": user_text})
 
                     # Run planning graph
