@@ -83,6 +83,7 @@ class AdmissionScore(Base):
     province = Column(String(20), nullable=False)
     year = Column(Integer, nullable=False)
     batch = Column(String(20), nullable=False, default="本科一批")
+    standardized_batch = Column(String(20), nullable=True)  # 标准化批次名
     subject_type = Column(String(10), nullable=False, default="综合")  # 理工/文史/物理类/历史类
     min_score = Column(Integer, nullable=True)
     avg_score = Column(Float, nullable=True)
