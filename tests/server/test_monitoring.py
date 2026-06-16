@@ -3,8 +3,6 @@
 import logging
 from unittest.mock import patch
 
-import pytest
-
 
 class TestInitSentry:
     """Tests for init_sentry() function."""
@@ -63,6 +61,7 @@ class TestInitSentry:
 
         # Re-import to reset module state
         import importlib
+
         import server.monitoring
         importlib.reload(server.monitoring)
 

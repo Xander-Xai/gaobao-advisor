@@ -2,10 +2,8 @@
 
 from fastapi import APIRouter, Query
 
-from db.pagination import paginate_cursor, PageResult
+from db.pagination import paginate_cursor
 from server.services.data_query import (
-    query_admission,
-    query_enrollment_plan,
     query_school_info,
 )
 
@@ -21,8 +19,8 @@ async def get_schools(
     cursor: str | None = Query(None, description="游标（上一页的 next_cursor）"),
 ):
     """Search schools by name, province, or level with cursor-based pagination."""
-    from db.models import School
     from db.database import SessionLocal
+    from db.models import School
 
     session = SessionLocal()
     try:
@@ -68,9 +66,10 @@ async def get_scores(
     cursor: str | None = Query(None, description="游标（上一页的 next_cursor）"),
 ):
     """Query admission scores for a school with cursor-based pagination."""
-    from db.models import AdmissionScore, School
-    from db.database import SessionLocal
     from sqlalchemy import and_
+
+    from db.database import SessionLocal
+    from db.models import AdmissionScore, School
 
     session = SessionLocal()
     try:
@@ -145,9 +144,9 @@ async def get_plans(
     cursor: str | None = Query(None, description="游标（上一页的 next_cursor）"),
 ):
     """Query enrollment plans for a school with cursor-based pagination."""
-    from db.models import EnrollmentPlan, School
+
     from db.database import SessionLocal
-    from sqlalchemy import and_
+    from db.models import EnrollmentPlan, School
 
     session = SessionLocal()
     try:

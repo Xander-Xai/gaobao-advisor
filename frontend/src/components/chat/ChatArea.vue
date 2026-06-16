@@ -7,7 +7,7 @@
         <p class="text-sm mt-2">请告诉我您的省份、分数和兴趣方向</p>
       </div>
     </div>
-    <MessageBubble v-for="(msg, i) in messages" :key="i" :message="msg" />
+    <MessageBubble v-for="(msg, i) in messages" :key="i" :message="{...msg, messageIndex: i, sessionId: chat.sessionId}" />
     <div v-if="isStreaming" class="flex items-center gap-2 text-gray-400 text-sm pl-12">
       <span class="animate-pulse">&#x25CF;</span> 正在思考...
     </div>

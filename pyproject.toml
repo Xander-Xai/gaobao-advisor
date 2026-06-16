@@ -76,6 +76,10 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-fail-under=70",
 ]
+filterwarnings = [
+    "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*:DeprecationWarning",
+    "ignore:.*Please use `import python_multipart` instead.*:PendingDeprecationWarning",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests requiring external services",

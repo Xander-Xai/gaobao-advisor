@@ -20,11 +20,9 @@ Usage:
 from __future__ import annotations
 
 import time
-from collections import defaultdict
 
 from fastapi import FastAPI, Request
-from prometheus_client import Counter, Histogram, generate_latest
-from prometheus_client import CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from starlette.responses import Response
 
 # ── Metrics Definitions ────────────────────────────────────
@@ -86,10 +84,10 @@ ACTIVE_SESSIONS = Counter(
 async def metrics_middleware(request: Request, call_next):
     """Middleware to automatically collect HTTP metrics."""
     start_time = time.time()
-    
+
     try:
         response = await call_next(request)
-        
+
         # Record metrics
         duration = time.time() - start_time
         HTTP_REQUESTS.labels(
@@ -97,15 +95,15 @@ async def metrics_middleware(request: Request, call_next):
             endpoint=request.url.path,
             status=response.status_code
         ).inc()
-        
+
         HTTP_REQUEST_DURATION.labels(
             method=request.method,
             endpoint=request.url.path
         ).observe(duration)
-        
+
         return response
-    
-    except Exception as e:
+
+    except Exception:
         # Record error metrics
         duration = time.time() - start_time
         HTTP_REQUESTS.labels(
@@ -113,12 +111,12 @@ async def metrics_middleware(request: Request, call_next):
             endpoint=request.url.path,
             status=500
         ).inc()
-        
+
         HTTP_REQUEST_DURATION.labels(
             method=request.method,
             endpoint=request.url.path
         ).observe(duration)
-        
+
         raise
 
 
@@ -143,7 +141,7 @@ async def metrics():
 def record_llm_call(model: str, provider: str, success: bool = True, error_type: str | None = None):
     """Record LLM API call metrics."""
     LLM_API_CALLS.labels(model=model, provider=provider).inc()
-    
+
     if not success and error_type:
         LLM_API_ERRORS.labels(
             model=model,

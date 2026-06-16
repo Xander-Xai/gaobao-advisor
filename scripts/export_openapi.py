@@ -26,7 +26,7 @@ except ImportError:
     print("Warning: PyYAML not installed. Only JSON will be exported.")
     print("Install with: pip install pyyaml")
 
-from server.main import app
+from server.main import app  # noqa: E402
 
 
 def export_openapi():

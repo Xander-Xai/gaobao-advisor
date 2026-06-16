@@ -13,17 +13,17 @@ TTL: 24 hours for exact matches, 1 hour for semantic matches
 
 Usage:
     from server.services.rag_cache import get_rag_cache
-    
+
     cache = get_rag_cache()
-    
+
     # Try cache first
     result = cache.get(user_msg, slots)
     if result:
         return result  # Cache hit!
-    
+
     # Compute fresh result
     result = retriever.search(user_msg, slots)
-    
+
     # Store in cache
     cache.set(user_msg, slots, result)
 """
@@ -35,7 +35,7 @@ import json
 import logging
 import os
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class RagCache:
         # Serialize result
         try:
             result_json = json.dumps(result, ensure_ascii=False, default=str)
-        except TypeError as e:
+        except (TypeError, ValueError) as e:
             logger.warning("Failed to serialize cache result: %s", e)
             return
 

@@ -8,6 +8,8 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from db.database import get_session
+from db.models import Feedback, Highlight
 from server.auth import create_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
@@ -110,3 +112,55 @@ async def chat(request: ChatRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+class FeedbackRequest(BaseModel):
+    """用户反馈请求"""
+    session_id: str = Field(..., min_length=4, max_length=64)
+    message_index: int = Field(..., ge=0)
+    rating: str = Field(..., pattern=r"^(helpful|not_helpful)$")
+
+
+@router.post("/chat/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    """提交用户反馈（有帮助/没帮助）"""
+    try:
+        fb = Feedback(
+            session_id=request.session_id,
+            message_index=request.message_index,
+            rating=request.rating,
+        )
+        db = get_session()
+        db.add(fb)
+        db.commit()
+        db.close()
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Feedback error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+class HighlightExtractRequest(BaseModel):
+    """金句提取请求"""
+    session_id: str = Field(..., min_length=4, max_length=64)
+    content: str = Field(..., min_length=10)
+    score: int = Field(default=0, ge=0, le=100)
+
+
+@router.post("/chat/highlight")
+async def submit_highlight(request: HighlightExtractRequest):
+    """提取金句"""
+    try:
+        hl = Highlight(
+            session_id=request.session_id,
+            content=request.content,
+            score=request.score,
+        )
+        db = get_session()
+        db.add(hl)
+        db.commit()
+        db.close()
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Highlight error: {e}")
+        return {"success": False, "error": str(e)}
