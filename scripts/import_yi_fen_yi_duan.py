@@ -237,10 +237,96 @@ def populate_from_admission_scores(db_path: str = None) -> int:
     return inserted
 
 
+def check_missing_yfyd(db_path=None):
+    """检测一分一段表缺失的省-年份组合"""
+    if db_path is None:
+        db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # 获取所有有录取数据的 (province, year) 组合
+    cur.execute("""
+        SELECT DISTINCT province, year FROM admission_scores
+        ORDER BY province, year
+    """)
+    score_combos = set(cur.fetchall())
+
+    # 获取一分一段表已有的 (province, year) 组合
+    cur.execute("""
+        SELECT DISTINCT province, year FROM yi_fen_yi_duan
+    """)
+    yfyd_combos = set(cur.fetchall())
+
+    # 找缺失
+    missing = score_combos - yfyd_combos
+
+    print(f"  录取数据组合: {len(score_combos)}")
+    print(f"  一分一段表组合: {len(yfyd_combos)}")
+    print(f"  缺失组合: {len(missing)}")
+
+    for prov, year in sorted(missing):
+        cur.execute("""
+            SELECT DISTINCT subject_type FROM admission_scores
+            WHERE province=? AND year=? AND min_rank IS NOT NULL
+        """, (prov, year))
+        types = [r[0] for r in cur.fetchall()]
+        print(f"    {prov} {year}: 需要 {', '.join(types)}")
+
+    conn.close()
+    return missing
+
+
+def backfill_missing_yfyd(db_path=None):
+    """对缺失组合从 admission_scores 反推一分一段表"""
+    missing = check_missing_yfyd(db_path)
+    if not missing:
+        print("  无缺失，跳过")
+        return 0
+
+    if db_path is None:
+        db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    total_inserted = 0
+    for prov, year in sorted(missing):
+        cur.execute("""
+            SELECT subject_type, min_score AS score, MIN(min_rank) AS rank
+            FROM admission_scores
+            WHERE province=? AND year=? AND min_score > 0 AND min_rank > 0
+            GROUP BY subject_type, min_score
+        """, (prov, year))
+        rows = cur.fetchall()
+
+        inserted = 0
+        for subject_type, score, rank in rows:
+            cur.execute(
+                "INSERT OR IGNORE INTO yi_fen_yi_duan (province, year, subject_type, score, cumulative_count) VALUES (?, ?, ?, ?, ?)",
+                (prov, year, subject_type, score, rank),
+            )
+            if cur.rowcount > 0:
+                inserted += 1
+
+        conn.commit()
+        total_inserted += inserted
+        print(f"    {prov} {year}: 新增 {inserted} 条")
+
+    conn.close()
+    print(f"  反推总计新增: {total_inserted} 条")
+    return total_inserted
+
+
 def main():
     print("=" * 60)
     print("  一分一段表数据 - 反推 + 查询工具")
     print("=" * 60)
+
+    # 阶段 -1: 检测并补全缺失
+    print("\n>>> 阶段 -1: 检测并补全缺失的一分一段表")
+    missing = check_missing_yfyd()
+    if missing:
+        backfill_missing_yfyd()
+    print()
 
     # 0. 写入 yi_fen_yi_duan 表
     print("\n>>> 阶段 0: 从 admission_scores 反推并写入 yi_fen_yi_duan 表")
