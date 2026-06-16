@@ -29,9 +29,9 @@
 | 原始页数 | **1,932 页** | 全部 OCR 提取，总文字量 **2.7MB** |
 | 专业视频课程 | **61 节 / 1,500+ 分钟** | 涵盖全部学科门类专业详解 |
 | 专业就业数据 | **792 个本科专业** | 12大学科门类完整就业方向+薪资 |
-| 院校数据 | **2,600+ 所高校** | 覆盖985/211/双非/专科全层次 |
+| 院校数据 | **3,016 所** | 覆盖985/211/双非/专科全层次 |
 | 行业联盟分类 | **20+ 个** | C9/国防七子/五院四系/两电一邮等 |
-| 知识库模块 | **17+ 个** | 方法论/选科/专业/学校/考研/就业/专科/AI时代趋势 |
+| 知识库模块 | **20+ 个** | 方法论/选科/专业/学校/考研/就业/专科/AI时代趋势 |
 
 一句话：**把志愿填报领域能找到的系统性知识，全塞进去了。**
 
@@ -47,8 +47,9 @@
 |------|------|------|------|
 | 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,016 所**（985/211/双一流/普通） | T2 |
 | 本科专业 | 教育部 2024 专业目录 | **215 个**（12 学科门类，含就业率/薪资） | T1 |
-| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **70,000+ 条**（2022-2024年，覆盖30个省份） | T2 |
-| 行业语录 | dongsheng123132/gaokao-mentor-wisdom | **105 条**（6 个分类，按专业反查） | T3 |
+| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **35 万+ 条**（2022-2025年，覆盖30个省份） | T2 |
+| 一分一段表 | 各省教育考试院 | **30 省份全覆盖**，位次法推荐核心 | T1 |
+| 行业语录 | dongsheng123132/gaokao-mentor-wisdom + 张雪峰原版 | **155+ 条**（含 50 条张雪峰原版金句，9 个分类） | T3 |
 | 知识库 | 公开方法论整理 | **20 个模块**（含 AI 时代校正） | T2 |
 
 > 数据采集脚本：`python scripts/import_baidu_gaokao.py --top-n 80` 可扩展到万级分数线
@@ -59,11 +60,12 @@
 |------|------|
 | **位次法推荐** | 分数→位次映射（一分一段表反推），冲/稳/保三档位次法推荐 |
 | **百度高考 API** | 替代低质量百度 HTML 解析，直接获取结构化 JSON 数据 |
-| **语录库注入** | 根据用户提到的专业，自动注入相关行业专家语录 |
+| **语录库注入** | 根据用户提到的专业，自动注入相关行业专家语录（含张雪峰原版溯源） |
 | **表达引擎 v2.0** | 8 种开场模板、铺垫→反转→金句节奏、禁词列表、8 项自检清单 |
 | **省份自适应** | Step 0 自动识别高考模式（3+3/3+1+2/传统文理） |
 | **情绪 SOP** | 5 阶段情绪危机处理（接住→稳定→转场→方案→收尾） |
 | **多轮状态** | 4 阶段对话流程（探测→定向→推荐→风险审查） |
+| **数据来源标注硬规则** | 代码层后处理强制来源标注，每条数据都有出处
 
 ### 知识库模块（20+ 个）
 
@@ -74,15 +76,27 @@ knowledge/
 ├── 06_university_life_planning.md  # 大学在校 4 年规划
 ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
 ├── 08_vocational_strategy.md  # 专科策略
-├── groups/                     # RAG 知识组
-└── quotes/                     # 行业专家语录库（105 条）
+├── groups/                     # RAG 知识组（G1-G9）
+│   ├── G1_core_method.md              # 核心方法论
+│   ├── G2_major_school.md             # 选专业与选学校
+│   ├── G3_career_future.md            # 职业与未来
+│   ├── G4_life_planning.md            # 人生规划
+│   ├── G5_data_format.md              # 数据格式
+│   ├── G6_quick_ref.md                # 快速参考
+│   ├── G7_employment_paths.md         # 就业路径
+│   ├── G8_graduate_and_vocational.md  # 考研与专科
+│   └── G9_zhangxuefeng_methodology_origin.md  # 张雪峰方法论溯源
+└── quotes/                     # 行业专家语录库（155+ 条）
     ├── _index.json            # 全量索引
     ├── _by_major.json         # 按专业反查索引（74 个专业）
+    ├── zhangxuefeng_originals.json # 张雪峰原版金句（50 条，含出处/年份）
     ├── zhuanye.json           # 专业选择（28 条）
     ├── jiuye.json             # 就业前景（18 条）
     ├── rensheng.json          # 人生哲理（18 条）
     ├── yuanxiao.json          # 院校推荐（16 条）
     ├── xuexi.json             # 学习建议（12 条）
+    ├── expansion_v2.json      # 扩展语录 v2
+    ├── expansion_v3.json      # 扩展语录 v3
     └── zhiyuan-celue.json     # 志愿策略（13 条）
 ```
 
@@ -495,30 +509,52 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 | 指标 | 数据 |
 |------|------|
 | 院校覆盖 | 3,016 所 |
-| 录取分数线 | 70,000+ 条 |
+| 录取分数线 | 35 万+ 条 |
 | 省份覆盖 | 30/30 |
-| 年份跨度 | 2022-2024 |
-| 知识库模块 | 17+ |
-| 专家语录 | 105 条 |
-| 测试用例 | 333 个（全部通过） |
-| 核心代码 | 7,000+ 行 Python |
+| 年份跨度 | 2022-2025 |
+| 知识库模块 | 20+ |
+| 专家语录 | 155+ 条（含张雪峰原版 50 条） |
+| 数据库表 | 13 张（院校/专业/分数线/招生计划/考研/职业/对话/反馈等） |
+| 测试用例 | 538 个（全部通过） |
+| 核心代码 | 15,000+ 行 Python + Vue 3 |
 
 ---
 
 ## 技术架构
 
 ```
-用户输入 → 意图检测 → 槽位提取 → LLM 推理 → 冲稳保输出
-              │            │           │
-              ▼            ▼           ▼
-         RAG 知识检索   实时搜索    OpenAI兼容API
-         (17+模块+语录) (最新数据)   (任意模型)
+用户输入 → 安全扫描 → 意图检测 → 场景路由 → 槽位提取 → 画像检查
+                          │                               │
+                          ▼                               ▼
+                    RAG 知识检索                     灵魂追问（补全画像）
+                    (9 知识组 + 语录库)
+                          │
+                          ▼
+                    质量编排 → 数据查询 → 推理组装 → LLM 流式输出
+                    (情绪检测     (30省DB +     (OpenAI兼容
+                    /反模式      百度高考API)   任何模型)
+                    /启发式)
+                          │
+                          ▼
+                    结构化卡片 → 来源标注 → 渲染回复 → 记忆持久化
 ```
 
-- **模型无关**：任何 OpenAI 兼容 API 都可以
-- **RAG 增强**：混合向量+关键词检索，6 个知识组，105 条专家语录
-- **安全防护**：提示词注入检测、SSRF 防御、XSS 消毒、限流
-- **多端部署**：CLI / Streamlit Web / FastAPI REST API / Docker
+**LangGraph 工作流**（13 个节点，2 条路径）：
+| 路径 | 条件 | 流程 |
+|------|------|------|
+| 画像补全 | 缺少必填信息 | 画像检查 → 灵魂追问 → 渲染 → 记忆 |
+| 完整咨询 | 画像已完备 | 质量编排 → 数据查询 → RAG → 推理 → 结构输出 → 来源标注 → 渲染 → 记忆 |
+
+**核心能力矩阵**：
+| 层 | 技术 | 组件数 |
+|----|------|--------|
+| 安全 | 注入检测 + XSS 消毒 + SSRF + 限流 + HMAC 会话令牌 | 5 |
+| 质量 | 情绪 / 风险 / 反模式 / 交叉验证 / 决策启发式 / 模型选择 / 知识加载 | 7 |
+| 知识 | RAG（混合向量 + 关键词）+ G1-G9 知识组 + 155+ 条语录 | 9 组 |
+| 数据 | SQLite / SQLAlchemy / 百度高考 API / 位次法 / 13 张表 | 30 省 |
+| 前端 | Vue 3 + Pinia + Tailwind CSS / SSE 流式 / WebSocket 语音 | 22 组件 |
+| 模型 | 任意 OpenAI 兼容 API（DeepSeek/Qwen/GLM/GPT/Ollama） | 6+ |
+| 部署 | FastAPI + Nginx + Docker Compose / 3 服务 | 容器化 |
 
 ---
 
@@ -540,43 +576,30 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 ```
 ├── server/               # ⭐ FastAPI 后端（主入口）
 │   ├── main.py           # FastAPI 应用入口
+│   ├── graph/            # LangGraph 工作流（state/graph/nodes/）
+│   │   ├── state.py      # AdvisorState 状态定义
+│   │   ├── graph.py      # 13 节点流水线编排
+│   │   └── nodes/        # 15 个处理节点（安全/意图/槽位/质量/RAG/推理等）
 │   ├── routes/           # API 路由（chat / data / health / knowledge / onboarding / profile / voice）
-│   ├── services/         # 业务逻辑（RAG / 会话管理等）
-│   ├── middleware/       # 中间件（限流 / 安全）
-│   └── ...
-├── frontend/             # 前端（Vite + React）
-│   ├── src/              # 源码
-│   └── Dockerfile        # 前端独立构建
-├── agent.py              # 核心 Agent（槽位采集 + RAG检索 + 搜索链 + LLM 对话）
-├── app.py                # ⚠️ DEPRECATED — Streamlit Web 前端（遗留）
-├── admin.py              # 📊 运营看板（密码保护，独立启动）
-├── gaokao_data.py        # 数据查询层（DB→百度API→搜索 三级链路）
-├── kb_retriever.py       # RAG 知识检索引擎（混合向量+关键词，6 个知识组）
-├── onboarding.py         # 3 步引导流程（省份→分数→选科）
-├── ratelimit.py          # Token Bucket 限流器（20次/小时，40次/天/IP）
-├── constants.py          # 共享常量
-├── utils.py              # SSRF 防御 + HTML 消毒
-├── logger.py             # 结构化日志
-├── system_prompt.md      # v2.7 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP）
-├── knowledge_base.md     # 主知识库（838 行，17 个核心模块）
-├── requirements.txt      # Python 依赖
-├── requirements-dev.txt  # 开发依赖（pytest, ruff）
-├── pyproject.toml        # 项目元数据 + 工具配置
-├── Makefile              # 构建/测试/Lint 命令
-├── .env.example          # 配置模板
-├── Dockerfile            # FastAPI 后端镜像
-├── docker-compose.yml    # 一键启动（FastAPI + Frontend + Nginx）
+│   ├── services/         # 业务逻辑（RAG / KB检索 / 数据查询 / 语音 / 质量）
+│   ├── middleware/       # 中间件（限流 / 安全 / CORS）
+│   ├── auth.py           # HMAC 会话令牌认证
+│   ├── monitoring.py     # Sentry 监控集成
+│   ├── soul_query.py     # 灵魂追问引擎（5 轮智能补全画像）
+│   └── user_profile.py   # 用户画像模型（7 字段：省份/分数/选科/兴趣等）
+├── frontend/             # ⭐ 前端（Vue 3 + Vite + Pinia + Tailwind CSS）
+│   ├── src/
+│   │   ├── stores/       # Pinia 状态管理（chat / scene / voice）
+│   │   ├── components/   # 22 个 Vue 组件（chat / layout / voice）
+│   │   ├── views/        # ChatView（主界面）/ AdminView / ReportView
+│   │   ├── api/          # API 客户端（SSE 流式 + onboarding）
+│   │   └── composables/  # useVoice（WebSocket 语音通话）
+│   └── Dockerfile        # 前端 Nginx 构建
 ├── db/                   # 数据库 ORM 层
-│   ├── database.py       # SQLite 连接（零依赖，开箱即用）
-│   ├── models.py         # 10 张表（院校/专业/分数线/招生计划/学科排名/对话/反馈等）
-│   └── crud.py           # CRUD + 位次法匹配算法
-├── scrapers/             # 数据采集器
-│   ├── baidu_gaokao.py   # ⭐ 百度高考 API 采集（结构化 JSON，公开无认证）
-│   ├── baidu.py          # 百度搜索爬虫（兜底 T4 级）
-│   ├── zhiyuan.py        # 掌上高考 API（备选 T2 级）
-│   ├── provinces.py      # 30 省份 + 课程模式映射
-│   └── checkpoint.py     # 导入断点续传
-├── quality/              # 质量控制模块
+│   ├── database.py       # SQLite 连接（WAL 模式，零依赖）
+│   ├── models.py         # 13 张表（院校/专业/分数线/招生计划/考研/职业/对话/反馈等）
+│   └── crud.py           # CRUD + 位次法匹配算法 + 选科兼容性检查
+├── quality/              # 7 个质量控制模块
 │   ├── emotion_detector.py     # 情绪检测（危机/焦虑/正常 三级）
 │   ├── cross_validator.py      # 多源数据交叉验证
 │   ├── ai_era_risk.py          # AI 时代专业风险评估
@@ -584,51 +607,67 @@ ADMIN_PASSWORD=your_password streamlit run admin.py
 │   ├── anti_pattern_checker.py # 8 种反模式检测
 │   ├── model_selector.py       # 心智模型选择矩阵
 │   └── knowledge_loader.py     # 上下文知识加载器
+├── skills/               # 技能框架（Gaokao 方法论）
+│   ├── bootstrap.py      # 技能加载器
+│   ├── service.py        # SkillService（与 LangGraph 集成）
+│   └── gaokao/           # 6 份方法论文档
+│       ├── mental_models.md     # 5 大心智模型
+│       ├── heuristics.md        # 8 条决策启发式 + If-Then 表
+│       ├── anti_patterns.md     # 8 条反模式黑名单
+│       ├── expression_engine.md # 表达引擎 v2（8 开场/金句节奏/禁词）
+│       ├── expression_samples.md # 完整示例
+│       └── safety_rules.md      # 安全边界（锁定/防泄漏/隐私）
+├── slots/                # 槽位提取
+│   ├── extractor.py      # SlotExtractor（省份/分数/选科/兴趣等）
+│   └── patterns.py       # 提取模式定义
+├── config/               # 配置管理
+│   ├── loader.py         # LLM 配置加载（YAML + 环境变量合并）
+│   ├── constants.py      # 共享常量（31 省/高考模式/兴趣分类）
+│   └── llm_providers.yaml # 多 Provider 配置
+├── scrapers/             # 数据采集器
+│   ├── baidu_gaokao.py   # ⭐ 百度高考 API 采集（结构化 JSON，公开无认证）
+│   ├── baidu.py          # 百度搜索爬虫（兜底 T4 级）
+│   ├── zhiyuan.py        # 掌上高考 API（备选 T2 级）
+│   ├── provinces.py      # 30 省份 + 课程模式映射
+│   └── checkpoint.py     # 导入断点续传
 ├── analytics/            # 事件追踪
 │   └── tracker.py        # SQLite 事件追踪器
-├── scripts/              # 数据导入脚本
-│   ├── import_baidu_gaokao.py      # ⭐ 主采集（院校 + 分数线）
-│   ├── import_majors_taxonomy.py   # 专业分类体系（193 个专业）
-│   ├── import_yi_fen_yi_duan.py    # 一分一段表（位次法核心）
-│   ├── seed_data.py               # 种子数据（985/211 硬编码）
-│   ├── seed_quotes.py             # 语录库索引生成
-│   ├── update_data.py             # 增量数据更新
-│   ├── validate_data.py           # 数据校验
-│   ├── precompute_embeddings.py   # 向量预计算
-│   ├── backup_db.sh               # 数据库备份
-│   └── auto_update.sh             # 自动更新脚本
-├── knowledge/            # 扩展知识库
-│   ├── 00_ai_era_correction.md    # AI 时代校正框架
-│   ├── 06_university_life_planning.md  # 大学在校规划
-│   ├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-│   ├── 08_vocational_strategy.md  # 专科策略
-│   ├── groups/            # RAG 知识组
-│   └── quotes/            # 行业专家语录库（105 条，6 个分类）
 ├── prompts/              # 提示词版本管理
-│   ├── system/            # 系统提示词版本存档（v2.0-v2.8）
-│   ├── templates/         # 可复用提示词模板（14 个）
-│   └── sessions/          # 会话归档
-├── h5/                   # H5 移动端前端
-│   └── index.html         # 独立聊天页面（供微信 H5/小程序嵌入）
-├── tests/                # 测试套件（333 个测试，20 个测试文件）
+│   ├── system/           # 系统提示词版本存档（v1.0 - v2.14）
+│   ├── templates/        # 可复用提示词模板（14 个：注入防御/输出过滤/合规/测试等）
+│   └── sessions/         # 会话归档
+├── tests/                # ⭐ 测试套件（538 个测试，48 个测试文件）
+│   ├── test_agent_core.py, test_langgraph.py, test_chat_sse.py ...
+│   ├── test_middleware_*.py    # 安全 + 限流中间件
+│   ├── test_integration_*.py   # E2E + RAG 集成
+│   ├── test_quality_*.py      # 7 个质量模块
+│   └── test_p1_features.py, test_p2_features.py  # 阶段特性验证
+├── knowledge/            # RAG 知识库
+│   ├── groups/           # G1-G9 知识组（含 G9 张雪峰方法论溯源）
+│   ├── quotes/           # 155+ 条语录（含 50 条张雪峰原版金句）
+│   └── 00_ai_era_correction.md ...
+├── scripts/              # 数据导入/工具脚本
+│   ├── import_baidu_gaokao.py  # ⭐ 主采集（院校 + 分数线，断点续传）
+│   ├── import_yi_fen_yi_duan.py # 一分一段表
+│   ├── import_majors_taxonomy.py # 专业分类
+│   ├── import_xuefeng_data.py   # 张雪峰数据导入
+│   ├── seed_data.py             # 种子数据
+│   ├── validate_data.py         # 数据校验
+│   ├── precompute_embeddings.py # 向量预计算
+│   └── backup_db.sh             # 数据库备份
 ├── content_scripts/      # 内容脚本库
 │   ├── 抖音内容脚本库.md     # 55 条短视频脚本（5 种爆款模板）
-│   └── 首批抖音脚本-可直接录制.md  # 3 条可直接录制的脚本
+│   └── 首批抖音脚本-可直接录制.md
 ├── docs/                 # 项目文档
-│   ├── next-phase-plan.md       # 总体执行计划（Phase 5-8）
-│   ├── coze-bot-setup.md        # 扣子 Bot 设置指南
-│   ├── content-calendar.md      # 2 周内容排期表
-│   ├── community-ops-handbook.md # 私域社群运营手册
-│   ├── course-outlines.md       # 知识付费课程大纲
-│   ├── lead-magnet-*.md         # PDF 引流品（提问模板 + 选科指南）
-│   ├── blog-rag-gaokao.md       # 知乎技术博客
-│   ├── development-plan.md      # 用户体验升级计划
-│   ├── deploy-checklist.md      # 生产部署清单
-│   └── user-experience-audit.md # 用户体验审计报告
-├── examples/
-├── data/gaokao.db        # SQLite 数据库（70,000+ 条分数线）
-├── 启动.bat              # Windows 命令行版
-└── 启动Web版.bat          # Windows Web版
+│   ├── superpowers/       # ADR 架构决策记录（6 份） + 实施计划 + 设计文档
+│   ├── next-phase-plan.md # 总体执行计划
+│   ├── coze-bot-setup.md  # 扣子 Bot 设置
+│   └── ...
+├── system_prompt.md      # v2.11 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP + 来源硬规则）
+├── knowledge_base.md     # 主知识库（838 行，17 核心模块）
+├── data/gaokao.db        # SQLite 数据库（35 万+ 条数据）
+├── h5/                   # 移动端 H5 聊天页面
+├── legacy/               # 遗留代码（已弃用，安全迁移后保留）
 ```
 
 ---
@@ -655,11 +694,15 @@ gaobao 是我的代表项目，展示了我在 AI Agent、RAG 系统、数据工
 - **贡献知识模块** — 补充更多省份数据、专业解读
 - **提 Issue** — 反馈 bug 或建议新功能
 
+### 已实现功能
+
+- [x] 语音输入/通话（WebSocket + ASR + TTS 全双工）
+- [x] 30 省份录取数据覆盖（含 2022-2025）
+- [x] 30 省份一分一段表（位次法推荐）
+
 ### 待实现功能
 
 - [ ] 微信/Telegram Bot 接入
-- [ ] 更多省份录取数据覆盖
-- [ ] 语音输入
 - [ ] 多人场景（家庭协同查看）
 - [ ] 志愿表自动排序 + 调剂风险评估
 
