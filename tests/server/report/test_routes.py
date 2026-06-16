@@ -18,7 +18,7 @@ async def test_generate_report_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert "report_id" in data
-    assert data["status"] == "created"
+    assert data["status"] == "completed"
     assert data["report_id"] != ""
 
 
