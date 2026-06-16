@@ -180,9 +180,10 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
                 "error": str(exc)[:200],
             }
         )
+        return {"reply": reply, "trace": trace, "degraded": True}
 
     trace.append({"node": "llm_reason", "event": "llm_reply_generated"})
-    return {"reply": reply, "trace": trace}
+    return {"reply": reply, "trace": trace, "degraded": False}
 
 
 # ── Memory loading helper ─────────────────────────────────────────
@@ -234,8 +235,12 @@ def _maybe_trim(messages: list[dict]) -> list[dict]:
 # ── Streaming (also sync generator, called inside SSE handler) ────
 
 
-def llm_node_stream(state: dict[str, Any]) -> Generator[str, None, None]:
-    """Stream LLM tokens one by one with retry + context trimming + memory."""
+def llm_node_stream(state: dict[str, Any]) -> Generator[tuple[str, bool], None, None]:
+    """Stream LLM tokens one by one with retry + context trimming + memory.
+
+    Yields (token, is_degraded) tuples. is_degraded=True means LLM failed
+    and a fallback reply is being streamed.
+    """
     cfg = _get_config()
 
     try:
@@ -263,6 +268,8 @@ def llm_node_stream(state: dict[str, Any]) -> Generator[str, None, None]:
         )
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+                yield (chunk.choices[0].delta.content, False)
+        return  # Normal completion
     except Exception:
-        yield _FALLBACK_REPLY
+        for char in _FALLBACK_REPLY:
+            yield (char, True)  # Degraded: stream fallback reply with degraded flag
