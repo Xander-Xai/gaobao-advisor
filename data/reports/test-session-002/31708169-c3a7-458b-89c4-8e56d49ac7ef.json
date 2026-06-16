@@ -1,0 +1,18 @@
+{
+  "id": "31708169-c3a7-458b-89c4-8e56d49ac7ef",
+  "session_id": "test-session-002",
+  "created_at": "2026-06-17T02:38:16.307594",
+  "student_name": "李四",
+  "province": "",
+  "score": 0,
+  "subject": "",
+  "interest": "",
+  "summary": "高考志愿填报分析报告",
+  "facts": [],
+  "suggestions": [],
+  "risks": [],
+  "next_actions": [],
+  "confidence": 0.0,
+  "match_schools": [],
+  "scene": "gaokao"
+}
