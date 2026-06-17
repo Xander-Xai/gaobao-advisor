@@ -202,29 +202,28 @@ class TestExceptionSafety:
 
 
 class TestRenderIntegration:
-    """render_reply_node 集成测试。"""
+    """source_attribution_node (graph node) 集成测试。"""
 
-    def test_render_node_imports_source_attribution(self) -> None:
-        """确认 render 节点已集成 source_attribution。"""
-        from server.graph.nodes.render import render_reply_node
+    def test_source_attribution_node_annotates_unattributed(self) -> None:
+        """确认 source_attribution_node 标注无来源数据。"""
+        from server.graph.nodes.source_attribution import source_attribution_node
 
         # 模拟一个 LLM 已生成 reply 的状态
         state = {
             "reply": "你的分数是 580 分,可以上武汉理工。",
             "trace": [],
         }
-        result = render_reply_node(state)
+        result = source_attribution_node(state)
         assert "数据来源待补全" in result["reply"]
-        assert "声明" in result["reply"]  # disclaimer appended
+        assert "source_attribution_done" in [t["event"] for t in result["trace"]]
 
-    def test_render_node_with_source_no_extra_annotation(self) -> None:
+    def test_source_attribution_node_no_extra_annotation(self) -> None:
         """带来源的回复不应被重复标注。"""
-        from server.graph.nodes.render import render_reply_node
+        from server.graph.nodes.source_attribution import source_attribution_node
 
         state = {
             "reply": "580 分（来源：湖北省考试院 2024 年）",
             "trace": [],
         }
-        result = render_reply_node(state)
+        result = source_attribution_node(state)
         assert result["reply"].count("数据来源待补全") == 0
-        assert result["reply"].count("来源") == 1  # 仅 LLM 自带来源
