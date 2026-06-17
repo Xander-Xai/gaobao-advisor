@@ -75,11 +75,19 @@ class HallucinationDetector:
         re.compile(r"中国教育在线"),
     ]
 
+    # ── 矛盾指示词对（肯定 vs 否定） ────────────────────────────
+    _CONTRADICTION_PAIRS: list[tuple[re.Pattern[str], re.Pattern[str]]] = [
+        (re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:好|不错|优秀|推荐)"), re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:不好|不行|差|糟糕|不推荐|别|不要)")),
+        (re.compile(r"(\S+)\s*(?:值得|应该|可以|建议)(?:考虑|选择|报考)"), re.compile(r"(\S+)\s*(?:不值得|不应该|不可以|不建议|别|不要)(?:考虑|选择|报考)")),
+        (re.compile(r"(\S+)\s*(?:有|是有)(?:前途|前景|希望)"), re.compile(r"(\S+)\s*(?:没有|没|无)(?:前途|前景|希望)")),
+    ]
+
     def detect(
         self,
         reply: str,
         query: str = "",
         knowledge_chunks: str | None = None,
+        conversation_history: list[str] | None = None,
     ) -> list[str]:
         """检测 AI 回答中的潜在幻觉。
 
@@ -87,6 +95,7 @@ class HallucinationDetector:
             reply: AI 生成的回答。
             query: 用户原始问题（暂未使用，预留扩展）。
             knowledge_chunks: 知识库参考文本。
+            conversation_history: 前几轮对话文本列表，用于矛盾检测。
 
         Returns:
             幻觉标记列表，如 ["numeric:680", "entity_school:某某大学", "source_missing"]。
@@ -105,6 +114,9 @@ class HallucinationDetector:
 
         # 3. 来源引用缺失检测
         flags.extend(self._detect_source_attribution_missing(reply))
+
+        # 4. 矛盾检测
+        flags.extend(self._detect_contradiction(reply, conversation_history))
 
         return flags
 
@@ -150,8 +162,12 @@ class HallucinationDetector:
                 if self._is_common_school(school):
                     continue
 
-                if knowledge_text and school not in knowledge_text:
-                    flags.append(f"entity_school:{school}")
+                if knowledge_text:
+                    if school not in knowledge_text:
+                        flags.append(f"entity_school:{school}")
+                else:
+                    # No knowledge base to validate against — flag as unverified
+                    flags.append(f"entity_school_unverified:{school}")
 
         # 专业名称检测
         seen_majors: set[str] = set()
@@ -166,8 +182,12 @@ class HallucinationDetector:
                 if len(major) < 3:
                     continue
 
-                if knowledge_text and major not in knowledge_text:
-                    flags.append(f"entity_major:{major}")
+                if knowledge_text:
+                    if major not in knowledge_text:
+                        flags.append(f"entity_major:{major}")
+                else:
+                    # No knowledge base to validate against — flag as unverified
+                    flags.append(f"entity_major_unverified:{major}")
 
         return flags
 
@@ -188,6 +208,57 @@ class HallucinationDetector:
                 if not has_attribution:
                     flags.append("source_missing")
                     return flags  # 只需标记一次
+
+        return flags
+
+    def _detect_contradiction(
+        self, reply: str, conversation_history: list[str] | None = None
+    ) -> list[str]:
+        """检测矛盾 — 回复与对话历史中的表述是否自相矛盾。
+
+        Args:
+            reply: 当前 AI 回答。
+            conversation_history: 前几轮对话文本列表。
+
+        Returns:
+            矛盾标记列表，如 ["contradiction:计算机"]。
+        """
+        if not conversation_history:
+            return []
+
+        flags: list[str] = []
+        history_text = " ".join(conversation_history)
+
+        for pos_pattern, neg_pattern in self._CONTRADICTION_PAIRS:
+            # Find affirmative mentions in reply
+            pos_matches = list(pos_pattern.finditer(reply))
+            if not pos_matches:
+                continue
+            # Find negative mentions in history (or vice versa)
+            neg_matches = list(neg_pattern.finditer(history_text))
+
+            # Also check the reverse: negative in reply, affirmative in history
+            neg_in_reply = list(neg_pattern.finditer(reply))
+            pos_in_history = list(pos_pattern.finditer(history_text))
+
+            # Collect topics that appear with opposite sentiment
+            contradiction_topics: set[str] = set()
+            for pm in pos_matches:
+                topic = pm.group(1).strip()
+                if len(topic) >= 2 and not topic.startswith(("这", "那", "其", "很")):
+                    for nm in neg_matches:
+                        if nm.group(1).strip() == topic:
+                            contradiction_topics.add(topic)
+
+            for nm in neg_in_reply:
+                topic = nm.group(1).strip()
+                if len(topic) >= 2 and not topic.startswith(("这", "那", "其", "很")):
+                    for pm in pos_in_history:
+                        if pm.group(1).strip() == topic:
+                            contradiction_topics.add(topic)
+
+            for topic in contradiction_topics:
+                flags.append(f"contradiction:{topic}")
 
         return flags
 
