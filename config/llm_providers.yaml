@@ -3,6 +3,24 @@
 # 用法: 设置 LLM_PROVIDER=deepseek 即可快速切换
 
 providers:
+  agnes-flash-1:
+    base_url: "https://api.agnes.ai/v1"
+    model: "agnes-2.0-flash"
+    temperature: 0.7
+    max_tokens: null
+
+  agnes-flash-2:
+    base_url: "https://api.agnes.ai/v1"
+    model: "agnes-2.0-flash"
+    temperature: 0.7
+    max_tokens: null
+
+  glm-4:
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+    model: "glm-4"
+    temperature: 0.7
+    max_tokens: null
+
   deepseek:
     base_url: "https://api.deepseek.com"
     model: "deepseek-chat"
@@ -12,12 +30,6 @@ providers:
   qwen:
     base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model: "qwen-plus"
-    temperature: 0.7
-    max_tokens: null
-
-  glm:
-    base_url: "https://open.bigmodel.cn/api/paas/v4"
-    model: "glm-4"
     temperature: 0.7
     max_tokens: null
 
@@ -40,7 +52,7 @@ providers:
     max_tokens: null
 
 defaults:
-  provider: "deepseek"
+  provider: "agnes-flash-1"
   temperature: 0.7
   enable_search: true
   max_tokens: null

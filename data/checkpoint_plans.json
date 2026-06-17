@@ -1,9 +1,9 @@
 {
-  "school_index": 130,
-  "total_schools": 166,
-  "current_school": "华南农业大学",
+  "school_index": 320,
+  "total_schools": 514,
+  "current_school": "云南师范大学",
   "stats": {
-    "requests": 10556,
-    "errors": 5431
+    "requests": 57037,
+    "errors": 19307
   }
 }

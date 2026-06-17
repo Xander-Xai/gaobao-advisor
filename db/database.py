@@ -94,6 +94,7 @@ def init_db():
         GraduateScore,
         Highlight,
         Major,
+        QualityScore,
         School,
         SubjectRanking,
         YiFenYiDuan,

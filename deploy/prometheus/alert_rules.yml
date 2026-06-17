@@ -1,0 +1,34 @@
+groups:
+  - name: ai_quality
+    rules:
+      - alert: LowAverageQuality
+        expr: avg_over_time(quality_judge_score{dimension="factual"}[5m]) < 70
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI 回复平均质量分低于阈值"
+
+      - alert: HighHallucinationRate
+        expr: rate(quality_hallucination_detected_total[5m]) > 0.15
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "幻觉检测率过高"
+
+      - alert: LowUserSatisfaction
+        expr: quality_user_satisfaction < 0.5
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "用户满意度过低"
+
+      - alert: FrequentRewrites
+        expr: rate(quality_rewrite_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "低质量回复重写频率升高"

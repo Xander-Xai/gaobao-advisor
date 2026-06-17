@@ -333,6 +333,8 @@ def main():
 
     layers = [int(x.strip()) for x in args.layer.split(",")]
     provinces = args.provinces or ALL_PROVINCES[:5]  # 默认前5省
+    if provinces == ["ALL"]:
+        provinces = ALL_PROVINCES
 
     init_db()
     db = get_session()
