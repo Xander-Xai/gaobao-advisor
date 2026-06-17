@@ -7,9 +7,13 @@ that exposes a clean interface for the server layer with lazy initialization.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 from typing import Any
+
+from server.services.rag_cache import RagCache
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +21,7 @@ _retriever = None
 _groups_dir: str = ""
 _quotes_path: str = ""
 _active_provider: str = "unknown"
+_cache = RagCache()
 
 
 def configure(groups_dir: str, quotes_path: str) -> None:
@@ -66,14 +71,35 @@ def _get_retriever():
     return _retriever
 
 
+def _make_cache_key(user_msg: str, slots: dict) -> str:
+    """Build a deterministic cache key from the query and slots."""
+    normalized = user_msg.strip().lower()
+    return hashlib.md5(f"{normalized}|{json.dumps(slots, sort_keys=True)}".encode()).hexdigest()
+
+
 def search(user_msg: str, slots: dict | None = None) -> dict[str, Any]:
     """Search the knowledge base for relevant content.
+
+    Results are cached by (user_msg, slots) to avoid redundant retrievals.
 
     Returns:
         dict with keys: groups, group_chunks, quotes
     """
-    result = _get_retriever().search(user_msg, slots or {})
-    return {
+    from server.metrics import record_cache_hit, record_cache_miss
+
+    slots = slots or {}
+    cache_key = _make_cache_key(user_msg, slots)
+
+    # Check cache first
+    cached = _cache.get(user_msg, slots)
+    if cached is not None:
+        record_cache_hit()
+        return cached
+
+    record_cache_miss()
+
+    result = _get_retriever().search(user_msg, slots)
+    response = {
         "groups": result.groups,
         "group_chunks": [
             {
@@ -98,6 +124,10 @@ def search(user_msg: str, slots: dict | None = None) -> dict[str, Any]:
             for q in result.quotes
         ],
     }
+
+    # Write to cache
+    _cache.set(user_msg, slots, response)
+    return response
 
 
 def load_contextual_knowledge(
