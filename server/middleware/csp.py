@@ -86,17 +86,13 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
         # Add nonce to <script> tags without src
         body = re.sub(
-            r'<script([^>]*)>',
-            lambda m: f'<script{m.group(1)} nonce="{nonce}">' if 'src=' not in m.group(1) else f'<script{m.group(1)}>',
-            body
+            r"<script([^>]*)>",
+            lambda m: f'<script{m.group(1)} nonce="{nonce}">' if "src=" not in m.group(1) else f"<script{m.group(1)}>",
+            body,
         )
 
         # Add nonce to <style> tags
-        body = re.sub(
-            r'<style([^>]*)>',
-            f'<style\\1 nonce="{nonce}">',
-            body
-        )
+        body = re.sub(r"<style([^>]*)>", f'<style\\1 nonce="{nonce}">', body)
 
         # Update response body
         response.body = body.encode("utf-8")

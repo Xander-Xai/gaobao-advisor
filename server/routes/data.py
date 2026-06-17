@@ -156,9 +156,7 @@ async def get_plans(
             return {"items": [], "next_cursor": None, "has_more": False}
 
         # Build query
-        query = session.query(EnrollmentPlan).filter(
-            EnrollmentPlan.school_id == school.id
-        )
+        query = session.query(EnrollmentPlan).filter(EnrollmentPlan.school_id == school.id)
 
         if province:
             query = query.filter(EnrollmentPlan.province == province)

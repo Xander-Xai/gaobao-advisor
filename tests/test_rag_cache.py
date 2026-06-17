@@ -211,8 +211,10 @@ class TestRedisCache:
 
     @pytest.fixture
     def cache(self, mock_redis):
-        with patch("server.services.rag_cache._Redis", create=True), \
-             patch("server.services.rag_cache.REDIS_AVAILABLE", True):
+        with (
+            patch("server.services.rag_cache._Redis", create=True),
+            patch("server.services.rag_cache.REDIS_AVAILABLE", True),
+        ):
             cache = RagCache(redis_url="redis://localhost:6379/0", max_memory_entries=10)
             cache._redis = mock_redis
             return cache
@@ -275,8 +277,10 @@ class TestRedisCache:
 
     def test_redis_connection_failure_uses_memory(self):
         """When Redis connection fails, RagCache falls back to memory."""
-        with patch("server.services.rag_cache.REDIS_AVAILABLE", True), \
-             patch("server.services.rag_cache.redis.from_url") as mock_from_url:
+        with (
+            patch("server.services.rag_cache.REDIS_AVAILABLE", True),
+            patch("redis.from_url") as mock_from_url,
+        ):
             mock_from_url.side_effect = Exception("Connection refused")
             cache = RagCache(redis_url="redis://localhost:6379/0")
             assert cache._redis is None
@@ -290,6 +294,7 @@ class TestGetRagCache:
     def teardown_method(self):
         # Reset the singleton after each test
         from server.services import rag_cache
+
         rag_cache._cache = None
 
     def test_returns_rag_cache_instance(self):
@@ -332,7 +337,6 @@ class TestEdgeCases:
     def test_get_empty_string_query(self):
         cache = RagCache(redis_url=None)
         assert cache.get("", {}) is None
-
 
     def test_clear_empty_cache(self):
         cache = RagCache(redis_url=None)

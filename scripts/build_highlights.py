@@ -39,13 +39,13 @@ def score_content(content: str) -> int:
         score += 5
 
     # 含具体数据加成
-    if re.search(r'\d{3}-\d{3}分|\d{4}位|位次\d+|排名\d+|就业率\d+%|平均月薪', content):
+    if re.search(r"\d{3}-\d{3}分|\d{4}位|位次\d+|排名\d+|就业率\d+%|平均月薪", content):
         score += 10
-    if re.search(r'(985|211|双一流|一本|二本)', content):
+    if re.search(r"(985|211|双一流|一本|二本)", content):
         score += 5
-    if re.search(r'推荐|建议|优先|首选|关键|注意|千万不要', content):
+    if re.search(r"推荐|建议|优先|首选|关键|注意|千万不要", content):
         score += 5
-    if re.search(r'[A-Z+]{2,}', content):
+    if re.search(r"[A-Z+]{2,}", content):
         score += 3  # 含学科等级 A+ 等
 
     # 短回复降分

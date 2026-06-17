@@ -80,11 +80,14 @@ def create_tables():
         created_at = Column(DateTime, default=datetime.utcnow)
 
     # Create tables
-    Base.metadata.create_all(engine, tables=[
-        Career.__table__,
-        CareerSkill.__table__,
-        SalaryRange.__table__,
-    ])
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Career.__table__,
+            CareerSkill.__table__,
+            SalaryRange.__table__,
+        ],
+    )
 
     logger.info("✓ Career tables created")
 
@@ -104,7 +107,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责软件开发、维护和优化",
                 "required_education": "本科",
                 "experience_years": 0,
-                "career_path": ["初级工程师", "中级工程师", "高级工程师", "技术专家", "架构师"]
+                "career_path": ["初级工程师", "中级工程师", "高级工程师", "技术专家", "架构师"],
             },
             {
                 "title": "产品经理",
@@ -113,7 +116,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责产品规划、需求分析和项目管理",
                 "required_education": "本科",
                 "experience_years": 2,
-                "career_path": ["产品助理", "产品经理", "高级产品经理", "产品总监", "VP产品"]
+                "career_path": ["产品助理", "产品经理", "高级产品经理", "产品总监", "VP产品"],
             },
             {
                 "title": "数据分析师",
@@ -122,7 +125,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责数据采集、清洗、分析和可视化",
                 "required_education": "本科",
                 "experience_years": 1,
-                "career_path": ["数据分析师", "高级数据分析师", "数据科学家", "数据分析经理"]
+                "career_path": ["数据分析师", "高级数据分析师", "数据科学家", "数据分析经理"],
             },
             {
                 "title": "金融分析师",
@@ -131,7 +134,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责金融市场分析、投资建议和风险管理",
                 "required_education": "硕士",
                 "experience_years": 3,
-                "career_path": ["分析师", "高级分析师", "投资经理", "投资总监", "合伙人"]
+                "career_path": ["分析师", "高级分析师", "投资经理", "投资总监", "合伙人"],
             },
             {
                 "title": "教师",
@@ -140,7 +143,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责教学、课程设计和学生管理",
                 "required_education": "本科",
                 "experience_years": 0,
-                "career_path": ["助教", "讲师", "副教授", "教授", "学科带头人"]
+                "career_path": ["助教", "讲师", "副教授", "教授", "学科带头人"],
             },
             {
                 "title": "医生",
@@ -149,7 +152,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责疾病诊断、治疗和预防",
                 "required_education": "博士",
                 "experience_years": 5,
-                "career_path": ["住院医师", "主治医师", "副主任医师", "主任医师", "科室主任"]
+                "career_path": ["住院医师", "主治医师", "副主任医师", "主任医师", "科室主任"],
             },
             {
                 "title": "律师",
@@ -158,7 +161,7 @@ def import_sample_data(test_mode: bool = False):
                 "description": "提供法律咨询、代理诉讼和非诉业务",
                 "required_education": "本科",
                 "experience_years": 2,
-                "career_path": ["律师助理", "律师", "资深律师", "合伙人", "律所主任"]
+                "career_path": ["律师助理", "律师", "资深律师", "合伙人", "律所主任"],
             },
             {
                 "title": "市场营销经理",
@@ -167,43 +170,166 @@ def import_sample_data(test_mode: bool = False):
                 "description": "负责市场推广、品牌建设和营销策划",
                 "required_education": "本科",
                 "experience_years": 3,
-                "career_path": ["市场专员", "市场主管", "市场经理", "市场总监", "CMO"]
+                "career_path": ["市场专员", "市场主管", "市场经理", "市场总监", "CMO"],
             },
         ]
 
         # Sample skills for careers
         career_skills = [
-            {"career_title": "软件工程师", "skill_name": "Python", "importance": "Essential", "proficiency_level": "Intermediate"},
-            {"career_title": "软件工程师", "skill_name": "Java", "importance": "Essential", "proficiency_level": "Intermediate"},
-            {"career_title": "软件工程师", "skill_name": "JavaScript", "importance": "Preferred", "proficiency_level": "Beginner"},
-            {"career_title": "软件工程师", "skill_name": "数据结构", "importance": "Essential", "proficiency_level": "Advanced"},
-            {"career_title": "软件工程师", "skill_name": "算法", "importance": "Essential", "proficiency_level": "Advanced"},
-
-            {"career_title": "产品经理", "skill_name": "需求分析", "importance": "Essential", "proficiency_level": "Advanced"},
-            {"career_title": "产品经理", "skill_name": "原型设计", "importance": "Essential", "proficiency_level": "Intermediate"},
-            {"career_title": "产品经理", "skill_name": "数据分析", "importance": "Preferred", "proficiency_level": "Intermediate"},
-            {"career_title": "产品经理", "skill_name": "沟通协调", "importance": "Essential", "proficiency_level": "Advanced"},
-
-            {"career_title": "数据分析师", "skill_name": "SQL", "importance": "Essential", "proficiency_level": "Advanced"},
-            {"career_title": "数据分析师", "skill_name": "Python", "importance": "Essential", "proficiency_level": "Intermediate"},
-            {"career_title": "数据分析师", "skill_name": "统计学", "importance": "Essential", "proficiency_level": "Advanced"},
-            {"career_title": "数据分析师", "skill_name": "可视化", "importance": "Preferred", "proficiency_level": "Intermediate"},
+            {
+                "career_title": "软件工程师",
+                "skill_name": "Python",
+                "importance": "Essential",
+                "proficiency_level": "Intermediate",
+            },
+            {
+                "career_title": "软件工程师",
+                "skill_name": "Java",
+                "importance": "Essential",
+                "proficiency_level": "Intermediate",
+            },
+            {
+                "career_title": "软件工程师",
+                "skill_name": "JavaScript",
+                "importance": "Preferred",
+                "proficiency_level": "Beginner",
+            },
+            {
+                "career_title": "软件工程师",
+                "skill_name": "数据结构",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "软件工程师",
+                "skill_name": "算法",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "产品经理",
+                "skill_name": "需求分析",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "产品经理",
+                "skill_name": "原型设计",
+                "importance": "Essential",
+                "proficiency_level": "Intermediate",
+            },
+            {
+                "career_title": "产品经理",
+                "skill_name": "数据分析",
+                "importance": "Preferred",
+                "proficiency_level": "Intermediate",
+            },
+            {
+                "career_title": "产品经理",
+                "skill_name": "沟通协调",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "数据分析师",
+                "skill_name": "SQL",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "数据分析师",
+                "skill_name": "Python",
+                "importance": "Essential",
+                "proficiency_level": "Intermediate",
+            },
+            {
+                "career_title": "数据分析师",
+                "skill_name": "统计学",
+                "importance": "Essential",
+                "proficiency_level": "Advanced",
+            },
+            {
+                "career_title": "数据分析师",
+                "skill_name": "可视化",
+                "importance": "Preferred",
+                "proficiency_level": "Intermediate",
+            },
         ]
 
         # Sample salary ranges
         salary_ranges = [
-            {"career_title": "软件工程师", "city": "北京", "experience_level": "Entry", "min_salary": 15000, "max_salary": 25000, "avg_salary": 20000},
-            {"career_title": "软件工程师", "city": "北京", "experience_level": "Mid", "min_salary": 25000, "max_salary": 40000, "avg_salary": 32000},
-            {"career_title": "软件工程师", "city": "北京", "experience_level": "Senior", "min_salary": 40000, "max_salary": 70000, "avg_salary": 55000},
-
-            {"career_title": "软件工程师", "city": "上海", "experience_level": "Entry", "min_salary": 14000, "max_salary": 23000, "avg_salary": 18000},
-            {"career_title": "软件工程师", "city": "上海", "experience_level": "Mid", "min_salary": 23000, "max_salary": 38000, "avg_salary": 30000},
-
-            {"career_title": "产品经理", "city": "北京", "experience_level": "Entry", "min_salary": 12000, "max_salary": 20000, "avg_salary": 16000},
-            {"career_title": "产品经理", "city": "北京", "experience_level": "Mid", "min_salary": 20000, "max_salary": 35000, "avg_salary": 27000},
-
-            {"career_title": "数据分析师", "city": "北京", "experience_level": "Entry", "min_salary": 13000, "max_salary": 22000, "avg_salary": 17000},
-            {"career_title": "数据分析师", "city": "北京", "experience_level": "Mid", "min_salary": 22000, "max_salary": 35000, "avg_salary": 28000},
+            {
+                "career_title": "软件工程师",
+                "city": "北京",
+                "experience_level": "Entry",
+                "min_salary": 15000,
+                "max_salary": 25000,
+                "avg_salary": 20000,
+            },
+            {
+                "career_title": "软件工程师",
+                "city": "北京",
+                "experience_level": "Mid",
+                "min_salary": 25000,
+                "max_salary": 40000,
+                "avg_salary": 32000,
+            },
+            {
+                "career_title": "软件工程师",
+                "city": "北京",
+                "experience_level": "Senior",
+                "min_salary": 40000,
+                "max_salary": 70000,
+                "avg_salary": 55000,
+            },
+            {
+                "career_title": "软件工程师",
+                "city": "上海",
+                "experience_level": "Entry",
+                "min_salary": 14000,
+                "max_salary": 23000,
+                "avg_salary": 18000,
+            },
+            {
+                "career_title": "软件工程师",
+                "city": "上海",
+                "experience_level": "Mid",
+                "min_salary": 23000,
+                "max_salary": 38000,
+                "avg_salary": 30000,
+            },
+            {
+                "career_title": "产品经理",
+                "city": "北京",
+                "experience_level": "Entry",
+                "min_salary": 12000,
+                "max_salary": 20000,
+                "avg_salary": 16000,
+            },
+            {
+                "career_title": "产品经理",
+                "city": "北京",
+                "experience_level": "Mid",
+                "min_salary": 20000,
+                "max_salary": 35000,
+                "avg_salary": 27000,
+            },
+            {
+                "career_title": "数据分析师",
+                "city": "北京",
+                "experience_level": "Entry",
+                "min_salary": 13000,
+                "max_salary": 22000,
+                "avg_salary": 17000,
+            },
+            {
+                "career_title": "数据分析师",
+                "city": "北京",
+                "experience_level": "Mid",
+                "min_salary": 22000,
+                "max_salary": 35000,
+                "avg_salary": 28000,
+            },
         ]
 
         if test_mode:
@@ -214,6 +340,7 @@ def import_sample_data(test_mode: bool = False):
 
         # Insert careers
         from db.models import Career as C
+
         for career_data in careers:
             existing = session.query(C).filter(C.title == career_data["title"]).first()
             if not existing:
@@ -225,16 +352,18 @@ def import_sample_data(test_mode: bool = False):
 
         # Insert skills
         from db.models import CareerSkill as CS
+
         for skill_data in career_skills:
             career = session.query(C).filter(C.title == skill_data["career_title"]).first()
             if career:
                 skill_data["career_id"] = career.id
                 del skill_data["career_title"]
 
-                existing = session.query(CS).filter(
-                    CS.career_id == skill_data["career_id"],
-                    CS.skill_name == skill_data["skill_name"]
-                ).first()
+                existing = (
+                    session.query(CS)
+                    .filter(CS.career_id == skill_data["career_id"], CS.skill_name == skill_data["skill_name"])
+                    .first()
+                )
 
                 if not existing:
                     skill = CS(**skill_data)
@@ -245,17 +374,22 @@ def import_sample_data(test_mode: bool = False):
 
         # Insert salary ranges
         from db.models import SalaryRange as SR
+
         for salary_data in salary_ranges:
             career = session.query(C).filter(C.title == salary_data["career_title"]).first()
             if career:
                 salary_data["career_id"] = career.id
                 del salary_data["career_title"]
 
-                existing = session.query(SR).filter(
-                    SR.career_id == salary_data["career_id"],
-                    SR.city == salary_data["city"],
-                    SR.experience_level == salary_data["experience_level"]
-                ).first()
+                existing = (
+                    session.query(SR)
+                    .filter(
+                        SR.career_id == salary_data["career_id"],
+                        SR.city == salary_data["city"],
+                        SR.experience_level == salary_data["experience_level"],
+                    )
+                    .first()
+                )
 
                 if not existing:
                     salary = SR(**salary_data)

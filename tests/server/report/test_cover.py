@@ -3,7 +3,9 @@ from server.report.models import Report
 
 
 def test_cover_svg_contains_title():
-    report = Report(session_id="test", province="山东", score=600, subject="物理", interest="计算机", student_name="张三")
+    report = Report(
+        session_id="test", province="山东", score=600, subject="物理", interest="计算机", student_name="张三"
+    )
     svg = CoverGenerator.generate_svg(report)
     assert "金榜题名" in svg
     assert "张三" in svg

@@ -46,6 +46,7 @@ class Report:
 
         Slot format: {"province": {"value": "山东", "filled": True}, ...}
         """
+
         def _get_slot(key: str) -> str:
             val = slots.get(key, {})
             if isinstance(val, dict):

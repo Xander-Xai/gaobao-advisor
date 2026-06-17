@@ -125,9 +125,7 @@ def build_dimension_messages(
     if knowledge_chunks:
         user_content_parts.append(f"【知识库参考】\n{knowledge_chunks}")
 
-    user_content_parts.append(
-        "请对上述AI回答进行评估，严格按要求返回JSON格式结果。"
-    )
+    user_content_parts.append("请对上述AI回答进行评估，严格按要求返回JSON格式结果。")
 
     messages.append({"role": "user", "content": "\n\n".join(user_content_parts)})
 

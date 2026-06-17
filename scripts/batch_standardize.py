@@ -116,9 +116,12 @@ def main():
 
     try:
         # 获取所有不同的批次名
-        batch_names = db.query(AdmissionScore.batch, func.count(AdmissionScore.id)).group_by(
-            AdmissionScore.batch
-        ).order_by(func.count(AdmissionScore.id).desc()).all()
+        batch_names = (
+            db.query(AdmissionScore.batch, func.count(AdmissionScore.id))
+            .group_by(AdmissionScore.batch)
+            .order_by(func.count(AdmissionScore.id).desc())
+            .all()
+        )
 
         print(f"共 {len(batch_names)} 种批次名称\n")
 
@@ -145,10 +148,11 @@ def main():
         for batch, count in batch_names:
             std = standardize_batch(batch)
             if std:
-                affected = db.query(AdmissionScore).filter(
-                    AdmissionScore.batch == batch,
-                    AdmissionScore.standardized_batch.is_(None)
-                ).update({"standardized_batch": std})
+                affected = (
+                    db.query(AdmissionScore)
+                    .filter(AdmissionScore.batch == batch, AdmissionScore.standardized_batch.is_(None))
+                    .update({"standardized_batch": std})
+                )
                 updated += affected
 
         db.commit()
@@ -156,10 +160,8 @@ def main():
 
         # 验证覆盖率
         total = db.query(AdmissionScore).count()
-        with_std = db.query(AdmissionScore).filter(
-            AdmissionScore.standardized_batch.isnot(None)
-        ).count()
-        print(f"标准化覆盖率: {with_std}/{total} ({with_std/total*100:.1f}%)")
+        with_std = db.query(AdmissionScore).filter(AdmissionScore.standardized_batch.isnot(None)).count()
+        print(f"标准化覆盖率: {with_std}/{total} ({with_std / total * 100:.1f}%)")
 
     finally:
         db.close()

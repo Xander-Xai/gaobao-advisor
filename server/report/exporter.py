@@ -28,18 +28,10 @@ class ReportExporter:
 
         confidence_pct = f"{report.confidence * 100:.0f}%"
 
-        facts_items = "".join(
-            f"<li>{html_lib.escape(f)}</li>" for f in report.facts
-        )
-        suggestions_items = "".join(
-            f"<li>{html_lib.escape(s)}</li>" for s in report.suggestions
-        )
-        risks_items = "".join(
-            f"<li>{html_lib.escape(r)}</li>" for r in report.risks
-        )
-        actions_items = "".join(
-            f"<li>{html_lib.escape(a)}</li>" for a in report.next_actions
-        )
+        facts_items = "".join(f"<li>{html_lib.escape(f)}</li>" for f in report.facts)
+        suggestions_items = "".join(f"<li>{html_lib.escape(s)}</li>" for s in report.suggestions)
+        risks_items = "".join(f"<li>{html_lib.escape(r)}</li>" for r in report.risks)
+        actions_items = "".join(f"<li>{html_lib.escape(a)}</li>" for a in report.next_actions)
 
         return f"""\
 <!DOCTYPE html>
@@ -102,10 +94,7 @@ class ReportExporter:
         try:
             import cairosvg  # type: ignore[import-untyped]
         except ImportError as exc:
-            raise ImportError(
-                "cairosvg is required for PNG export. "
-                "Install with: pip install cairosvg"
-            ) from exc
+            raise ImportError("cairosvg is required for PNG export. Install with: pip install cairosvg") from exc
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)

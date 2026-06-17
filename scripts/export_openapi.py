@@ -20,6 +20,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 try:
     import yaml
+
     YAML_AVAILABLE = True
 except ImportError:
     YAML_AVAILABLE = False

@@ -54,20 +54,28 @@ def fetch_tibet_scores_from_api(db):
     BASE_URL = "https://gaokao.baidu.com/gk/gkschool/schoolscore"
 
     # 获取所有学校，按重要性排序
-    schools = db.query(School).order_by(
-        School.is_double_first_class.desc(),
-        School.ranking.asc().nulls_last(),
-    ).all()
+    schools = (
+        db.query(School)
+        .order_by(
+            School.is_double_first_class.desc(),
+            School.ranking.asc().nulls_last(),
+        )
+        .all()
+    )
 
     print(f"  从API获取 {len(schools)} 所学校在西藏的招生数据")
     new_count = 0
 
     for idx, school in enumerate(schools):
         # 跳过已有西藏数据的学校
-        existing_count = db.query(AdmissionScore).filter(
-            AdmissionScore.school_id == school.id,
-            AdmissionScore.province == "西藏",
-        ).count()
+        existing_count = (
+            db.query(AdmissionScore)
+            .filter(
+                AdmissionScore.school_id == school.id,
+                AdmissionScore.province == "西藏",
+            )
+            .count()
+        )
         if existing_count > 10:
             continue
 
@@ -88,14 +96,18 @@ def fetch_tibet_scores_from_api(db):
                 subject_type = item.get("subjectType") or item.get("curriculum") or "综合"
                 min_rank = safe_int(item.get("minScoreOrder"))
 
-                exists = db.query(AdmissionScore).filter(
-                    AdmissionScore.school_id == school.id,
-                    AdmissionScore.province == "西藏",
-                    AdmissionScore.year == 2024,
-                    AdmissionScore.batch == batch_name,
-                    AdmissionScore.subject_type == subject_type,
-                    AdmissionScore.major_id.is_(None),
-                ).first()
+                exists = (
+                    db.query(AdmissionScore)
+                    .filter(
+                        AdmissionScore.school_id == school.id,
+                        AdmissionScore.province == "西藏",
+                        AdmissionScore.year == 2024,
+                        AdmissionScore.batch == batch_name,
+                        AdmissionScore.subject_type == subject_type,
+                        AdmissionScore.major_id.is_(None),
+                    )
+                    .first()
+                )
                 if exists:
                     continue
 
@@ -116,17 +128,21 @@ def fetch_tibet_scores_from_api(db):
         time.sleep(0.3)
         if (idx + 1) % 100 == 0:
             db.commit()
-            print(f"    [{idx+1}/{len(schools)}] +{new_count}")
+            print(f"    [{idx + 1}/{len(schools)}] +{new_count}")
 
     # 同样采集2022, 2023, 2025年
     for year in [2022, 2023, 2025]:
         print(f"\n  采集{year}年数据...")
         for idx, school in enumerate(schools):
-            existing_count = db.query(AdmissionScore).filter(
-                AdmissionScore.school_id == school.id,
-                AdmissionScore.province == "西藏",
-                AdmissionScore.year == year,
-            ).count()
+            existing_count = (
+                db.query(AdmissionScore)
+                .filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == "西藏",
+                    AdmissionScore.year == year,
+                )
+                .count()
+            )
             if existing_count > 5:
                 continue
 
@@ -146,13 +162,17 @@ def fetch_tibet_scores_from_api(db):
                     batch_name = item.get("batchName", "本科批")
                     subject_type = item.get("subjectType") or item.get("curriculum") or "综合"
 
-                    exists = db.query(AdmissionScore).filter(
-                        AdmissionScore.school_id == school.id,
-                        AdmissionScore.province == "西藏",
-                        AdmissionScore.year == year,
-                        AdmissionScore.batch == batch_name,
-                        AdmissionScore.subject_type == subject_type,
-                    ).first()
+                    exists = (
+                        db.query(AdmissionScore)
+                        .filter(
+                            AdmissionScore.school_id == school.id,
+                            AdmissionScore.province == "西藏",
+                            AdmissionScore.year == year,
+                            AdmissionScore.batch == batch_name,
+                            AdmissionScore.subject_type == subject_type,
+                        )
+                        .first()
+                    )
                     if exists:
                         continue
 
@@ -259,13 +279,17 @@ def main():
                 print(f"  [WARN] 学校不存在: {school_name}")
                 continue
 
-            existing = db.query(AdmissionScore).filter(
-                AdmissionScore.school_id == school.id,
-                AdmissionScore.province == province,
-                AdmissionScore.year == year,
-                AdmissionScore.batch == batch,
-                AdmissionScore.subject_type == subj_type,
-            ).first()
+            existing = (
+                db.query(AdmissionScore)
+                .filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == province,
+                    AdmissionScore.year == year,
+                    AdmissionScore.batch == batch,
+                    AdmissionScore.subject_type == subj_type,
+                )
+                .first()
+            )
             if existing:
                 skip_count += 1
                 continue
@@ -284,18 +308,31 @@ def main():
             new_count += 1
 
         # 导入西藏院校在其他省份的招生数据
-        for school_name, province, year, batch, subj_type, min_score, avg_score, min_rank in TIBET_SCHOOLS_IN_OTHER_PROVINCES:
+        for (
+            school_name,
+            province,
+            year,
+            batch,
+            subj_type,
+            min_score,
+            avg_score,
+            min_rank,
+        ) in TIBET_SCHOOLS_IN_OTHER_PROVINCES:
             school = db.query(School).filter(School.name == school_name).first()
             if not school:
                 continue
 
-            existing = db.query(AdmissionScore).filter(
-                AdmissionScore.school_id == school.id,
-                AdmissionScore.province == province,
-                AdmissionScore.year == year,
-                AdmissionScore.batch == batch,
-                AdmissionScore.subject_type == subj_type,
-            ).first()
+            existing = (
+                db.query(AdmissionScore)
+                .filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == province,
+                    AdmissionScore.year == year,
+                    AdmissionScore.batch == batch,
+                    AdmissionScore.subject_type == subj_type,
+                )
+                .first()
+            )
             if existing:
                 skip_count += 1
                 continue
@@ -322,9 +359,12 @@ def main():
 
         # 检查结果
         c = db.query(AdmissionScore).filter(AdmissionScore.province == "西藏").count()
-        c_tibet_school = db.query(AdmissionScore).join(School, School.id == AdmissionScore.school_id).filter(
-            School.province == "西藏"
-        ).count()
+        c_tibet_school = (
+            db.query(AdmissionScore)
+            .join(School, School.id == AdmissionScore.school_id)
+            .filter(School.province == "西藏")
+            .count()
+        )
 
         print(f"\n[完成] 新增 {new_count} 条 / 跳过 {skip_count} 条")
         print(f"  西藏本地录取: {c} 条")

@@ -8,10 +8,19 @@ def test_save_and_load_report():
     with tempfile.TemporaryDirectory() as tmpdir:
         storage = ReportStorage(base_dir=tmpdir)
         report = Report(
-            id="test-123", session_id="sess-456", province="山东", score=600,
-            subject="物理", interest="计算机", summary="测试摘要",
-            facts=["事实1"], suggestions=["建议1"], risks=["风险1"],
-            next_actions=["行动1"], confidence=0.9, scene="gaokao",
+            id="test-123",
+            session_id="sess-456",
+            province="山东",
+            score=600,
+            subject="物理",
+            interest="计算机",
+            summary="测试摘要",
+            facts=["事实1"],
+            suggestions=["建议1"],
+            risks=["风险1"],
+            next_actions=["行动1"],
+            confidence=0.9,
+            scene="gaokao",
         )
         storage.save(report)
         loaded = storage.load("test-123")

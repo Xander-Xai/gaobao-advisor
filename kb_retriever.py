@@ -2,11 +2,11 @@
 DEPRECATED: This module has been moved to server/services/kb_retriever.py.
 Please update imports to use the new location.
 """
+
 import warnings
 
 warnings.warn(
-    "kb_retriever.py has moved to server/services/kb_retriever.py. "
-    "Please update your imports.",
+    "kb_retriever.py has moved to server/services/kb_retriever.py. Please update your imports.",
     DeprecationWarning,
     stacklevel=2,
 )

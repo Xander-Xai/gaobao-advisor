@@ -138,11 +138,11 @@ def check_integrity(db, report: AcceptanceReport):
 
     # 1.3 2025年各省数据量 vs 2024年
     low_ratio_provinces = []
-    for province, in db.query(AdmissionScore.province).distinct().all():
+    for (province,) in db.query(AdmissionScore.province).distinct().all():
         c24 = db.query(AdmissionScore).filter(AdmissionScore.province == province, AdmissionScore.year == 2024).count()
         c25 = db.query(AdmissionScore).filter(AdmissionScore.province == province, AdmissionScore.year == 2025).count()
         if c24 > 100 and c25 / c24 < 0.8:
-            low_ratio_provinces.append(f"{province}({c25/c24*100:.0f}%)")
+            low_ratio_provinces.append(f"{province}({c25 / c24 * 100:.0f}%)")
 
     if not low_ratio_provinces:
         report.add_result(module, "2025年数据充足率", "PASS", "所有省2025年 ≥ 2024年的80%")
@@ -182,9 +182,7 @@ def check_integrity(db, report: AcceptanceReport):
     total_schools = db.query(School).count()
     with_ranking = db.query(School).filter(School.ranking.isnot(None)).count()
     top_with_ranking = (
-        db.query(School)
-        .filter((School.is_985 == 1) | (School.is_211 == 1), School.ranking.isnot(None))
-        .count()
+        db.query(School).filter((School.is_985 == 1) | (School.is_211 == 1), School.ranking.isnot(None)).count()
     )
     top_total = db.query(School).filter((School.is_985 == 1) | (School.is_211 == 1)).count()
     top_pct = top_with_ranking / top_total * 100 if top_total > 0 else 0
@@ -192,7 +190,9 @@ def check_integrity(db, report: AcceptanceReport):
     if top_pct >= 100 and overall_pct >= 40:
         report.add_result(module, "院校排名覆盖率", "PASS", f"985/211: {top_pct:.0f}%, 总体: {overall_pct:.1f}%")
     else:
-        report.add_result(module, "院校排名覆盖率", "FAIL", f"985/211: {top_pct:.0f}% (目标100%), 总体: {overall_pct:.1f}%")
+        report.add_result(
+            module, "院校排名覆盖率", "FAIL", f"985/211: {top_pct:.0f}% (目标100%), 总体: {overall_pct:.1f}%"
+        )
 
     # 1.8 学科排名数量
     sr_count = db.query(SubjectRanking).count()
@@ -214,8 +214,7 @@ def check_accuracy(db, report: AcceptanceReport):
     bad_scores = (
         db.query(AdmissionScore)
         .filter(
-            (AdmissionScore.min_score < 60)
-            | ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
+            (AdmissionScore.min_score < 60) | ((AdmissionScore.min_score > 750) & (AdmissionScore.province != "海南"))
         )
         .count()
     )
@@ -269,9 +268,7 @@ def check_accuracy(db, report: AcceptanceReport):
     # 2.5 科类名称异常
     abnormal_types = (
         db.query(AdmissionScore.subject_type, func.count(AdmissionScore.id))
-        .filter(
-            AdmissionScore.subject_type.notin_(["物理类", "历史类", "3+3综合", "理科", "文科", "综合"])
-        )
+        .filter(AdmissionScore.subject_type.notin_(["物理类", "历史类", "3+3综合", "理科", "文科", "综合"]))
         .group_by(AdmissionScore.subject_type)
         .all()
     )
@@ -334,7 +331,10 @@ def check_relation(db, report: AcceptanceReport):
         report.add_result(module, "招生计划引用完整性", "PASS", "0条悬空引用")
     else:
         report.add_result(
-            module, "招生计划引用完整性", "FAIL", f"悬空school_id: {orphan_ep_schools}, 悬空major_id: {orphan_ep_majors}"
+            module,
+            "招生计划引用完整性",
+            "FAIL",
+            f"悬空school_id: {orphan_ep_schools}, 悬空major_id: {orphan_ep_majors}",
         )
 
     # 4.4 无分数数据的院校
@@ -479,11 +479,18 @@ def check_security(db, report: AcceptanceReport):
     ]
     found_secrets = []
     ALLOWLIST_PATTERNS = [
-        'test-key-123', 'valid-token', 'invalid-token', 'sk-test',
-        'example.com',  # 示例域名
+        "test-key-123",
+        "valid-token",
+        "invalid-token",
+        "sk-test",
+        "example.com",  # 示例域名
     ]
     for root, dirs, files in os.walk(PROJECT_ROOT):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules", "venv", ".venv", ".worktree", "worktrees")]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in (".git", "__pycache__", "node_modules", "venv", ".venv", ".worktree", "worktrees")
+        ]
         for fname in files:
             if not fname.endswith((".py", ".js", ".ts", ".env", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini")):
                 continue
@@ -506,7 +513,9 @@ def check_security(db, report: AcceptanceReport):
     if not found_secrets:
         report.add_result(module, "敏感信息扫描", "PASS", "0处硬编码敏感信息")
     else:
-        report.add_result(module, "敏感信息扫描", "FAIL", f"发现 {len(found_secrets)} 处: {'; '.join(found_secrets[:5])}")
+        report.add_result(
+            module, "敏感信息扫描", "FAIL", f"发现 {len(found_secrets)} 处: {'; '.join(found_secrets[:5])}"
+        )
 
     # 6.2 数据库文件权限
     db_path = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
@@ -537,7 +546,9 @@ def check_security(db, report: AcceptanceReport):
 def main():
     parser = argparse.ArgumentParser(description="数据验收")
     parser.add_argument(
-        "--module", choices=["integrity", "accuracy", "relation", "timeliness", "business", "security"], help="只运行指定模块"
+        "--module",
+        choices=["integrity", "accuracy", "relation", "timeliness", "business", "security"],
+        help="只运行指定模块",
     )
     parser.add_argument("--report", action="store_true", help="保存报告到文件")
     args = parser.parse_args()

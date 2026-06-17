@@ -20,10 +20,9 @@ def test_full_report_pipeline():
     4. Get report cover SVG
     """
     # 1. Generate report
-    gen_resp = client.post("/api/v1/report/generate", json={
-        "session_id": "integration-test-session",
-        "student_name": "测试考生"
-    })
+    gen_resp = client.post(
+        "/api/v1/report/generate", json={"session_id": "integration-test-session", "student_name": "测试考生"}
+    )
     assert gen_resp.status_code == 200
     data = gen_resp.json()
     assert "report_id" in data

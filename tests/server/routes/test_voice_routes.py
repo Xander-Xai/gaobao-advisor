@@ -133,12 +133,13 @@ class TestVoiceEndpointPromptInjection:
         mock_ws.receive = mock_receive
 
         # Patch at the source module where the function is imported from
-        with patch("server.routes.voice.get_voice_service") as mock_vs, \
-             patch("server.routes.voice.get_advisor_graph") as mock_graph, \
-             patch("server.routes.voice.verify_session_token", return_value=True), \
-             patch("server.middleware.security.detect_injection", return_value=True), \
-             patch("server.middleware.security.sanitize_input", side_effect=lambda x: x):
-
+        with (
+            patch("server.routes.voice.get_voice_service") as mock_vs,
+            patch("server.routes.voice.get_advisor_graph") as mock_graph,
+            patch("server.routes.voice.verify_session_token", return_value=True),
+            patch("server.middleware.security.detect_injection", return_value=True),
+            patch("server.middleware.security.sanitize_input", side_effect=lambda x: x),
+        ):
             mock_vs.return_value = MagicMock()
             mock_graph.return_value = MagicMock()
 
@@ -186,10 +187,11 @@ class TestVoiceEndpointMessageTypes:
                 }
             raise Exception("Stop after first")
 
-        with patch("server.routes.voice.get_voice_service") as mock_vs, \
-             patch("server.routes.voice.get_advisor_graph") as mock_graph, \
-             patch("server.auth.verify_session_token", return_value=True):
-
+        with (
+            patch("server.routes.voice.get_voice_service") as mock_vs,
+            patch("server.routes.voice.get_advisor_graph") as mock_graph,
+            patch("server.auth.verify_session_token", return_value=True),
+        ):
             mock_vs.return_value = MagicMock()
             mock_graph.return_value = MagicMock()
             mock_ws.receive = mock_receive_func
@@ -219,10 +221,11 @@ class TestVoiceEndpointErrorHandling:
         mock_ws.send_json = AsyncMock()
         mock_ws.close = AsyncMock()
 
-        with patch("server.routes.voice.get_voice_service") as mock_vs, \
-             patch("server.routes.voice.get_advisor_graph") as mock_graph, \
-             patch("server.auth.verify_session_token", return_value=True):
-
+        with (
+            patch("server.routes.voice.get_voice_service") as mock_vs,
+            patch("server.routes.voice.get_advisor_graph") as mock_graph,
+            patch("server.auth.verify_session_token", return_value=True),
+        ):
             mock_vs.return_value = MagicMock()
             mock_graph.return_value = MagicMock()
 

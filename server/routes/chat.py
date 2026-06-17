@@ -116,6 +116,7 @@ async def chat(request: ChatRequest):
 
 class FeedbackRequest(BaseModel):
     """用户反馈请求"""
+
     session_id: str = Field(..., min_length=4, max_length=64)
     message_index: int = Field(..., ge=0)
     rating: str = Field(..., pattern=r"^(helpful|not_helpful)$")
@@ -143,6 +144,7 @@ async def submit_feedback(request: FeedbackRequest):
 
 class HighlightExtractRequest(BaseModel):
     """金句提取请求"""
+
     session_id: str = Field(..., min_length=4, max_length=64)
     content: str = Field(..., min_length=10)
     score: int = Field(default=0, ge=0, le=100)

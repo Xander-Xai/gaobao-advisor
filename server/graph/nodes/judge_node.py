@@ -18,9 +18,7 @@ def quality_judge_node(state: dict) -> dict:
     judge = QualityJudge()
     context = {
         "knowledge_chunks": [
-            c.get("text", "")
-            for c in state.get("rag_chunks", [])
-            if isinstance(c, dict) and "text" in c
+            c.get("text", "") for c in state.get("rag_chunks", []) if isinstance(c, dict) and "text" in c
         ],
         "conversation_history": state.get("messages", []),
         "slots": state.get("slots", {}),

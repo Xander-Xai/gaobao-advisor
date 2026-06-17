@@ -28,54 +28,30 @@ from starlette.responses import Response
 # ── Metrics Definitions ────────────────────────────────────
 
 # HTTP request metrics
-HTTP_REQUESTS = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status']
-)
+HTTP_REQUESTS = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"])
 
 HTTP_REQUEST_DURATION = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration in seconds',
-    ['method', 'endpoint'],
-    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
 )
 
 # LLM API metrics
-LLM_API_CALLS = Counter(
-    'llm_api_calls_total',
-    'Total LLM API calls',
-    ['model', 'provider']
-)
+LLM_API_CALLS = Counter("llm_api_calls_total", "Total LLM API calls", ["model", "provider"])
 
-LLM_API_ERRORS = Counter(
-    'llm_api_errors_total',
-    'Total LLM API errors',
-    ['model', 'provider', 'error_type']
-)
+LLM_API_ERRORS = Counter("llm_api_errors_total", "Total LLM API errors", ["model", "provider", "error_type"])
 
 # Database metrics
-DB_CONNECTION_ERRORS = Counter(
-    'db_connection_errors_total',
-    'Total database connection errors'
-)
+DB_CONNECTION_ERRORS = Counter("db_connection_errors_total", "Total database connection errors")
 
 # RAG cache metrics
-RAG_CACHE_HITS = Counter(
-    'rag_cache_hits_total',
-    'Total RAG cache hits'
-)
+RAG_CACHE_HITS = Counter("rag_cache_hits_total", "Total RAG cache hits")
 
-RAG_CACHE_MISSES = Counter(
-    'rag_cache_misses_total',
-    'Total RAG cache misses'
-)
+RAG_CACHE_MISSES = Counter("rag_cache_misses_total", "Total RAG cache misses")
 
 # Active sessions
-ACTIVE_SESSIONS = Counter(
-    'active_sessions_total',
-    'Total active sessions'
-)
+ACTIVE_SESSIONS = Counter("active_sessions_total", "Total active sessions")
 
 # === Quality Metrics ===
 
@@ -131,32 +107,18 @@ async def metrics_middleware(request: Request, call_next):
 
         # Record metrics
         duration = time.time() - start_time
-        HTTP_REQUESTS.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status=response.status_code
-        ).inc()
+        HTTP_REQUESTS.labels(method=request.method, endpoint=request.url.path, status=response.status_code).inc()
 
-        HTTP_REQUEST_DURATION.labels(
-            method=request.method,
-            endpoint=request.url.path
-        ).observe(duration)
+        HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=request.url.path).observe(duration)
 
         return response
 
     except Exception:
         # Record error metrics
         duration = time.time() - start_time
-        HTTP_REQUESTS.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status=500
-        ).inc()
+        HTTP_REQUESTS.labels(method=request.method, endpoint=request.url.path, status=500).inc()
 
-        HTTP_REQUEST_DURATION.labels(
-            method=request.method,
-            endpoint=request.url.path
-        ).observe(duration)
+        HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=request.url.path).observe(duration)
 
         raise
 
@@ -170,10 +132,7 @@ metrics_app = FastAPI()
 @metrics_app.get("/")
 async def metrics():
     """Expose Prometheus metrics."""
-    return Response(
-        content=generate_latest(),
-        media_type=CONTENT_TYPE_LATEST
-    )
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # ── Helper Functions ──────────────────────────────────────
@@ -184,11 +143,7 @@ def record_llm_call(model: str, provider: str, success: bool = True, error_type:
     LLM_API_CALLS.labels(model=model, provider=provider).inc()
 
     if not success and error_type:
-        LLM_API_ERRORS.labels(
-            model=model,
-            provider=provider,
-            error_type=error_type
-        ).inc()
+        LLM_API_ERRORS.labels(model=model, provider=provider, error_type=error_type).inc()
 
 
 def record_db_error():

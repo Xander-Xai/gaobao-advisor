@@ -145,6 +145,7 @@ async def async_fetch_plan_page(
         "rn": PAGE_SIZE,
     }
     import urllib.parse
+
     url = f"{BASE_URL}/gk/gkschool/getrecruitingscheme?" + urllib.parse.urlencode(params)
 
     for attempt in range(3):
@@ -232,11 +233,7 @@ def select_schools_by_layers(db, layers: list[int], limit: int = None) -> list:
                 result.append(s)
 
     if 4 in layers:
-        layer4 = (
-            db.query(School)
-            .filter(School.school_type.like("%专科%"))
-            .all()
-        )
+        layer4 = db.query(School).filter(School.school_type.like("%专科%")).all()
         for s in layer4:
             if s.id not in seen_ids:
                 seen_ids.add(s.id)
@@ -245,17 +242,17 @@ def select_schools_by_layers(db, layers: list[int], limit: int = None) -> list:
     if limit:
         result = result[:limit]
 
-    print(f"  层级筛选: L1={sum(1 for s in result if s.is_double_first_class)} "
-          f"L2={sum(1 for s in result if not s.is_double_first_class and s.ranking and s.ranking <= 300)} "
-          f"L3={sum(1 for s in result if not s.is_double_first_class and (not s.ranking or s.ranking > 300) and s.school_type != '专科')} "
-          f"L4={sum(1 for s in result if not s.is_double_first_class and s.school_type == '专科')} "
-          f"→ 总计 {len(result)} 校")
+    print(
+        f"  层级筛选: L1={sum(1 for s in result if s.is_double_first_class)} "
+        f"L2={sum(1 for s in result if not s.is_double_first_class and s.ranking and s.ranking <= 300)} "
+        f"L3={sum(1 for s in result if not s.is_double_first_class and (not s.ranking or s.ranking > 300) and s.school_type != '专科')} "
+        f"L4={sum(1 for s in result if not s.is_double_first_class and s.school_type == '专科')} "
+        f"→ 总计 {len(result)} 校"
+    )
     return result
 
 
-def import_plans_for_school(
-    db, school: School, provinces: list[str], years: list[int]
-) -> dict:
+def import_plans_for_school(db, school: School, provinces: list[str], years: list[int]) -> dict:
     """为一所学校采集所有 (省, 年) 组合的招生计划。返回统计。"""
     stats = {"new": 0, "skipped": 0, "errors": 0, "requests": 0}
 
@@ -394,9 +391,7 @@ async def async_import_plans_for_school(
                         page = 1
                         all_items = []
                         while True:
-                            items = await async_fetch_plan_page(
-                                client, school.name, province, year, curriculum, page
-                            )
+                            items = await async_fetch_plan_page(client, school.name, province, year, curriculum, page)
                             stats["requests"] += 1
                             if not items:
                                 break
@@ -526,12 +521,15 @@ def main():
                         total_new += added
 
                         if (idx + 1) % 10 == 0:
-                            save_checkpoint(args.checkpoint, {
-                                "school_index": actual_idx + 1,
-                                "total_schools": len(target),
-                                "current_school": school.name,
-                                "stats": stats,
-                            })
+                            save_checkpoint(
+                                args.checkpoint,
+                                {
+                                    "school_index": actual_idx + 1,
+                                    "total_schools": len(target),
+                                    "current_school": school.name,
+                                    "stats": stats,
+                                },
+                            )
 
                         print(f"  [{actual_idx + 1}/{len(target)}] {school.name}: +{added} 条 (总计 {total_new})")
 
@@ -545,11 +543,14 @@ def main():
                 total_errors += stats["errors"]
 
                 if (idx + 1) % 10 == 0:
-                    save_checkpoint(args.checkpoint, {
-                        "school_index": actual_idx + 1,
-                        "total_schools": len(target),
-                        "current_school": school.name,
-                    })
+                    save_checkpoint(
+                        args.checkpoint,
+                        {
+                            "school_index": actual_idx + 1,
+                            "total_schools": len(target),
+                            "current_school": school.name,
+                        },
+                    )
 
                 print(f"  [{actual_idx + 1}/{len(target)}] {school.name}: +{stats['new']} 条 (总计 {total_new})")
 
@@ -571,4 +572,5 @@ def main():
 
 if __name__ == "__main__":
     from db.models import Major
+
     main()

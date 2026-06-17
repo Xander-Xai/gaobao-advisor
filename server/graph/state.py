@@ -42,12 +42,12 @@ class AdvisorState(TypedDict, total=False):
     trace: list[dict]
 
     # ── Quality Judge (LLM-as-Judge) ──────────────────────────
-    quality_scores: dict           # 4 维度评分
-    aggregate_score: float         # 聚合分
-    hallucination_flags: list      # 幻觉标记列表
-    quality_grade: str             # excellent / pass / fail
+    quality_scores: dict  # 4 维度评分
+    aggregate_score: float  # 聚合分
+    hallucination_flags: list  # 幻觉标记列表
+    quality_grade: str  # excellent / pass / fail
 
     # ── Feedback & Rewrite ────────────────────────────────────
-    should_rewrite: bool           # post-check flagged rewrite
-    needs_rewrite: bool            # feedback node confirms rewrite
-    rewrite_attempts: int          # number of rewrite attempts made
+    should_rewrite: bool  # post-check flagged rewrite
+    needs_rewrite: bool  # feedback node confirms rewrite
+    rewrite_attempts: int  # number of rewrite attempts made

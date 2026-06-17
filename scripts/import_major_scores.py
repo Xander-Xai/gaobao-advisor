@@ -28,29 +28,71 @@ from db.models import AdmissionScore, Major, School  # noqa: E402
 from scrapers.baidu_gaokao import BASE_URL, DELAY, HEADERS, PAGE_SIZE  # noqa: E402
 
 ALL_PROVINCES = [
-    "北京", "天津", "河北", "山西", "内蒙古", "辽宁", "吉林", "黑龙江",
-    "上海", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南",
-    "湖北", "湖南", "广东", "广西", "海南", "重庆", "四川", "贵州",
-    "云南", "陕西", "甘肃", "青海", "宁夏", "新疆",
+    "北京",
+    "天津",
+    "河北",
+    "山西",
+    "内蒙古",
+    "辽宁",
+    "吉林",
+    "黑龙江",
+    "上海",
+    "江苏",
+    "浙江",
+    "安徽",
+    "福建",
+    "江西",
+    "山东",
+    "河南",
+    "湖北",
+    "湖南",
+    "广东",
+    "广西",
+    "海南",
+    "重庆",
+    "四川",
+    "贵州",
+    "云南",
+    "陕西",
+    "甘肃",
+    "青海",
+    "宁夏",
+    "新疆",
 ]
 
 # 省份 → curriculum 映射（与招生计划/分数线API一致）
 PROVINCE_CURRICULUMS = {
-    "北京": ["3+3综合"], "天津": ["3+3综合"], "上海": ["3+3综合"],
-    "山东": ["3+3综合"], "海南": ["3+3综合"], "浙江": ["3+3综合"],
-    "广东": ["物理类", "历史类"], "江苏": ["物理类", "历史类"],
-    "河北": ["物理类", "历史类"], "辽宁": ["物理类", "历史类"],
-    "重庆": ["物理类", "历史类"], "安徽": ["物理类", "历史类"],
-    "福建": ["物理类", "历史类"], "湖北": ["物理类", "历史类"],
-    "湖南": ["物理类", "历史类"], "广西": ["物理类", "历史类"],
-    "江西": ["物理类", "历史类"], "贵州": ["物理类", "历史类"],
-    "甘肃": ["物理类", "历史类"], "黑龙江": ["物理类", "历史类"],
+    "北京": ["3+3综合"],
+    "天津": ["3+3综合"],
+    "上海": ["3+3综合"],
+    "山东": ["3+3综合"],
+    "海南": ["3+3综合"],
+    "浙江": ["3+3综合"],
+    "广东": ["物理类", "历史类"],
+    "江苏": ["物理类", "历史类"],
+    "河北": ["物理类", "历史类"],
+    "辽宁": ["物理类", "历史类"],
+    "重庆": ["物理类", "历史类"],
+    "安徽": ["物理类", "历史类"],
+    "福建": ["物理类", "历史类"],
+    "湖北": ["物理类", "历史类"],
+    "湖南": ["物理类", "历史类"],
+    "广西": ["物理类", "历史类"],
+    "江西": ["物理类", "历史类"],
+    "贵州": ["物理类", "历史类"],
+    "甘肃": ["物理类", "历史类"],
+    "黑龙江": ["物理类", "历史类"],
     "吉林": ["物理类", "历史类"],
-    "四川": ["理科", "文科"], "河南": ["理科", "文科"],
-    "山西": ["理科", "文科"], "陕西": ["理科", "文科"],
-    "云南": ["理科", "文科"], "内蒙古": ["理科", "文科"],
-    "宁夏": ["理科", "文科"], "青海": ["理科", "文科"],
-    "新疆": ["理科", "文科"], "西藏": ["理科", "文科"],
+    "四川": ["理科", "文科"],
+    "河南": ["理科", "文科"],
+    "山西": ["理科", "文科"],
+    "陕西": ["理科", "文科"],
+    "云南": ["理科", "文科"],
+    "内蒙古": ["理科", "文科"],
+    "宁夏": ["理科", "文科"],
+    "青海": ["理科", "文科"],
+    "新疆": ["理科", "文科"],
+    "西藏": ["理科", "文科"],
 }
 
 ASYNC_CONCURRENCY = 5
@@ -97,6 +139,7 @@ async def async_fetch_major_score_page(
     """异步获取专业分数线单页"""
     params = {"rn": PAGE_SIZE, "school": school, "province": province, "year": str(year), "pn": page}
     import urllib.parse
+
     url = f"{BASE_URL}/gk/gkschool/majorscore?" + urllib.parse.urlencode(params)
 
     for attempt in range(3):
@@ -126,16 +169,24 @@ def select_schools_by_layers(db, layers: list[int], limit: int = None) -> list:
                 seen_ids.add(s.id)
                 result.append(s)
     if 2 in layers:
-        for s in db.query(School).filter(School.is_double_first_class == 0, School.ranking <= 300, School.ranking.isnot(None)).all():
+        for s in (
+            db.query(School)
+            .filter(School.is_double_first_class == 0, School.ranking <= 300, School.ranking.isnot(None))
+            .all()
+        ):
             if s.id not in seen_ids:
                 seen_ids.add(s.id)
                 result.append(s)
     if 3 in layers:
-        for s in db.query(School).filter(
-            School.is_double_first_class == 0,
-            (School.ranking > 300) | (School.ranking.is_(None)),
-            School.school_type != "专科",
-        ).all():
+        for s in (
+            db.query(School)
+            .filter(
+                School.is_double_first_class == 0,
+                (School.ranking > 300) | (School.ranking.is_(None)),
+                School.school_type != "专科",
+            )
+            .all()
+        ):
             if s.id not in seen_ids:
                 seen_ids.add(s.id)
                 result.append(s)
@@ -355,14 +406,14 @@ def main():
                 for idx, school in enumerate(target):
                     added = await async_import_major_scores(db, school, provinces, args.years, semaphore, stats)
                     total_new += added
-                    print(f"  [{idx+1}/{len(target)}] {school.name}: +{added} (总计 {total_new})")
+                    print(f"  [{idx + 1}/{len(target)}] {school.name}: +{added} (总计 {total_new})")
 
             asyncio.run(run_all())
         else:
             for idx, school in enumerate(target):
                 stats = import_major_scores(db, school, provinces, args.years)
                 total_new += stats["new"]
-                print(f"  [{idx+1}/{len(target)}] {school.name}: +{stats['new']} (总计 {total_new})")
+                print(f"  [{idx + 1}/{len(target)}] {school.name}: +{stats['new']} (总计 {total_new})")
 
         elapsed = time.time() - start_time
         total = db.query(AdmissionScore).filter(AdmissionScore.major_id.isnot(None)).count()
@@ -371,7 +422,7 @@ def main():
         print("  专业分数线采集完成")
         print(f"  新增: {total_new} 条")
         print(f"  数据库中总计: {total} 条")
-        print(f"  耗时: {elapsed/60:.1f} 分钟")
+        print(f"  耗时: {elapsed / 60:.1f} 分钟")
         print("=" * 60)
     finally:
         db.close()
