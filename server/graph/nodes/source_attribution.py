@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # 匹配"具体数字 + 单位"的模式
 # 例: "580分", "3000元/月", "85%", "1万位次", "5-8万", "985院校"
@@ -141,8 +144,8 @@ def source_attribution_node(state: dict[str, Any]) -> dict[str, Any]:
     if reply:
         try:
             reply = validate_source_attribution(reply)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("source_attribution failed: %s", e)
     trace = list(state.get("trace", []))
     trace.append({"node": "source_attribution", "event": "source_attribution_done"})
     return {"reply": reply, "trace": trace}
