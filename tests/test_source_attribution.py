@@ -201,7 +201,7 @@ class TestExceptionSafety:
         assert "声明" in result["reply"]
 
 
-class TestRenderIntegration:
+class TestSourceAttributionNode:
     """source_attribution_node (graph node) 集成测试。"""
 
     def test_source_attribution_node_annotates_unattributed(self) -> None:
