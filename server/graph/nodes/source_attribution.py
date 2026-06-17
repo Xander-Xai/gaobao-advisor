@@ -14,7 +14,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # 匹配"具体数字 + 单位"的模式
 # 例: "580分", "3000元/月", "85%", "1万位次", "5-8万", "985院校"
@@ -128,3 +132,20 @@ def validate_source_attribution(reply: str) -> str:
             annotated.append(sent)
 
     return "".join(annotated)
+
+
+def source_attribution_node(state: dict[str, Any]) -> dict[str, Any]:
+    """LangGraph node: validate and annotate source attribution on the reply.
+
+    Runs validate_source_attribution on the current reply text.
+    Returns a state dict with the annotated reply.
+    """
+    reply = state.get("reply", "")
+    if reply:
+        try:
+            reply = validate_source_attribution(reply)
+        except Exception as e:
+            logger.warning("source_attribution failed: %s", e)
+    trace = list(state.get("trace", []))
+    trace.append({"node": "source_attribution", "event": "source_attribution_done"})
+    return {"reply": reply, "trace": trace}

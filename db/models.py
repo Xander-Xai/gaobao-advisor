@@ -83,6 +83,7 @@ class AdmissionScore(Base):
     province = Column(String(20), nullable=False)
     year = Column(Integer, nullable=False)
     batch = Column(String(20), nullable=False, default="本科一批")
+    standardized_batch = Column(String(20), nullable=True)  # 标准化批次名
     subject_type = Column(String(10), nullable=False, default="综合")  # 理工/文史/物理类/历史类
     min_score = Column(Integer, nullable=True)
     avg_score = Column(Float, nullable=True)
@@ -237,12 +238,39 @@ class Feedback(Base):
     session_id = Column(String(64), nullable=False, index=True)
     message_index = Column(Integer, nullable=False)  # 消息在会话中的序号
     rating = Column(String(10), nullable=False)  # "helpful" / "not_helpful"
+    quality_score_id = Column(Integer, nullable=True)  # FK to quality_scores
+    feedback_text = Column(Text, nullable=True)  # 用户文字反馈
+    implicit_negative = Column(Integer, default=0)  # 隐性负面信号计数
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     __table_args__ = (Index("ix_feedback_session_msg", "session_id", "message_index"),)
 
     def __repr__(self):
         return f"<Feedback({self.session_id}, #{self.message_index}, {self.rating})>"
+
+
+class QualityScore(Base):
+    """质量评分表 — LLM-as-Judge 四维度评分"""
+
+    __tablename__ = "quality_scores"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversation_id = Column(String(64), ForeignKey("conversations.session_id"), nullable=False)
+    message_id = Column(String(64), nullable=False)
+    factual_score = Column(Float, nullable=True)
+    relevance_score = Column(Float, nullable=True)
+    helpfulness_score = Column(Float, nullable=True)
+    style_score = Column(Float, nullable=True)
+    aggregate_score = Column(Float, nullable=False)
+    hallucination_flags = Column(Text, nullable=True)  # JSON array as text
+    judge_model = Column(String(64), nullable=False)
+    judge_latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    __table_args__ = (Index("ix_quality_score_conversation", "conversation_id"),)
+
+    def __repr__(self):
+        return f"<QualityScore({self.conversation_id}, agg={self.aggregate_score})>"
 
 
 # ── 考研相关 ──

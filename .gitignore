@@ -14,6 +14,9 @@ logs/
 .env.*.local
 .streamlit/secrets.toml
 
+# Claude Code 工作目录（含临时 worktree）
+.claude/
+
 # 会话密钥
 data/.session_secret
 
@@ -57,3 +60,4 @@ knowledge/quotes/embeddings.npy
 knowledge/quotes/quote_meta.json
 knowledge/quotes/group_embeddings.npy
 knowledge/quotes/group_meta.json
+.worktrees/

@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from db.database import get_session
-from db.models import Feedback, Highlight
+from db.models import Highlight
 from server.auth import create_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
@@ -119,25 +119,26 @@ class FeedbackRequest(BaseModel):
     session_id: str = Field(..., min_length=4, max_length=64)
     message_index: int = Field(..., ge=0)
     rating: str = Field(..., pattern=r"^(helpful|not_helpful)$")
+    feedback_text: str | None = None
+    quality_score_id: int | None = None
 
 
 @router.post("/chat/feedback")
 async def submit_feedback(request: FeedbackRequest):
     """提交用户反馈（有帮助/没帮助）"""
-    try:
-        fb = Feedback(
-            session_id=request.session_id,
-            message_index=request.message_index,
-            rating=request.rating,
-        )
-        db = get_session()
-        db.add(fb)
-        db.commit()
-        db.close()
+    from server.quality.feedback import FeedbackCollector
+
+    collector = FeedbackCollector()
+    ok = collector.save_feedback(
+        conversation_id=request.session_id,
+        message_index=request.message_index,
+        rating=request.rating,
+        feedback_text=request.feedback_text,
+        quality_score_id=request.quality_score_id,
+    )
+    if ok:
         return {"success": True}
-    except Exception as e:
-        logger.error(f"Feedback error: {e}")
-        return {"success": False, "error": str(e)}
+    return {"success": False, "error": "Failed to save feedback"}
 
 
 class HighlightExtractRequest(BaseModel):
