@@ -35,6 +35,146 @@ def safe_int(v):
         return None
 
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+    "Referer": "https://gaokao.baidu.com/",
+}
+
+
+def fetch_tibet_scores_from_api(db):
+    """从百度高考API批量获取各校在西藏的招生数据"""
+    import json
+    import time
+    import urllib.parse
+    import urllib.request
+
+    BASE_URL = "https://gaokao.baidu.com/gk/gkschool/schoolscore"
+
+    # 获取所有学校，按重要性排序
+    schools = db.query(School).order_by(
+        School.is_double_first_class.desc(),
+        School.ranking.asc().nulls_last(),
+    ).all()
+
+    print(f"  从API获取 {len(schools)} 所学校在西藏的招生数据")
+    new_count = 0
+
+    for idx, school in enumerate(schools):
+        # 跳过已有西藏数据的学校
+        existing_count = db.query(AdmissionScore).filter(
+            AdmissionScore.school_id == school.id,
+            AdmissionScore.province == "西藏",
+        ).count()
+        if existing_count > 10:
+            continue
+
+        params = {"school": school.name, "province": "西藏", "year": "2024"}
+        url = f"{BASE_URL}?" + urllib.parse.urlencode(params)
+        try:
+            req = urllib.request.Request(url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+            if "data" not in data:
+                continue
+            sd = data["data"].get("school_score", {})
+            for item in sd.get("dataList", []):
+                min_score = safe_int(item.get("minScore"))
+                if min_score is None:
+                    continue
+                batch_name = item.get("batchName", "本科批")
+                subject_type = item.get("subjectType") or item.get("curriculum") or "综合"
+                min_rank = safe_int(item.get("minScoreOrder"))
+
+                exists = db.query(AdmissionScore).filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == "西藏",
+                    AdmissionScore.year == 2024,
+                    AdmissionScore.batch == batch_name,
+                    AdmissionScore.subject_type == subject_type,
+                    AdmissionScore.major_id.is_(None),
+                ).first()
+                if exists:
+                    continue
+
+                rec = AdmissionScore(
+                    school_id=school.id,
+                    province="西藏",
+                    year=2024,
+                    batch=batch_name,
+                    subject_type=subject_type,
+                    min_score=min_score,
+                    min_rank=min_rank,
+                )
+                db.add(rec)
+                new_count += 1
+        except Exception:
+            pass
+
+        time.sleep(0.3)
+        if (idx + 1) % 100 == 0:
+            db.commit()
+            print(f"    [{idx+1}/{len(schools)}] +{new_count}")
+
+    # 同样采集2022, 2023, 2025年
+    for year in [2022, 2023, 2025]:
+        print(f"\n  采集{year}年数据...")
+        for idx, school in enumerate(schools):
+            existing_count = db.query(AdmissionScore).filter(
+                AdmissionScore.school_id == school.id,
+                AdmissionScore.province == "西藏",
+                AdmissionScore.year == year,
+            ).count()
+            if existing_count > 5:
+                continue
+
+            params = {"school": school.name, "province": "西藏", "year": str(year)}
+            url = f"{BASE_URL}?" + urllib.parse.urlencode(params)
+            try:
+                req = urllib.request.Request(url, headers=HEADERS)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+                if "data" not in data:
+                    continue
+                sd = data["data"].get("school_score", {})
+                for item in sd.get("dataList", []):
+                    min_score = safe_int(item.get("minScore"))
+                    if min_score is None:
+                        continue
+                    batch_name = item.get("batchName", "本科批")
+                    subject_type = item.get("subjectType") or item.get("curriculum") or "综合"
+
+                    exists = db.query(AdmissionScore).filter(
+                        AdmissionScore.school_id == school.id,
+                        AdmissionScore.province == "西藏",
+                        AdmissionScore.year == year,
+                        AdmissionScore.batch == batch_name,
+                        AdmissionScore.subject_type == subject_type,
+                    ).first()
+                    if exists:
+                        continue
+
+                    rec = AdmissionScore(
+                        school_id=school.id,
+                        province="西藏",
+                        year=year,
+                        batch=batch_name,
+                        subject_type=subject_type,
+                        min_score=min_score,
+                        min_rank=safe_int(item.get("minScoreOrder")),
+                    )
+                    db.add(rec)
+                    new_count += 1
+            except Exception:
+                pass
+            time.sleep(0.3)
+
+    db.commit()
+    return new_count
+
+
 def main():
     print("=" * 60)
     print("  西藏高考数据导入")
@@ -174,6 +314,11 @@ def main():
             new_count += 1
 
         db.commit()
+
+        # API批量采集
+        print("\n>>> 从API批量获取外省院校在西藏的招生数据...")
+        api_new = fetch_tibet_scores_from_api(db)
+        print(f"  API采集新增: {api_new} 条")
 
         # 检查结果
         c = db.query(AdmissionScore).filter(AdmissionScore.province == "西藏").count()
