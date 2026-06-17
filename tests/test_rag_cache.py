@@ -279,9 +279,9 @@ class TestRedisCache:
         """When Redis connection fails, RagCache falls back to memory."""
         with (
             patch("server.services.rag_cache.REDIS_AVAILABLE", True),
-            patch("redis.from_url") as mock_from_url,
+            patch("server.services.rag_cache.redis", create=True) as mock_redis_mod,
         ):
-            mock_from_url.side_effect = Exception("Connection refused")
+            mock_redis_mod.from_url.side_effect = Exception("Connection refused")
             cache = RagCache(redis_url="redis://localhost:6379/0")
             assert cache._redis is None
             cache.set("hello", {}, {"fallback": True})
