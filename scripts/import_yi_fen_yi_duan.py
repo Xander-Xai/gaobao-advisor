@@ -265,10 +265,13 @@ def check_missing_yfyd(db_path=None):
     print(f"  缺失组合: {len(missing)}")
 
     for prov, year in sorted(missing):
-        cur.execute("""
+        cur.execute(
+            """
             SELECT DISTINCT subject_type FROM admission_scores
             WHERE province=? AND year=? AND min_rank IS NOT NULL
-        """, (prov, year))
+        """,
+            (prov, year),
+        )
         types = [r[0] for r in cur.fetchall()]
         print(f"    {prov} {year}: 需要 {', '.join(types)}")
 
@@ -290,12 +293,15 @@ def backfill_missing_yfyd(db_path=None):
 
     total_inserted = 0
     for prov, year in sorted(missing):
-        cur.execute("""
+        cur.execute(
+            """
             SELECT subject_type, min_score AS score, MIN(min_rank) AS rank
             FROM admission_scores
             WHERE province=? AND year=? AND min_score > 0 AND min_rank > 0
             GROUP BY subject_type, min_score
-        """, (prov, year))
+        """,
+            (prov, year),
+        )
         rows = cur.fetchall()
 
         inserted = 0

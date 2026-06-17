@@ -91,9 +91,10 @@ class TestGetProfile:
         mock_profile.is_required_complete.return_value = False
         mock_profile.missing_required_fields.return_value = ["score", "subject"]
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+        ):
             result = await get_profile("session123", "Bearer valid-token")
 
             assert result.session_id == "session123"
@@ -111,9 +112,10 @@ class TestGetProfile:
         mock_profile.is_required_complete.return_value = True
         mock_profile.missing_required_fields.return_value = []
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+        ):
             result = await get_profile("session123", "Bearer valid-token")
 
             assert result.is_complete is True
@@ -135,10 +137,11 @@ class TestUpdateProfileField:
 
         req = ProfileUpdateRequest(field="province", value="上海")
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile), \
-             patch("server.routes.profile.save_profile") as mock_save:
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+            patch("server.routes.profile.save_profile") as mock_save,
+        ):
             result = await update_profile_field("session123", req, "Bearer valid-token")
 
             assert mock_profile.province == "上海"
@@ -157,10 +160,11 @@ class TestUpdateProfileField:
 
         req = ProfileUpdateRequest(field="score", value="650")
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile), \
-             patch("server.routes.profile.save_profile"):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+            patch("server.routes.profile.save_profile"),
+        ):
             await update_profile_field("session123", req, "Bearer valid-token")
 
             assert mock_profile.score == 650
@@ -173,9 +177,10 @@ class TestUpdateProfileField:
         mock_profile = MagicMock()
         req = ProfileUpdateRequest(field="score", value="99")  # Too low
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await update_profile_field("session123", req, "Bearer valid-token")
 
@@ -190,9 +195,10 @@ class TestUpdateProfileField:
         mock_profile = MagicMock()
         req = ProfileUpdateRequest(field="score", value="abc")
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await update_profile_field("session123", req, "Bearer valid-token")
 
@@ -206,9 +212,10 @@ class TestUpdateProfileField:
         mock_profile = MagicMock()
         req = ProfileUpdateRequest(field="invalid_field", value="test")
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await update_profile_field("session123", req, "Bearer valid-token")
 
@@ -232,12 +239,13 @@ class TestGetNextQuestion:
         mock_query_state = MagicMock()
         mock_query_state.round_count = 3
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile), \
-             patch("server.routes.profile._load_query_state", return_value=mock_query_state), \
-             patch("server.routes.profile._save_query_state"):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+            patch("server.routes.profile._load_query_state", return_value=mock_query_state),
+            patch("server.routes.profile._save_query_state"),
+        ):
             result = await get_next_question("session123", "Bearer valid-token")
 
             assert result.question == "你的目标学校是哪一类？"
@@ -257,12 +265,13 @@ class TestGetNextQuestion:
         mock_query_state = MagicMock()
         mock_query_state.round_count = 5
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine), \
-             patch("server.routes.profile.load_profile", return_value=mock_profile), \
-             patch("server.routes.profile._load_query_state", return_value=mock_query_state), \
-             patch("server.routes.profile._save_query_state"):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
+            patch("server.routes.profile.load_profile", return_value=mock_profile),
+            patch("server.routes.profile._load_query_state", return_value=mock_query_state),
+            patch("server.routes.profile._save_query_state"),
+        ):
             result = await get_next_question("session123", "Bearer valid-token")
 
             assert result.question is None
@@ -282,11 +291,12 @@ class TestSkipField:
 
         req = SkipFieldRequest(field="family")
 
-        with patch("server.routes.profile._require_auth"), \
-             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine), \
-             patch("server.routes.profile._load_query_state", return_value=mock_query_state), \
-             patch("server.routes.profile._save_query_state"):
-
+        with (
+            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
+            patch("server.routes.profile._load_query_state", return_value=mock_query_state),
+            patch("server.routes.profile._save_query_state"),
+        ):
             result = await skip_field("session123", req, "Bearer valid-token")
 
             assert result["status"] == "skipped"

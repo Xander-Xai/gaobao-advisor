@@ -2,6 +2,7 @@
 DEPRECATED: This module has been moved to legacy/gaokao_data.py.
 Please update imports to use server/ package modules.
 """
+
 import os
 import sys
 import warnings

@@ -55,7 +55,11 @@ class ReplyRewriter:
             rid = str(uuid.uuid4())[:8]
             try:
                 messages = self._build_correction_prompt(
-                    query, original_reply, original_score, violations, hallucination_flags,
+                    query,
+                    original_reply,
+                    original_score,
+                    violations,
+                    hallucination_flags,
                 )
                 rewritten = self._call_llm_for_rewrite(messages)
 
@@ -126,13 +130,8 @@ class ReplyRewriter:
         hallucination_flags: list,
     ) -> list[dict]:
         """Build the LLM prompt that asks for a corrected reply."""
-        violation_text = "\n".join(
-            f"- {v.get('pattern', v) if isinstance(v, dict) else v}"
-            for v in violations
-        ) or "无"
-        hallucination_text = "\n".join(
-            f"- {h}" for h in hallucination_flags
-        ) or "无"
+        violation_text = "\n".join(f"- {v.get('pattern', v) if isinstance(v, dict) else v}" for v in violations) or "无"
+        hallucination_text = "\n".join(f"- {h}" for h in hallucination_flags) or "无"
 
         system_msg = (
             "你是一个高考志愿填报AI回复质量修正专家。"
@@ -164,6 +163,5 @@ class ReplyRewriter:
         LLM client is wired in.
         """
         raise NotImplementedError(
-            "LLM client for rewrite not yet integrated. "
-            "Wire in the project's LLM client to enable rewrites."
+            "LLM client for rewrite not yet integrated. Wire in the project's LLM client to enable rewrites."
         )

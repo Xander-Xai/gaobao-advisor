@@ -1,4 +1,5 @@
 """Graph node for post-generation quality check."""
+
 from server.services.quality import QualityOrchestrator
 
 

@@ -197,9 +197,9 @@ def _generate_report(
     total = quality_stats["total"] or 1
     lines.append("| 等级 | 数量 | 占比 |")
     lines.append("|------|------|------|")
-    lines.append(f"| excellent (>=85) | {dist['excellent']} | {round(dist['excellent']/total*100, 1)}% |")
-    lines.append(f"| pass (60-84) | {dist['pass']} | {round(dist['pass']/total*100, 1)}% |")
-    lines.append(f"| fail (<60) | {dist['fail']} | {round(dist['fail']/total*100, 1)}% |")
+    lines.append(f"| excellent (>=85) | {dist['excellent']} | {round(dist['excellent'] / total * 100, 1)}% |")
+    lines.append(f"| pass (60-84) | {dist['pass']} | {round(dist['pass'] / total * 100, 1)}% |")
+    lines.append(f"| fail (<60) | {dist['fail']} | {round(dist['fail'] / total * 100, 1)}% |")
     lines.append("")
 
     # ── 幻觉统计 ──
@@ -258,9 +258,7 @@ def main() -> None:
     start, end = _date_range(args.period)
     date_str = end.strftime("%Y-%m-%d")
 
-    output_path = args.output or os.path.join(
-        _project_root, "docs", "reports", f"quality-{date_str}.md"
-    )
+    output_path = args.output or os.path.join(_project_root, "docs", "reports", f"quality-{date_str}.md")
 
     # 查询数据
     quality_stats = _query_quality_stats(start, end)

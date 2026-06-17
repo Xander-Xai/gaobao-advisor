@@ -124,11 +124,7 @@ class VectorIndexStore:
 
         # Update metadata
         for i, (chunk_id, meta) in enumerate(zip(chunk_ids, metadata_list, strict=False)):
-            self._metadata.append({
-                "chunk_id": chunk_id,
-                "index": self.size - len(chunk_ids) + i,
-                **meta
-            })
+            self._metadata.append({"chunk_id": chunk_id, "index": self.size - len(chunk_ids) + i, **meta})
 
         # Atomic save (write to temp, then rename)
         temp_index_path = self.index_path + ".tmp"
@@ -210,11 +206,13 @@ class VectorIndexStore:
             if idx == -1:  # FAISS returns -1 for empty slots
                 continue
             metadata = self._metadata[idx] if idx < len(self._metadata) else {}
-            results.append(SearchResult(
-                chunk_id=metadata.get("chunk_id", f"chunk_{idx}"),
-                score=float(score),
-                metadata=metadata,
-            ))
+            results.append(
+                SearchResult(
+                    chunk_id=metadata.get("chunk_id", f"chunk_{idx}"),
+                    score=float(score),
+                    metadata=metadata,
+                )
+            )
 
         return results
 

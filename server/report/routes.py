@@ -187,9 +187,8 @@ def _parse_suggestions_from_replies(replies: list[str]) -> list[str]:
             if not _is_content_line(stripped):
                 continue
 
-            is_suggestion = (
-                any(marker in stripped for marker in ["推荐", "冲刺", "稳妥", "保底"])
-                or re.match(r"^\d+[\.\、]\s*.+大[学院]", stripped)
+            is_suggestion = any(marker in stripped for marker in ["推荐", "冲刺", "稳妥", "保底"]) or re.match(
+                r"^\d+[\.\、]\s*.+大[学院]", stripped
             )
 
             if is_suggestion:
@@ -265,8 +264,12 @@ def _parse_next_actions_from_replies(replies: list[str]) -> list[str]:
                 continue
 
             # Detect action section header or inline action
-            is_action_header = any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) < 20
-            is_action_inline = any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) >= 20
+            is_action_header = (
+                any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) < 20
+            )
+            is_action_inline = (
+                any(marker in stripped for marker in ["建议行动", "下一步", "行动建议", "📌"]) and len(stripped) >= 20
+            )
 
             if is_action_header:
                 in_action_section = True

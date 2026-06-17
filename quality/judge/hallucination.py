@@ -13,16 +13,16 @@ class HallucinationDetector:
 
     # ── 数字+单位模式 ────────────────────────────────────────────────
     _NUMERIC_PATTERNS: list[re.Pattern[str]] = [
-        re.compile(r"(\d+\.?\d*)\s*分"),       # 分数: 680分, 92.5分
-        re.compile(r"(\d+\.?\d*)\s*元"),        # 金额: 5000元
-        re.compile(r"(\d+\.?\d*)\s*%"),         # 百分比: 95%
-        re.compile(r"(\d+\.?\d*)\s*万人?"),     # 人数: 10万
-        re.compile(r"(\d+\.?\d*)\s*个"),        # 数量: 3个
-        re.compile(r"(\d{4})\s*年"),            # 年份: 2024年
-        re.compile(r"(\d+\.?\d*)\s*倍"),        # 倍数: 3倍
-        re.compile(r"(\d+\.?\d*)\s*名"),        # 排名: 第5名
-        re.compile(r"(\d+\.?\d*)\s*所"),        # 学校数: 10所
-        re.compile(r"(\d+\.?\d*)\s*条"),        # 条数: 5条
+        re.compile(r"(\d+\.?\d*)\s*分"),  # 分数: 680分, 92.5分
+        re.compile(r"(\d+\.?\d*)\s*元"),  # 金额: 5000元
+        re.compile(r"(\d+\.?\d*)\s*%"),  # 百分比: 95%
+        re.compile(r"(\d+\.?\d*)\s*万人?"),  # 人数: 10万
+        re.compile(r"(\d+\.?\d*)\s*个"),  # 数量: 3个
+        re.compile(r"(\d{4})\s*年"),  # 年份: 2024年
+        re.compile(r"(\d+\.?\d*)\s*倍"),  # 倍数: 3倍
+        re.compile(r"(\d+\.?\d*)\s*名"),  # 排名: 第5名
+        re.compile(r"(\d+\.?\d*)\s*所"),  # 学校数: 10所
+        re.compile(r"(\d+\.?\d*)\s*条"),  # 条数: 5条
     ]
 
     # ── 学校名称模式 ────────────────────────────────────────────────
@@ -40,10 +40,32 @@ class HallucinationDetector:
 
     # ── 学校名中不应出现的动词/修饰词/连词 ─────────────────────────
     _SCHOOL_VERB_PREFIXES: tuple[str, ...] = (
-        "推荐", "考虑", "选择", "可以", "应该", "还是", "或者",
-        "如果", "但是", "虽然", "不过", "建议", "报考", "填报",
-        "关注", "了解", "看看", "比较", "优先", "避免",
-        "和", "与", "及", "、", "，", "。",
+        "推荐",
+        "考虑",
+        "选择",
+        "可以",
+        "应该",
+        "还是",
+        "或者",
+        "如果",
+        "但是",
+        "虽然",
+        "不过",
+        "建议",
+        "报考",
+        "填报",
+        "关注",
+        "了解",
+        "看看",
+        "比较",
+        "优先",
+        "避免",
+        "和",
+        "与",
+        "及",
+        "、",
+        "，",
+        "。",
     )
 
     # ── 专业名称模式 ────────────────────────────────────────────────
@@ -76,8 +98,14 @@ class HallucinationDetector:
 
     # ── 矛盾指示词对（肯定 vs 否定） ────────────────────────────
     _CONTRADICTION_PAIRS: list[tuple[re.Pattern[str], re.Pattern[str]]] = [
-        (re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:好|不错|优秀|推荐)"), re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:不好|不行|差|糟糕|不推荐|别|不要)")),
-        (re.compile(r"(\S+)\s*(?:值得|应该|可以|建议)(?:考虑|选择|报考)"), re.compile(r"(\S+)\s*(?:不值得|不应该|不可以|不建议|别|不要)(?:考虑|选择|报考)")),
+        (
+            re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:好|不错|优秀|推荐)"),
+            re.compile(r"(\S+)\s*(?:很|非常|特别|挺)?(?:不好|不行|差|糟糕|不推荐|别|不要)"),
+        ),
+        (
+            re.compile(r"(\S+)\s*(?:值得|应该|可以|建议)(?:考虑|选择|报考)"),
+            re.compile(r"(\S+)\s*(?:不值得|不应该|不可以|不建议|别|不要)(?:考虑|选择|报考)"),
+        ),
         (re.compile(r"(\S+)\s*(?:有|是有)(?:前途|前景|希望)"), re.compile(r"(\S+)\s*(?:没有|没|无)(?:前途|前景|希望)")),
     ]
 
@@ -119,9 +147,7 @@ class HallucinationDetector:
 
         return flags
 
-    def _detect_numeric_hallucination(
-        self, reply: str, knowledge_text: str
-    ) -> list[str]:
+    def _detect_numeric_hallucination(self, reply: str, knowledge_text: str) -> list[str]:
         """检测数字幻觉 — 回复中的数字是否出现在知识库中。"""
         flags: list[str] = []
 
@@ -142,9 +168,7 @@ class HallucinationDetector:
 
         return flags
 
-    def _detect_entity_hallucination(
-        self, reply: str, knowledge_text: str
-    ) -> list[str]:
+    def _detect_entity_hallucination(self, reply: str, knowledge_text: str) -> list[str]:
         """检测实体幻觉 — 学校/专业名称是否出现在知识库中。"""
         flags: list[str] = []
 
@@ -200,9 +224,7 @@ class HallucinationDetector:
                 # 检查后续 50 个字符内是否有来源引用
                 after_text = reply[start : start + 50]
 
-                has_attribution = any(
-                    attr.search(after_text) for attr in self._ATTRIBUTION_PATTERNS
-                )
+                has_attribution = any(attr.search(after_text) for attr in self._ATTRIBUTION_PATTERNS)
 
                 if not has_attribution:
                     flags.append("source_missing")
@@ -210,9 +232,7 @@ class HallucinationDetector:
 
         return flags
 
-    def _detect_contradiction(
-        self, reply: str, conversation_history: list[str] | None = None
-    ) -> list[str]:
+    def _detect_contradiction(self, reply: str, conversation_history: list[str] | None = None) -> list[str]:
         """检测矛盾 — 回复与对话历史中的表述是否自相矛盾。
 
         Args:
@@ -272,7 +292,7 @@ class HallucinationDetector:
             changed = False
             for prefix in HallucinationDetector._SCHOOL_VERB_PREFIXES:
                 if name.startswith(prefix):
-                    name = name[len(prefix):]
+                    name = name[len(prefix) :]
                     changed = True
                     break  # 重新检查，前缀可能重叠
         return name
@@ -281,16 +301,44 @@ class HallucinationDetector:
     def _is_common_school(name: str) -> bool:
         """判断是否为常见知名学校（白名单，无需验证）。"""
         common = {
-            "清华大学", "北京大学", "复旦大学", "上海交通大学",
-            "浙江大学", "南京大学", "中国科学技术大学", "武汉大学",
-            "华中科技大学", "中山大学", "四川大学", "山东大学",
-            "同济大学", "东南大学", "天津大学", "南开大学",
-            "厦门大学", "吉林大学", "中南大学", "湖南大学",
-            "重庆大学", "兰州大学", "中国人民大学", "北京师范大学",
-            "华东师范大学", "北京航空航天大学", "北京理工大学",
-            "哈尔滨工业大学", "西安交通大学", "西北工业大学",
-            "大连理工大学", "华南理工大学", "电子科技大学",
-            "中国农业大学", "中国海洋大学", "中央民族大学",
-            "国防科技大学", "东北大学", "郑州大学",
+            "清华大学",
+            "北京大学",
+            "复旦大学",
+            "上海交通大学",
+            "浙江大学",
+            "南京大学",
+            "中国科学技术大学",
+            "武汉大学",
+            "华中科技大学",
+            "中山大学",
+            "四川大学",
+            "山东大学",
+            "同济大学",
+            "东南大学",
+            "天津大学",
+            "南开大学",
+            "厦门大学",
+            "吉林大学",
+            "中南大学",
+            "湖南大学",
+            "重庆大学",
+            "兰州大学",
+            "中国人民大学",
+            "北京师范大学",
+            "华东师范大学",
+            "北京航空航天大学",
+            "北京理工大学",
+            "哈尔滨工业大学",
+            "西安交通大学",
+            "西北工业大学",
+            "大连理工大学",
+            "华南理工大学",
+            "电子科技大学",
+            "中国农业大学",
+            "中国海洋大学",
+            "中央民族大学",
+            "国防科技大学",
+            "东北大学",
+            "郑州大学",
         }
         return name in common

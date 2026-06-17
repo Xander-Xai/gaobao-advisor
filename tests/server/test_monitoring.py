@@ -63,11 +63,22 @@ class TestInitSentry:
         import importlib
 
         import server.monitoring
+
         importlib.reload(server.monitoring)
 
         with caplog.at_level(logging.WARNING):
             # Mock the import to raise ImportError
-            with patch.object(server.monitoring, "__builtins__", {"__import__": lambda n, *a, **k: (_ for _ in ()).throw(ImportError("No module named sentry_sdk")) if n == "sentry_sdk" else __import__(n, *a, **k)}):
+            with patch.object(
+                server.monitoring,
+                "__builtins__",
+                {
+                    "__import__": lambda n, *a, **k: (
+                        (_ for _ in ()).throw(ImportError("No module named sentry_sdk"))
+                        if n == "sentry_sdk"
+                        else __import__(n, *a, **k)
+                    )
+                },
+            ):
                 # Should not raise, just log warning
                 init_sentry()
 

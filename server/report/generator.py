@@ -32,6 +32,7 @@ class ReportGenerator:
             slots: Extracted slot values {"province": "山东", "score": "600", ...}
             student_name: Optional student name for personalization.
         """
+
         def _extract(key: str) -> str:
             val = slots.get(key, "")
             if isinstance(val, dict):

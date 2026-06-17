@@ -32,7 +32,7 @@ HEADERS = {
     "Referer": "https://gaokao.baidu.com/",
 }
 
-MISSING_PROVINCES = ['四川', '河南', '山西', '陕西', '云南', '青海', '内蒙古', '宁夏']
+MISSING_PROVINCES = ["四川", "河南", "山西", "陕西", "云南", "青海", "内蒙古", "宁夏"]
 BASE_URL = "https://gaokao.baidu.com/gk/gkschool/schoolscore"
 DELAY = 0.3
 
@@ -169,7 +169,7 @@ def main():
                 if school_new > 0:
                     db.commit()
 
-                print(f"  [{idx+1}/{len(schools)}] {school.name}: +{school_new}", end="", flush=True)
+                print(f"  [{idx + 1}/{len(schools)}] {school.name}: +{school_new}", end="", flush=True)
                 if (idx + 1) % 20 == 0:
                     print()
                 else:
@@ -179,11 +179,11 @@ def main():
 
         # 统计
         p2025 = db.execute("SELECT COUNT(DISTINCT province) FROM admission_scores WHERE year=2025").scalar()
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("  采集完成！")
         print(f"  新增 2025 年录取数据: {total_new} 条")
         print(f"  2025年覆盖省份: {p2025}/30")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     finally:
         db.close()

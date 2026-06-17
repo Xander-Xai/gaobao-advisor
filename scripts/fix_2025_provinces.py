@@ -41,7 +41,7 @@ HEADERS = {
     "Referer": "https://gaokao.baidu.com/",
 }
 
-MISSING_PROVINCES = ['河南', '四川', '陕西', '云南', '内蒙古', '山西', '宁夏', '青海', '西藏']
+MISSING_PROVINCES = ["河南", "四川", "陕西", "云南", "内蒙古", "山西", "宁夏", "青海", "西藏"]
 BASE_URL = "https://gaokao.baidu.com/gk/gkschool/schoolscore"
 DELAY = 0.3
 
@@ -57,10 +57,7 @@ def safe_int(v):
 
 def get_2024_count(db, province):
     """获取某省2024年数据量作为基线"""
-    return db.query(AdmissionScore).filter(
-        AdmissionScore.province == province,
-        AdmissionScore.year == 2024
-    ).count()
+    return db.query(AdmissionScore).filter(AdmissionScore.province == province, AdmissionScore.year == 2024).count()
 
 
 def fetch_scores_no_curriculum(school_name, province, year=2025):
@@ -87,31 +84,33 @@ def fetch_scores_no_curriculum(school_name, province, year=2025):
 def fix_province(db, province, dry_run=False, force=False):
     """修复单个省份的2025年数据"""
     count_2024 = get_2024_count(db, province)
-    count_2025_before = db.query(AdmissionScore).filter(
-        AdmissionScore.province == province, AdmissionScore.year == 2025
-    ).count()
+    count_2025_before = (
+        db.query(AdmissionScore).filter(AdmissionScore.province == province, AdmissionScore.year == 2025).count()
+    )
 
     if dry_run:
-        print(f"  [{province}] 2024: {count_2024:,} | 2025(当前): {count_2025_before:,} | 目标: {int(count_2024*0.8):,}")
+        print(
+            f"  [{province}] 2024: {count_2024:,} | 2025(当前): {count_2025_before:,} | 目标: {int(count_2024 * 0.8):,}"
+        )
         return 0
 
     # 获取所有学校（不限于该省学校），按重要性排序
-    schools = (
-        db.query(School)
-        .order_by(School.is_double_first_class.desc(), School.ranking.asc().nulls_last())
-        .all()
-    )
+    schools = db.query(School).order_by(School.is_double_first_class.desc(), School.ranking.asc().nulls_last()).all()
 
     total_new = 0
     total_skipped = 0
 
     for idx, school in enumerate(schools):
         if not force:
-            existing = db.query(AdmissionScore).filter(
-                AdmissionScore.school_id == school.id,
-                AdmissionScore.province == province,
-                AdmissionScore.year == 2025,
-            ).count()
+            existing = (
+                db.query(AdmissionScore)
+                .filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == province,
+                    AdmissionScore.year == 2025,
+                )
+                .count()
+            )
             if existing > 0:
                 total_skipped += 1
                 continue
@@ -137,14 +136,18 @@ def fix_province(db, province, dry_run=False, force=False):
             seen_keys.add(dedup_key)
             min_rank = safe_int(s.get("minScoreOrder"))
 
-            exists = db.query(AdmissionScore).filter(
-                AdmissionScore.school_id == school.id,
-                AdmissionScore.province == province,
-                AdmissionScore.year == 2025,
-                AdmissionScore.batch == batch_name,
-                AdmissionScore.subject_type == subject_type,
-                AdmissionScore.major_id.is_(None),
-            ).first()
+            exists = (
+                db.query(AdmissionScore)
+                .filter(
+                    AdmissionScore.school_id == school.id,
+                    AdmissionScore.province == province,
+                    AdmissionScore.year == 2025,
+                    AdmissionScore.batch == batch_name,
+                    AdmissionScore.subject_type == subject_type,
+                    AdmissionScore.major_id.is_(None),
+                )
+                .first()
+            )
             if exists:
                 continue
 
@@ -167,17 +170,21 @@ def fix_province(db, province, dry_run=False, force=False):
             db.commit()
 
         if (idx + 1) % 100 == 0:
-            count_now = db.query(AdmissionScore).filter(
-                AdmissionScore.province == province, AdmissionScore.year == 2025
-            ).count()
-            print(f"  [{province}] {idx+1}/{len(schools)} 校 | 新增 {total_new} | 当前 {count_now:,}/{count_2024:,}")
+            count_now = (
+                db.query(AdmissionScore)
+                .filter(AdmissionScore.province == province, AdmissionScore.year == 2025)
+                .count()
+            )
+            print(f"  [{province}] {idx + 1}/{len(schools)} 校 | 新增 {total_new} | 当前 {count_now:,}/{count_2024:,}")
 
-    count_2025_after = db.query(AdmissionScore).filter(
-        AdmissionScore.province == province, AdmissionScore.year == 2025
-    ).count()
+    count_2025_after = (
+        db.query(AdmissionScore).filter(AdmissionScore.province == province, AdmissionScore.year == 2025).count()
+    )
     ratio = count_2025_after / count_2024 * 100 if count_2024 > 0 else 0
     status = "✅" if ratio >= 80 else "⚠️"
-    print(f"  [{province}] 完成: {count_2025_before:,} → {count_2025_after:,} (目标{count_2024*80//100:,}, 实际{ratio:.0f}%) {status}")
+    print(
+        f"  [{province}] 完成: {count_2025_before:,} → {count_2025_after:,} (目标{count_2024 * 80 // 100:,}, 实际{ratio:.0f}%) {status}"
+    )
 
     return total_new
 

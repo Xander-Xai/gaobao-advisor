@@ -27,6 +27,10 @@ class School(Base):
     is_double_first_class = Column(Integer, default=0)
     website = Column(String(200), nullable=True)
     description = Column(String(500), nullable=True)
+    special_type = Column(
+        String(20), nullable=True, default=None
+    )  # 军校/艺术类/体育类/港澳院校/新建院校 — 无分数院校分类
+    data_source_note = Column(String(200), nullable=True, default=None)  # 数据缺失原因说明
 
     admission_scores = relationship("AdmissionScore", back_populates="school")
     enrollment_plans = relationship("EnrollmentPlan", back_populates="school")

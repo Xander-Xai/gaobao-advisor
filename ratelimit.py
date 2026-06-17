@@ -2,11 +2,11 @@
 DEPRECATED: This module has been moved to server/middleware/ratelimit.py.
 Please update imports to use the new location.
 """
+
 import warnings
 
 warnings.warn(
-    "ratelimit.py has moved to server/middleware/ratelimit.py. "
-    "Please update your imports.",
+    "ratelimit.py has moved to server/middleware/ratelimit.py. Please update your imports.",
     DeprecationWarning,
     stacklevel=2,
 )

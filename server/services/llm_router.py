@@ -19,6 +19,7 @@ class TaskType(str, Enum):
     QUALITY_CHECK = "quality_check"
     STRUCTURED_OUTPUT = "structured_output"
 
+
 FAST_TASKS = {TaskType.FAQ, TaskType.DATA_QUERY, TaskType.RAG, TaskType.SUMMARY, TaskType.REPORT_FORMAT}
 SMART_TASKS = {TaskType.RECOMMEND, TaskType.STRATEGY, TaskType.QUALITY_CHECK, TaskType.STRUCTURED_OUTPUT}
 AGNES_PROVIDERS = ["agnes-flash-1", "agnes-flash-2"]

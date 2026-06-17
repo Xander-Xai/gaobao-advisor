@@ -1,4 +1,5 @@
 """Tests for report API routes — generate, retrieve, and export."""
+
 from __future__ import annotations
 
 import pytest

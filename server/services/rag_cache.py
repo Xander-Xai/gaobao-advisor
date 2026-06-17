@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Check if Redis is available
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -110,7 +111,8 @@ class RagCache:
 
         # Normalize slots (sort keys, exclude empty values)
         normalized_slots = {
-            k: v for k, v in sorted(slots.items())
+            k: v
+            for k, v in sorted(slots.items())
             if v and (isinstance(v, str) and v.strip() or isinstance(v, (int, float, bool)))
         }
 
