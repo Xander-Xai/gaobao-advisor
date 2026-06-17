@@ -60,3 +60,4 @@ knowledge/quotes/embeddings.npy
 knowledge/quotes/quote_meta.json
 knowledge/quotes/group_embeddings.npy
 knowledge/quotes/group_meta.json
+.worktrees/
