@@ -50,3 +50,11 @@ class TestQualityPostCheckNode:
         result = quality_post_check_node({})
         assert result["anti_pattern_violations"] == []
         assert result["should_rewrite"] is False
+
+    def test_vague_reply_no_family_context_rewrite(self):
+        """Rule 2 (未问家庭即给热爱建议) triggers rewrite when family context unknown."""
+        result = quality_post_check_node({
+            "reply": "追随你的热爱去选择专业，兴趣是最好的老师。",
+            "slots": {"family_known": False},
+        })
+        assert result["should_rewrite"] is True

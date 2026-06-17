@@ -66,13 +66,25 @@ def quality_orchestrate_node(state: dict[str, Any]) -> dict[str, Any]:
     validation: dict[str, Any] | None = None
     try:
         data_query_results = state.get("data_query_results")
-        if data_query_results and any(
-            isinstance(v, (list, dict)) and v for v in (data_query_results if isinstance(data_query_results, dict) else {}).values()
-        ):
-            sources = data_query_results if isinstance(data_query_results, list) else [data_query_results]
-            cv_result = orch.cross_validate(sources)
-            if cv_result is not None:
-                validation = cv_result
+        if data_query_results:
+            # Build source dicts that cross_validate_admission expects:
+            # each source must have "source" (str), "min_score" (int|None), "min_rank" (int|None)
+            sources: list[dict[str, Any]] = []
+            items = data_query_results if isinstance(data_query_results, list) else [data_query_results]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                # Only include items that have at least min_score or min_rank
+                if item.get("min_score") is not None or item.get("min_rank") is not None:
+                    sources.append({
+                        "source": item.get("source", "unknown"),
+                        "min_score": item.get("min_score"),
+                        "min_rank": item.get("min_rank"),
+                    })
+            if sources:
+                cv_result = orch.cross_validate(sources)
+                if cv_result is not None:
+                    validation = cv_result
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("Cross-validation failed: %s", e)

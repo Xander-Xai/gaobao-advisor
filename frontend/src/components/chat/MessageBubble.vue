@@ -47,15 +47,19 @@ const qualityBadgeText = computed(() => {
 async function sendFeedback(rating) {
   if (feedback.value === rating) return
   feedback.value = rating
+  const payload = {
+    session_id: props.message.sessionId || '',
+    message_index: props.message.messageIndex || 0,
+    rating,
+  }
+  if (props.message.qualityScoreId) {
+    payload.quality_score_id = props.message.qualityScoreId
+  }
   try {
     await fetch('/api/v1/chat/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: props.message.sessionId || '',
-        message_index: props.message.messageIndex || 0,
-        rating,
-      }),
+      body: JSON.stringify(payload),
     })
   } catch (e) {
     console.error('Feedback failed:', e)
