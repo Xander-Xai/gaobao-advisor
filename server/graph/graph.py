@@ -25,6 +25,7 @@ from server.graph.nodes.route import scene_route_node
 from server.graph.nodes.security_scan import security_scan_node
 from server.graph.nodes.post_check import quality_post_check_node
 from server.graph.nodes.source_attribution import source_attribution_node
+from server.graph.nodes.feedback_node import feedback_node
 from server.graph.nodes.judge_node import quality_judge_node
 from server.graph.nodes.structure import structure_output_node
 from server.graph.state import AdvisorState
@@ -61,6 +62,7 @@ def build_advisor_graph():
     graph.add_node("source_attribution", source_attribution_node)
     graph.add_node("quality_post_check", quality_post_check_node)
     graph.add_node("quality_judge", quality_judge_node)
+    graph.add_node("feedback", feedback_node)
     graph.add_node("memory_update", memory_update_node)
 
     # ── Entry point ───────────────────────────────────────────
@@ -97,7 +99,8 @@ def build_advisor_graph():
     graph.add_edge("render_reply", "source_attribution")
     graph.add_edge("source_attribution", "quality_post_check")
     graph.add_edge("quality_post_check", "quality_judge")
-    graph.add_edge("quality_judge", "memory_update")
+    graph.add_edge("quality_judge", "feedback")
+    graph.add_edge("feedback", "memory_update")
     graph.add_edge("memory_update", END)
 
     return graph.compile()
