@@ -180,7 +180,7 @@ def main():
         # 统计
         p2025 = db.execute("SELECT COUNT(DISTINCT province) FROM admission_scores WHERE year=2025").scalar()
         print(f"\n{'='*60}")
-        print(f"  采集完成！")
+        print("  采集完成！")
         print(f"  新增 2025 年录取数据: {total_new} 条")
         print(f"  2025年覆盖省份: {p2025}/30")
         print(f"{'='*60}")

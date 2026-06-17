@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from db.crud import save_feedback
 from db.database import SessionLocal
@@ -19,8 +18,8 @@ class ExplicitFeedback:
     conversation_id: str
     message_index: int
     rating: str  # "helpful" / "not_helpful"
-    feedback_text: Optional[str] = None
-    quality_score_id: Optional[int] = None
+    feedback_text: str | None = None
+    quality_score_id: int | None = None
     source: str = "explicit"
 
 

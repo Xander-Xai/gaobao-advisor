@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 # ── 维度权重 ────────────────────────────────────────────────────────
 DIMENSION_WEIGHTS: dict[str, float] = {

@@ -7,7 +7,6 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +22,10 @@ class RewriteRecord:
     original_reply: str
     original_score: float
     attempt: int
-    rewritten_reply: Optional[str] = None
-    rewritten_score: Optional[float] = None
+    rewritten_reply: str | None = None
+    rewritten_score: float | None = None
     success: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
     )

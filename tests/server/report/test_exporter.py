@@ -1,4 +1,3 @@
-import pytest
 from server.report.exporter import ReportExporter
 from server.report.models import Report
 

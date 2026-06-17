@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from server.report.cover import CoverGenerator
 from server.report.exporter import ReportExporter
 from server.report.generator import ReportGenerator
-from server.report.models import Report
 from server.report.storage import ReportStorage
 
 logger = logging.getLogger(__name__)
