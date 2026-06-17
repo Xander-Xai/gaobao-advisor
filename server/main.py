@@ -12,6 +12,7 @@ from server.middleware.csp import CSPMiddleware
 from server.middleware.ratelimit import RateLimitMiddleware
 from server.middleware.security import SecurityMiddleware
 from server.monitoring import init_sentry
+from server.report.routes import router as report_router
 from server.routes.chat import router as chat_router
 from server.routes.data import router as data_router
 from server.routes.health import router as health_router
@@ -19,7 +20,6 @@ from server.routes.knowledge import router as knowledge_router
 from server.routes.onboarding import router as onboarding_router
 from server.routes.profile import router as profile_router
 from server.routes.voice import router as voice_router
-from server.report.routes import router as report_router
 
 
 @asynccontextmanager

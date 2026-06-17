@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from typing import Any
 
 from openai import AsyncOpenAI
@@ -104,7 +103,6 @@ class JudgeRouter:
     async def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """调用 LLM 并返回回复文本。"""
         client = self._get_client()
-        cfg = load_llm_config()
 
         response = await client.chat.completions.create(
             model=self.model_name,

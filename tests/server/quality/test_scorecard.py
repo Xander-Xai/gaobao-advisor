@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from quality.judge.scorecard import (
     DIMENSION_WEIGHTS,
     EXCELLENT_THRESHOLD,

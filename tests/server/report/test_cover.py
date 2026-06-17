@@ -1,4 +1,3 @@
-import pytest
 from server.report.cover import CoverGenerator
 from server.report.models import Report
 

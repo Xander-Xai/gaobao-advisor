@@ -88,7 +88,6 @@ def search(user_msg: str, slots: dict | None = None) -> dict[str, Any]:
     from server.metrics import record_cache_hit, record_cache_miss
 
     slots = slots or {}
-    cache_key = _make_cache_key(user_msg, slots)
 
     # Check cache first
     cached = _cache.get(user_msg, slots)

@@ -1,4 +1,3 @@
-import pytest
 from server.domain.schemas import StructuredPlanningCard
 from server.report.generator import ReportGenerator
 

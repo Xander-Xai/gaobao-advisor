@@ -25,7 +25,6 @@ from typing import Any
 from quality.judge.hallucination import HallucinationDetector
 from quality.judge.judge_router import JudgeRouter
 from quality.judge.scorecard import (
-    DIMENSION_WEIGHTS,
     JudgeResult,
     compute_aggregate,
 )

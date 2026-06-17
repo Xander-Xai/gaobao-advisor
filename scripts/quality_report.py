@@ -127,7 +127,6 @@ def _query_feedback_stats(
     end: datetime.datetime,
 ) -> dict[str, Any]:
     """查询 feedbacks 表的满意度统计。"""
-    from sqlalchemy import func
 
     with SessionLocal() as db:
         base = db.query(Feedback).filter(
@@ -179,8 +178,8 @@ def _generate_report(
     if quality_stats["total"] == 0:
         lines.append("> 本周期内无质量评分数据。")
     else:
-        lines.append(f"| 指标 | 值 |")
-        lines.append(f"|------|-----|")
+        lines.append("| 指标 | 值 |")
+        lines.append("|------|-----|")
         lines.append(f"| 评估总数 | {quality_stats['total']} |")
         lines.append(f"| 平均分 | {quality_stats['avg']} |")
         lines.append(f"| 最低分 | {quality_stats['min']} |")
@@ -209,8 +208,8 @@ def _generate_report(
     if quality_stats["hallucination_count"] == 0:
         lines.append("> 本周期内未检测到幻觉。")
     else:
-        lines.append(f"| 指标 | 值 |")
-        lines.append(f"|------|-----|")
+        lines.append("| 指标 | 值 |")
+        lines.append("|------|-----|")
         lines.append(f"| 含幻觉标记的回复数 | {quality_stats['hallucination_count']} |")
         if quality_stats.get("hallucination_types"):
             lines.append(f"| 幻觉类型分布 | {quality_stats['hallucination_types']} |")
@@ -222,8 +221,8 @@ def _generate_report(
     if feedback_stats["total"] == 0:
         lines.append("> 本周期内无用户反馈数据。")
     else:
-        lines.append(f"| 指标 | 值 |")
-        lines.append(f"|------|-----|")
+        lines.append("| 指标 | 值 |")
+        lines.append("|------|-----|")
         lines.append(f"| 反馈总数 | {feedback_stats['total']} |")
         lines.append(f"| 有帮助 | {feedback_stats['helpful']} |")
         lines.append(f"| 无帮助 | {feedback_stats['not_helpful']} |")

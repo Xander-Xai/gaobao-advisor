@@ -25,7 +25,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from db.database import get_session, init_db
 from db.models import AdmissionScore
-from sqlalchemy import func, text
+from sqlalchemy import func
 
 # 标准化映射规则（按优先级匹配，更具体的规则放前面）
 BATCH_RULES = [

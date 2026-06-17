@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 # ── 事实性评估提示词 ─────────────────────────────────────────────────
 FACTUAL_PROMPT = """\
 你是一个高考志愿咨询回答的事实性评估专家。你的任务是评估AI回答中的事实是否准确。

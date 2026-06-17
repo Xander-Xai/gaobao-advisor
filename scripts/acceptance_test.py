@@ -14,7 +14,6 @@
 """
 
 import argparse
-import json
 import os
 import re
 import sys
@@ -26,8 +25,6 @@ sys.path.insert(0, PROJECT_ROOT)
 from db.database import get_session, init_db
 from db.models import (
     AdmissionScore,
-    EnrollmentPlan,
-    Major,
     School,
     SubjectRanking,
     YiFenYiDuan,
@@ -102,7 +99,7 @@ class AcceptanceReport:
                     f.write(f"| {icon} | {c['check']} | {c['detail']} |\n")
                 f.write("\n")
 
-            f.write(f"## 汇总\n\n")
+            f.write("## 汇总\n\n")
             f.write(f"- ✅ 通过: {self.summary['pass']}\n")
             f.write(f"- ❌ 失败: {self.summary['fail']}\n")
             f.write(f"- ⚠️ 警告: {self.summary['warn']}\n")
@@ -492,7 +489,7 @@ def check_security(db, report: AcceptanceReport):
                 continue
             fpath = os.path.join(root, fname)
             try:
-                with open(fpath, "r", errors="ignore") as f:
+                with open(fpath, errors="ignore") as f:
                     content = f.read()
                     for pattern, label in sensitive_patterns:
                         matches = re.findall(pattern, content, re.IGNORECASE)
