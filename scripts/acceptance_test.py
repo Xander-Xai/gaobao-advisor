@@ -482,7 +482,7 @@ def check_security(db, report: AcceptanceReport):
     ]
     found_secrets = []
     for root, dirs, files in os.walk(PROJECT_ROOT):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules", "venv", ".venv", ".worktree")]
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules", "venv", ".venv", ".worktree", "worktrees")]
         for fname in files:
             if not fname.endswith((".py", ".js", ".ts", ".env", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini")):
                 continue
