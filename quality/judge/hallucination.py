@@ -44,7 +44,7 @@ class HallucinationDetector:
         "推荐", "考虑", "选择", "可以", "应该", "还是", "或者",
         "如果", "但是", "虽然", "不过", "建议", "报考", "填报",
         "关注", "了解", "看看", "比较", "优先", "避免",
-        "和", "与", "及", "和", "、", "，", "。",
+        "和", "与", "及", "、", "，", "。",
     )
 
     # ── 专业名称模式 ────────────────────────────────────────────────
@@ -195,11 +195,16 @@ class HallucinationDetector:
     def _strip_verb_prefix(name: str) -> str:
         """去除匹配到的实体名中的动词前缀。
 
-        正则可能匹配到"推荐考虑浙江大学"，需要提取"浙江大学"。
+        正则可能匹配到"推荐考虑浙江大学"，需要迭代去除前缀直到提取"浙江大学"。
         """
-        for prefix in HallucinationDetector._SCHOOL_VERB_PREFIXES:
-            if name.startswith(prefix):
-                name = name[len(prefix):]
+        changed = True
+        while changed:
+            changed = False
+            for prefix in HallucinationDetector._SCHOOL_VERB_PREFIXES:
+                if name.startswith(prefix):
+                    name = name[len(prefix):]
+                    changed = True
+                    break  # 重新检查，前缀可能重叠
         return name
 
     @staticmethod
