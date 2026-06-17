@@ -556,6 +556,37 @@ print('Careers:', session.query(Career).count())
 
 ---
 
-**报告人**: AI Assistant  
-**日期**: 2026-06-16  
+## 🔌 后续：前端实现对齐（2026-06-17）
+
+> 详见主报告 [FRONTEND-ALIGNMENT-REPORT-2026-06-17.md](FRONTEND-ALIGNMENT-REPORT-2026-06-17.md)
+
+P2 文档解决的是**后端**问题；前端当时只接入了 4/19 端点，剩余 15 个端点（data / knowledge / profile / health + voice 鉴权漏洞 + highlight 上报）出现严重不一致。
+
+**本次对齐补全摘要**：
+
+| 维度 | 数字 |
+|------|------|
+| 后端端点 | 19 |
+| 前端已实现 (修复前) | 4.5（voice 半残） |
+| 前端已实现 (修复后) | **19/19** ✅ |
+| 改动文件 | 9 改 / 3 建 |
+| 新增单测 | 15（client.test.js） |
+| 累计测试 | **46 passed** |
+| Build | ✅ 478ms 无 warning |
+
+**关键修复**：
+- 语音 WebSocket 补传 Bearer token，后端不再 4001 关闭
+- chat SSE `done` 事件新增 `session_token` 自动保存
+- `client.js` 重写为 7-namespace 统一客户端（统一 `{data, error}` envelope）
+- 新建 `ProfileView.vue` / 健康检查 `AdminView.vue` / `MessageBubble` 金句 ⭐ 按钮
+
+**遗留 TODO**（不影响本次交付）：
+- `sessionToken` 跨刷新持久化（localStorage）
+- WebSocket token 改走 `Sec-WebSocket-Protocol` 子协议
+- `dataAPI` / `knowledgeAPI` 缺调用方视图（API 已暴露，待下一迭代补 SchoolSearch / KnowledgeSearch View）
+
+---
+
+**报告人**: AI Assistant
+**日期**: 2026-06-16
 **状态**: ✅ 所有 P1 + P2 问题已解决，项目达到生产就绪标准，建议立即上线

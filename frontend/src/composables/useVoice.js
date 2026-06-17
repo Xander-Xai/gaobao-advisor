@@ -8,8 +8,13 @@ export function useVoice(wsUrl) {
   const liveAssistantText = ref('')
   const ws = ref(null)
 
-  function connect(sessionId, scene) {
-    const url = wsUrl || `ws://${location.host}/ws/call?session_id=${sessionId}&scene=${scene}`
+  function connect(sessionId, scene, token) {
+    // Backend (server/routes/voice.py) closes the socket with code 4001
+    // when token is missing/invalid. Append it as a query param to satisfy
+    // verify_session_token(session_id, token) on the server side.
+    const params = new URLSearchParams({ session_id: sessionId, scene })
+    if (token) params.set('token', token)
+    const url = wsUrl || `ws://${location.host}/ws/call?${params.toString()}`
     ws.value = new WebSocket(url)
     ws.value.binaryType = 'arraybuffer'
 
