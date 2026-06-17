@@ -84,7 +84,7 @@ def fetch_scores_no_curriculum(school_name, province, year=2025):
     return []
 
 
-def fix_province(db, province, dry_run=False):
+def fix_province(db, province, dry_run=False, force=False):
     """修复单个省份的2025年数据"""
     count_2024 = get_2024_count(db, province)
     count_2025_before = db.query(AdmissionScore).filter(
@@ -106,14 +106,15 @@ def fix_province(db, province, dry_run=False):
     total_skipped = 0
 
     for idx, school in enumerate(schools):
-        existing = db.query(AdmissionScore).filter(
-            AdmissionScore.school_id == school.id,
-            AdmissionScore.province == province,
-            AdmissionScore.year == 2025,
-        ).count()
-        if existing > 0:
-            total_skipped += 1
-            continue
+        if not force:
+            existing = db.query(AdmissionScore).filter(
+                AdmissionScore.school_id == school.id,
+                AdmissionScore.province == province,
+                AdmissionScore.year == 2025,
+            ).count()
+            if existing > 0:
+                total_skipped += 1
+                continue
 
         scores = fetch_scores_no_curriculum(school.name, province, 2025)
         time.sleep(DELAY)
@@ -185,6 +186,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--province", type=str, default=None, help="只修复指定省份")
     parser.add_argument("--dry-run", action="store_true", help="只显示当前状态，不采集")
+    parser.add_argument("--force", action="store_true", help="跳过跳过检查，强制补采所有学校的更多批次数据")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -212,7 +214,7 @@ def main():
         total_new = 0
         for p in provinces:
             print(f"\n>>> 修复 {p}...")
-            total_new += fix_province(db, p)
+            total_new += fix_province(db, p, force=args.force)
 
         print("\n--- 修复后状态 ---")
         for p in provinces:
