@@ -208,13 +208,11 @@ class QualityOrchestrator:
         Returns:
             dict with anti_patterns and should_rewrite flag
         """
-        anti_patterns = self.check_anti_patterns(ai_output, family_known)
-        from quality.anti_pattern_checker import get_error_count
-
-        error_count = get_error_count(self.anti_pattern_checker.check_anti_patterns(ai_output, family_known))
+        results = self.check_anti_patterns(ai_output, family_known)
+        error_count = sum(1 for r in results if r.get("severity") == "error")
 
         return {
-            "anti_patterns": anti_patterns,
+            "anti_patterns": results,
             "error_count": error_count,
             "should_rewrite": error_count >= 1,
         }
