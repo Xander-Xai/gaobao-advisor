@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from server.graph.nodes.source_attribution import validate_source_attribution
-
 # Disclaimer suffix appended to all advice
 _DISCLAIMER = "\n\n---\n声明：以上分析基于公开数据和AI模型，仅供参考。最终志愿填报请以各省教育考试院官方发布信息为准。"
 
@@ -17,14 +15,9 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     security_scan), pass it through unchanged.  Otherwise, assemble
     a reply from the structured result and reasoning.
     """
-    # 如果 reply 已有,校验来源标注(在追加 disclaimer 前),然后追加 disclaimer
+    # 如果 reply 已有,追加 disclaimer(来源标注由 source_attribution 节点处理)
     existing_reply = state.get("reply", "")
     if existing_reply:
-        try:
-            existing_reply = validate_source_attribution(existing_reply)
-        except Exception:
-            # 校验失败不阻塞流程
-            pass
         if "声明：以上分析基于" not in existing_reply:
             final_reply = existing_reply + _DISCLAIMER
         else:
@@ -82,13 +75,8 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
         if reasoning:
             parts.append(reasoning[:500])
 
-    # Phase 3: 先校验来源标注,再追加 disclaimer(避免 disclaimer 干扰标注)
+    # 先构建回复,再追加 disclaimer(来源标注由 source_attribution 节点处理)
     reply = "\n".join(parts)
-    try:
-        reply = validate_source_attribution(reply)
-    except Exception:
-        # 校验失败不阻塞流程
-        pass
     reply = reply + _DISCLAIMER
 
     trace = list(state.get("trace", []))

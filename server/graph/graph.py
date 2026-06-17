@@ -23,6 +23,7 @@ from server.graph.nodes.reason import reason_node
 from server.graph.nodes.render import render_reply_node
 from server.graph.nodes.route import scene_route_node
 from server.graph.nodes.security_scan import security_scan_node
+from server.graph.nodes.source_attribution import source_attribution_node
 from server.graph.nodes.structure import structure_output_node
 from server.graph.state import AdvisorState
 
@@ -55,6 +56,7 @@ def build_advisor_graph():
     graph.add_node("reason", reason_node)
     graph.add_node("structure_output", structure_output_node)
     graph.add_node("render_reply", render_reply_node)
+    graph.add_node("source_attribution", source_attribution_node)
     graph.add_node("memory_update", memory_update_node)
 
     # ── Entry point ───────────────────────────────────────────
@@ -87,8 +89,9 @@ def build_advisor_graph():
     graph.add_edge("reason", "structure_output")
     graph.add_edge("structure_output", "render_reply")
 
-    # ── Converge: render → memory → END ───────────────────────
-    graph.add_edge("render_reply", "memory_update")
+    # ── Converge: render → source_attribution → memory → END ────
+    graph.add_edge("render_reply", "source_attribution")
+    graph.add_edge("source_attribution", "memory_update")
     graph.add_edge("memory_update", END)
 
     return graph.compile()
