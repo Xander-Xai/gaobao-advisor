@@ -64,3 +64,23 @@ knowledge/quotes/quote_meta.json
 knowledge/quotes/group_embeddings.npy
 knowledge/quotes/group_meta.json
 .worktrees/
+
+# Open-source release: generated runtime artifacts
+data/reports/
+frontend/test-results/
+test-results/
+playwright-report/
+blob-report/
+htmlcov/
+.coverage.*
+
+# Open-source release: local data and backup artifacts
+backups/
+data/*.db.corrupted
+data/*.sqlite
+data/*.sqlite3
+
+# Open-source release: local monitoring state
+grafana-data/
+prometheus-data/
+monitoring/data/

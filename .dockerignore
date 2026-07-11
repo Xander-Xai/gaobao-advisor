@@ -8,3 +8,22 @@ data/
 .streamlit/secrets.toml
 demo-preview.gif
 *.db
+
+# Open-source release: keep local and generated artifacts out of images
+.env.*
+!.env.example
+**/*.db*
+backups/
+logs/
+data/reports/
+frontend/test-results/
+test-results/
+playwright-report/
+htmlcov/
+.coverage*
+frontend/node_modules/
+frontend/dist/
+
+# The future synthetic demo dataset is the only data allowed in images.
+!data/sample/
+!data/sample/**
