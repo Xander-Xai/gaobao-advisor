@@ -6,10 +6,11 @@ cd "$ROOT"
 
 require_gitleaks=0
 scan_history=0
+release_mode=0
 
 usage() {
   cat <<'EOF'
-Usage: bash scripts/audit_open_source.sh [--history] [--require-gitleaks]
+Usage: bash scripts/audit_open_source.sh [--history] [--require-gitleaks] [--release]
 
 Audits the tracked public candidate for generated artifacts, sensitive file
 types, oversized files, and optionally secrets in the complete Git history.
@@ -20,6 +21,7 @@ while (($#)); do
   case "$1" in
     --history) scan_history=1 ;;
     --require-gitleaks) require_gitleaks=1 ;;
+    --release) release_mode=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -92,6 +94,53 @@ printf 'code_files=%s\n' "$(git ls-files '*.py' '*.js' '*.vue' '*.ts' | wc -l)"
 printf 'data_files=%s\n' "$(git ls-files 'data/**' '*.json' '*.csv' '*.db' | wc -l)"
 printf 'content_files=%s\n' "$(git ls-files 'knowledge/**' 'prompts/**' 'content_scripts/**' | wc -l)"
 printf 'documentation_files=%s\n' "$(git ls-files '*.md' | wc -l)"
+
+section "Data and content classification"
+asset_registry="config/open_source_assets.tsv"
+if [[ ! -f "$asset_registry" ]]; then
+  fail "asset registry is missing: $asset_registry"
+else
+  unclassified_assets=""
+  excluded_assets=""
+  candidate_assets="$(git ls-files | grep -E \
+    '^(data/|knowledge/|prompts/|content_scripts/|memory/|frontend/public/|frontend/src/assets/)|\.(png|jpe?g|gif|svg|webp|woff2?|ttf|otf)$' || true)"
+  while IFS= read -r asset; do
+    [[ -z "$asset" ]] && continue
+    classified=0
+    while IFS=$'\t' read -r path_prefix _asset_class distribution; do
+      [[ -z "$path_prefix" || "$path_prefix" == \#* ]] && continue
+      if [[ "$asset" == "$path_prefix"* ]]; then
+        classified=1
+        if [[ "$distribution" == "exclude" ]]; then
+          excluded_assets+="$asset"$'\n'
+        fi
+        break
+      fi
+    done < "$asset_registry"
+    if ((classified == 0)); then
+      unclassified_assets+="$asset"$'\n'
+    fi
+  done <<< "$candidate_assets"
+
+  unclassified_assets="${unclassified_assets%$'\n'}"
+  excluded_assets="${excluded_assets%$'\n'}"
+  if [[ -n "$unclassified_assets" ]]; then
+    printf '%s\n' "$unclassified_assets"
+    fail "tracked data/content assets are missing from the classification registry"
+  else
+    pass "all tracked data/content assets are classified"
+  fi
+
+  if ((release_mode)) && [[ -n "$excluded_assets" ]]; then
+    printf '%s\n' "$excluded_assets"
+    fail "release candidate still contains assets classified as exclude"
+  elif [[ -n "$excluded_assets" ]]; then
+    printf 'classified_exclusions=%s (release audit will fail until removed)\n' \
+      "$(printf '%s\n' "$excluded_assets" | wc -l)"
+  else
+    pass "no tracked asset is classified as exclude"
+  fi
+fi
 
 section "Secret scanning"
 if command -v gitleaks >/dev/null 2>&1; then

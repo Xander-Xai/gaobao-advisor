@@ -1,0 +1,17 @@
+# Default owner
+* @yandexuanxuan
+
+# Core application
+/server/ @yandexuanxuan
+/db/ @yandexuanxuan
+/config/ @yandexuanxuan
+/frontend/ @yandexuanxuan
+
+# Data, security and release policy
+/data/ @yandexuanxuan
+/knowledge/ @yandexuanxuan
+/SECURITY.md @yandexuanxuan
+/PRIVACY.md @yandexuanxuan
+/DATA_LICENSE.md @yandexuanxuan
+/DATA_SOURCES.md @yandexuanxuan
+/.github/ @yandexuanxuan

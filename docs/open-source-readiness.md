@@ -92,10 +92,31 @@ the secret-scanning requirement as passed; CI provides the same gate.
 
 ## Remaining release gates
 
-- [ ] Code, data, content, third-party and brand rights are classified.
-- [ ] Security, privacy, support and community governance documents are complete.
+- [x] Code, data, content, third-party and brand rights are classified in
+  `config/open_source_assets.tsv` and the root policy documents. Assets marked
+  `exclude` still need to be omitted from the final public archive.
+- [x] Security, privacy, support and community governance documents are complete.
+- [ ] README links to every policy document; this remains part of the planned
+  README reconciliation because the file has pre-existing uncommitted changes.
 - [ ] No-key demo configuration and synthetic sample data are verified.
 - [ ] Backend, frontend, container and supply-chain CI gates pass.
 - [ ] README and release documentation match the verified implementation.
 - [ ] High-stakes education output and privacy controls pass their fixed tests.
 - [ ] A clean candidate copy passes every completion criterion in the design.
+
+## Checkpoint C: rights and governance
+
+- [x] Tracked data, content and visual assets have an automated classification.
+- [x] Data licensing, provenance, third-party and non-affiliation boundaries are
+  documented without extending MIT to third-party assets.
+- [x] Security, privacy, support, conduct, ownership and changelog files exist.
+- [x] Public issue and pull-request templates warn against secrets and personal
+  data and require provenance for new data contributions.
+- [ ] README policy links are pending Task 14; Checkpoint C is otherwise ready.
+
+## Current quality blockers
+
+- `ruff check .` currently reports 19 errors in pre-existing uncommitted MCP,
+  report, route, service, slot and test changes. The governance files do not
+  introduce Python lint failures. Checkpoint E remains blocked until Task 12-13
+  fixes or reconciles these files and reruns the full command.
