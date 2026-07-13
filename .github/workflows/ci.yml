@@ -148,9 +148,20 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{"session_id":"ci-demo","message":"请给我一个演示"}' \
             http://localhost:8000/api/v1/chat > /tmp/chat.sse
-          grep -q '演示模式' /tmp/chat.sse
-          grep -q '合成' /tmp/chat.sse
-          grep -q '非官方' /tmp/chat.sse
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          tokens = []
+          for line in Path("/tmp/chat.sse").read_text().splitlines():
+              if line.startswith("data: "):
+                  event = json.loads(line.removeprefix("data: "))
+                  if event.get("type") == "token":
+                      tokens.append(event.get("content", ""))
+          reply = "".join(tokens)
+          for marker in ("演示模式", "合成", "非官方"):
+              assert marker in reply, (marker, reply)
+          PY
 
       - name: Show container logs on failure
         if: failure()
