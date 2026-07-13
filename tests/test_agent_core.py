@@ -254,8 +254,11 @@ class TestSlotExtraction:
         assert "580" in s["score_rank"]["value"]
 
     def test_score_chinese_num(self):
-        """中文数字分数：五百八十分。"""
-        pytest.skip("_chinese_num_to_int removed from agent.py")
+        """中文数字分数：五百八十分（通过 slots/extractor.py 的 chinese_num_to_int）。"""
+        from slots.extractor import chinese_num_to_int
+
+        result = chinese_num_to_int("五百八十")
+        assert result == 580
 
     def test_score_chinese_num_in_message(self):
         """消息中包含中文数字分数。"""

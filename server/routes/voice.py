@@ -15,7 +15,7 @@ router = APIRouter(tags=["voice"])
 _SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{4,64}$")
 
 
-@router.websocket("/ws/call")
+@router.websocket("/api/v1/ws/call")
 async def voice_call(
     websocket: WebSocket,
     session_id: str = "default",

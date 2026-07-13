@@ -3,7 +3,10 @@
 Adapted from EduAgent backend/app/modules/voice/service.py.
 """
 
+import asyncio
 import os
+
+from config.loader import load_voice_config
 
 VOICE_RENDER_SYSTEM_PROMPT = (
     "你是教育规划电话模式助手。\n"
@@ -19,40 +22,66 @@ SCENE_VOICE_STYLES = {
     "career": "务实直接型：直击核心，用实际案例和数据说话",
 }
 
+VOICE_RENDER_TIMEOUT_SECONDS = 10
+
 
 class VoiceService:
     """Handles voice rendering (text → oral speech)."""
 
     def __init__(self) -> None:
-        self.chat_api_key = os.getenv("DASHSCOPE_CHAT_API_KEY", "")
-        self.chat_model = os.getenv("DASHSCOPE_CHAT_MODEL", "qwen-plus")
+        cfg = load_voice_config()
+        self.chat_api_key = cfg["api_key"]
+        self.chat_model = cfg["model"]
+        self._base_url = os.getenv(
+            "GAOBAO__VOICE__BASE_URL",
+            os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        )
+        from config.loader import load_tuning
+
+        _voice_cfg = load_tuning().get("voice", {})
+        self._temperature = float(_voice_cfg.get("temperature", 0.7))
+        self._max_tokens = int(_voice_cfg.get("max_tokens", 500))
 
     async def render_voice_reply(self, text: str, scene: str = "gaokao") -> str:
         """Use LLM to rewrite structured reply into oral-style speech."""
+        if not self.chat_api_key:
+            return text
+
         try:
-            from openai import OpenAI
+            from openai import AsyncOpenAI
 
             style = SCENE_VOICE_STYLES.get(scene, "")
-            client = OpenAI(
+            client = AsyncOpenAI(
                 api_key=self.chat_api_key,
-                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                base_url=self._base_url,
+                timeout=VOICE_RENDER_TIMEOUT_SECONDS,
+                max_retries=0,
             )
-            response = client.chat.completions.create(
-                model=self.chat_model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": VOICE_RENDER_SYSTEM_PROMPT + f"\n语气风格：{style}",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"请将以下规划结论改写为电话中直接说出来的口语：\n\n{text}",
-                    },
-                ],
-                temperature=0.7,
-                max_tokens=500,
-            )
-            return response.choices[0].message.content.strip()
+
+            try:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=self.chat_model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": VOICE_RENDER_SYSTEM_PROMPT + f"\n语气风格：{style}",
+                            },
+                            {
+                                "role": "user",
+                                "content": f"请将以下规划结论改写为电话中直接说出来的口语：\n\n{text}",
+                            },
+                        ],
+                        temperature=self._temperature,
+                        max_tokens=self._max_tokens,
+                    ),
+                    timeout=VOICE_RENDER_TIMEOUT_SECONDS,
+                )
+            finally:
+                await client.close()
+
+            content = response.choices[0].message.content
+            return (content or "").strip() or text
         except Exception:
             return text  # Fallback: return original text if rendering fails
 

@@ -103,7 +103,7 @@ else
   unclassified_assets=""
   excluded_assets=""
   candidate_assets="$(git ls-files | grep -E \
-    '^(data/|knowledge/|prompts/|content_scripts/|memory/|frontend/public/|frontend/src/assets/)|\.(png|jpe?g|gif|svg|webp|woff2?|ttf|otf)$' || true)"
+    '^(data/|knowledge/|prompts/|content_scripts/|memory/|frontend/public/|frontend/src/assets/)|^skills/gaokao/.*\.md$|\.(png|jpe?g|gif|svg|webp|woff2?|ttf|otf)$' || true)"
   while IFS= read -r asset; do
     [[ -z "$asset" ]] && continue
     classified=0
@@ -155,13 +155,26 @@ if command -v gitleaks >/dev/null 2>&1; then
   else
     fail "gitleaks found potential secrets in the working tree"
   fi
-elif ((scan_history)) && command -v docker >/dev/null 2>&1 && timeout 5 docker info >/dev/null 2>&1; then
-  if docker run --rm -v "$ROOT:/repo:ro" -w /repo \
-    ghcr.io/gitleaks/gitleaks:v8.30.1 git . \
-    --config /repo/.gitleaks.toml --redact=100 --no-banner; then
-    pass "gitleaks complete-history scan via container"
+elif command -v docker >/dev/null 2>&1 && timeout 5 docker info >/dev/null 2>&1; then
+  scan_root="$ROOT"
+  candidate_dir=""
+  if ((scan_history)); then
+    gitleaks_command=(git .)
+    scan_label="complete-history"
   else
-    fail "containerized gitleaks found potential secrets in Git history"
+    candidate_dir="$(mktemp -d)"
+    trap 'rm -rf "$candidate_dir"' EXIT
+    git archive "$(git write-tree)" | tar -xf - -C "$candidate_dir"
+    scan_root="$candidate_dir"
+    gitleaks_command=(dir /repo)
+    scan_label="staged-candidate"
+  fi
+  if docker run --rm -v "$scan_root:/repo:ro" -w /repo \
+    ghcr.io/gitleaks/gitleaks:v8.30.1 "${gitleaks_command[@]}" \
+    --config /repo/.gitleaks.toml --redact=100 --no-banner; then
+    pass "gitleaks ${scan_label} scan via container"
+  else
+    fail "containerized gitleaks found potential secrets in ${scan_label}"
   fi
 elif ((require_gitleaks)); then
   fail "gitleaks is required but neither the CLI nor a working Docker daemon is available"

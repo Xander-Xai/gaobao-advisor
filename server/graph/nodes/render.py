@@ -8,6 +8,23 @@ from typing import Any
 _DISCLAIMER = "\n\n---\n声明：以上分析基于公开数据和AI模型，仅供参考。最终志愿填报请以各省教育考试院官方发布信息为准。"
 
 
+def _slot_value(slots: dict, *keys: str) -> str:
+    """Read a slot value from flat or nested slot representations."""
+    for key in keys:
+        val = slots.get(key)
+        if isinstance(val, dict):
+            val = val.get("value", "")
+        if val:
+            return str(val)
+    return ""
+
+
+def _format_score(score: str) -> str:
+    if not score:
+        return ""
+    return score if score.endswith("分") else f"{score}分"
+
+
 def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     """Build the final reply text for the user.
 
@@ -24,7 +41,11 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
             final_reply = existing_reply
         trace = list(state.get("trace", []))
         trace.append({"node": "render_reply", "event": "llm_reply_with_disclaimer"})
-        return {"reply": final_reply, "trace": trace}
+        return {
+            "reply": final_reply,
+            "trace": trace,
+            "rewrite_attempts": state.get("rewrite_attempts", 0) + (1 if state.get("should_rewrite") else 0),
+        }
 
     scene = state.get("scene", "general")
     slots = state.get("slots", {})
@@ -35,12 +56,20 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
 
     if scene == "gaokao":
         # Build gaokao-specific reply
-        province = slots.get("province", "")
-        score = slots.get("score", "")
-        subject = slots.get("subject", "")
-        interest = slots.get("interest", "")
+        province = _slot_value(slots, "province")
+        score = _format_score(_slot_value(slots, "score_rank", "score"))
+        subject = _slot_value(slots, "subject")
+        interest = _slot_value(slots, "interest")
 
-        header = f"根据您提供的信息（{province}考生，{subject}，{score}分"
+        profile_bits = []
+        if province:
+            profile_bits.append(f"{province}考生")
+        if subject:
+            profile_bits.append(subject)
+        if score:
+            profile_bits.append(score)
+        profile_text = "，".join(profile_bits) if profile_bits else "当前画像信息"
+        header = f"根据您提供的信息（{profile_text}"
         if interest:
             header += f"，意向专业：{interest}"
         header += "），我为您分析如下："
@@ -63,7 +92,7 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
             parts.append(f"\n专业信息：{major.get('description', str(major)[:200])}")
 
     elif scene == "kaoyan":
-        interest = slots.get("interest", "")
+        interest = _slot_value(slots, "interest")
         parts.append(f"关于{interest or '考研'}方向，以下是我的分析：")
         major = structured.get("major_analysis")
         if major and isinstance(major, dict):
@@ -82,4 +111,8 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     trace = list(state.get("trace", []))
     trace.append({"node": "render_reply", "event": "reply_built"})
 
-    return {"reply": reply, "trace": trace}
+    return {
+        "reply": reply,
+        "trace": trace,
+        "rewrite_attempts": state.get("rewrite_attempts", 0) + (1 if state.get("should_rewrite") else 0),
+    }

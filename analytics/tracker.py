@@ -7,6 +7,8 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any
 
+from config.loader import load_runtime_settings
+
 # 事件类型常量
 EVENT_SESSION_START = "session_start"
 EVENT_QUERY_SUBMITTED = "query_submitted"
@@ -32,12 +34,11 @@ class EventTracker:
 
     def __init__(self, db_path: str | None = None) -> None:
         if db_path is None:
-            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            data_dir = os.path.join(base, "data")
-            os.makedirs(data_dir, exist_ok=True)
-            db_path = os.path.join(data_dir, "analytics.db")
+            runtime = load_runtime_settings()
+            db_path = runtime["analytics_db_path"]
 
         self._db_path = db_path
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._conn = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._init_db()

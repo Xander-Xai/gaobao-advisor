@@ -353,18 +353,20 @@ def create_embedding_provider(provider: str = "openai", model: str | None = None
         return OpenAIEmbedding(
             model=model or "text-embedding-v3",
             api_key=kwargs.get("api_key") or os.getenv("DASHSCOPE_API_KEY"),
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            base_url=os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
         )
     elif provider == "siliconflow":
         return OpenAIEmbedding(
             model=model or "BAAI/bge-large-zh-v1.5",
             api_key=kwargs.get("api_key") or os.getenv("SILICONFLOW_API_KEY"),
-            base_url=kwargs.get("base_url", "https://api.siliconflow.cn/v1"),
+            base_url=os.getenv(
+                "GAOBAO__EMBEDDING__BASE_URL", os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1")
+            ),
         )
     elif provider == "ollama":
         return OllamaEmbedding(
             model=model or "bge-m3",
-            base_url=kwargs.get("base_url", "http://localhost:11434"),
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         )
     else:
         return KeywordOnlyEmbedding()
@@ -385,8 +387,11 @@ class KbRetriever:
         max_groups: int = 2,
         max_quotes: int = 3,
     ):
-        self._vector_weight = vector_weight
-        self._keyword_weight = keyword_weight
+        from config.loader import load_tuning
+
+        _tuning = load_tuning().get("rag", {})
+        self._vector_weight = float(_tuning.get("vector_weight", vector_weight))
+        self._keyword_weight = float(_tuning.get("keyword_weight", keyword_weight))
         self._group_threshold = group_threshold
         self._max_groups = max_groups
         self._max_quotes = max_quotes

@@ -18,6 +18,8 @@ import logging
 import os
 import secrets
 
+from config.loader import load_runtime_settings
+
 logger = logging.getLogger(__name__)
 
 _SECRET: str | None = None
@@ -41,7 +43,7 @@ def _load_or_generate_secret() -> str:
     so multiple restarts share the same key.
     """
     env = os.getenv("APP_ENV", "development")
-    secret_file = os.path.join("data", ".session_secret")
+    secret_file = load_runtime_settings()["session_secret_file"]
 
     # Try to load existing secret from file
     if os.path.exists(secret_file):
@@ -88,3 +90,27 @@ def verify_session_token(session_id: str, token: str | None) -> bool:
         return hmac.compare_digest(expected, token)
     except Exception:
         return False
+
+
+def require_bearer_auth(session_id: str, authorization: str | None = None) -> None:
+    """Validate session ownership via Bearer token. Raises 401 on failure."""
+    from fastapi import HTTPException
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing session token")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not verify_session_token(session_id, token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+
+
+def require_token_auth(session_id: str, token: str | None = None) -> None:
+    """Validate session ownership via direct token. Raises 403 on failure."""
+    from fastapi import HTTPException
+    from starlette.status import HTTP_403_FORBIDDEN
+
+    if not session_id:
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Missing session_id")
+    if not token:
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Missing authentication token")
+    if not verify_session_token(session_id, token):
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Invalid authentication token")

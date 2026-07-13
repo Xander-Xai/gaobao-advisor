@@ -20,11 +20,12 @@ Vue 3 SPA 前端 — 高考志愿 AI 顾问的对话界面。
 src/
 ├── main.js                      # 应用入口
 ├── App.vue                      # 根组件
-├── router/index.js              # 路由（/ /report/:id /admin）
+├── router/index.js              # 路由（/ /report/:id /profile/:sessionId /admin）
 ├── stores/
 │   ├── chat.js                  # 对话状态（会话/消息/流式/槽位）
 │   ├── scene.js                 # 场景状态（gaokao/kaoyan/career）
-│   └── voice.js                 # 语音模态框可见性
+│   ├── voice.js                 # 语音模态框可见性
+│   └── report.js                # 报告生成状态
 ├── components/
 │   ├── chat/                    # 对话组件（ChatArea, MessageBubble, MessageInput）
 │   ├── layout/                  # 布局组件（AppHeader, AppSidebar, AppRightPanel）
@@ -59,7 +60,8 @@ src/
 | `emotion` | 情绪检测后 | 情绪状态/策略 |
 | `structured` | 结构化卡片生成后 | StructuredPlanningCard |
 | `token` | LLM 推理中 | token 文本块 |
-| `degraded` | LLM 降级时 | 降级原因 |
+| `error` | 知识图谱查询失败 | 错误信息 |
+| `degraded` | LLM 降级回退时 | 降级原因 |
 | `done` | 回复完整 | session_token（HMAC 签名）|
 
 ### 语音通话
@@ -68,17 +70,34 @@ VoiceModal 通过 `useVoice` composable 打开 WebSocket 连接至 `/ws/call`：
 - PCM 音频帧上行 → ASR → LangGraph → TTS → PCM 音频帧下行
 - `LiveSubtitle` 显示实时识别文本 + AI 回复
 - `VoiceRipple` 动画表示说话状态
+- WebSocket 错误消息已处理，异常时自动关闭连接并提示用户
 
-## 开发
+### 消息持久化
+
+对话消息自动持久化到 `localStorage`，页面刷新后会话历史不丢失。每个会话以 `chat_messages_{sessionId}` 为 key 存储。
+
+### 报告生成
+
+报告生成由 ChatView 触发：当对话中产出结构化规划卡片后，用户可点击生成报告，`reportStore` 调用后端 API 生成并跳转至 `/report/:id` 查看结果。
+
+## 开发与门禁
 
 ```bash
-npm install
-npm run dev     # 开发服务器（默认端口 5173）
+npm ci
+npm run dev     # 开发服务器（默认端口 3080）
 npm run build   # 生产构建
-npm run test    # 运行单元测试
+npm test -- --run
+npm audit --audit-level=moderate
 npm run lint    # ESLint 检查
 ```
+
+Node.js 基线为 20。不要使用 `npm install` 随意改写锁文件；依赖变更应同时提交
+`package.json` 与 `package-lock.json`，并通过测试、生产构建和依赖审计。
 
 ## API 代理
 
 开发模式下，Vite 配置代理将 `/api/` 和 `/ws/` 转发到 FastAPI 后端（默认 `localhost:8000`）。
+
+默认后端运行在无需密钥的社区演示模式。界面和 API 返回的演示内容均为合成示例，项目不是
+官方志愿填报工具。RAG 和语音默认关闭，启用前请阅读根目录的
+[数据许可](../DATA_LICENSE.md)、[隐私政策](../PRIVACY.md) 和 [支持范围](../SUPPORT.md)。

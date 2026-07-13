@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gaobao-advisor": {
+      "command": "python3",
+      "args": ["mcp_server/server.py"],
+      "env": {
+        "GAOBAO_API_BASE_URL": "http://localhost:8000",
+        "GAOBAO_TIMEOUT": "30"
+      }
+    }
+  }
+}

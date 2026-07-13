@@ -1,5 +1,6 @@
 """Token bucket rate limiter for FastAPI with TTL eviction."""
 
+import threading
 import time
 
 from fastapi import HTTPException, Request
@@ -12,13 +13,14 @@ _EVICTION_INTERVAL = 500
 
 
 class TokenBucketLimiter:
-    """Per-IP token bucket rate limiter with TTL-based eviction."""
+    """Per-IP token bucket rate limiter with TTL eviction (thread-safe)."""
 
     def __init__(self, rate: float = 20, capacity: int = 40):
         self.rate = rate
         self.capacity = capacity
         self._buckets: dict[str, tuple[float, float]] = {}
         self._request_count: int = 0
+        self._lock = threading.Lock()
 
     def allow(self, ip: str) -> bool:
         now = time.monotonic()
@@ -28,36 +30,49 @@ class TokenBucketLimiter:
         if self._request_count % _EVICTION_INTERVAL == 0:
             self._evict_idle(now)
 
-        if ip not in self._buckets:
-            self._buckets[ip] = (self.capacity, now)
-        tokens, last = self._buckets[ip]
-        elapsed = now - last
-        tokens = min(self.capacity, tokens + elapsed * self.rate)
-        if tokens < 1:
-            return False
-        self._buckets[ip] = (tokens - 1, now)
+        with self._lock:
+            if ip not in self._buckets:
+                self._buckets[ip] = (self.capacity, now)
+            tokens, last = self._buckets[ip]
+            elapsed = now - last
+            tokens = min(self.capacity, tokens + elapsed * self.rate)
+            if tokens < 1:
+                return False
+            self._buckets[ip] = (tokens - 1, now)
         return True
 
     def _evict_idle(self, now: float) -> None:
         """Remove entries that have been idle (fully refilled) for too long."""
-        idle_ips = [
-            ip
-            for ip, (tokens, last) in self._buckets.items()
-            if now - last > _MAX_IDLE_SECONDS and tokens >= self.capacity
-        ]
-        for ip in idle_ips:
-            del self._buckets[ip]
+        with self._lock:
+            idle_ips = [
+                ip
+                for ip, (tokens, last) in self._buckets.items()
+                if now - last > _MAX_IDLE_SECONDS and tokens >= self.capacity
+            ]
+            for ip in idle_ips:
+                del self._buckets[ip]
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """FastAPI middleware enforcing token bucket rate limits per IP."""
 
-    def __init__(self, app, rate: float = 20, capacity: int = 40):
+    def __init__(self, app, rate: float | None = None, capacity: int | None = None):
+        from config.loader import load_tuning
+
+        _tuning = load_tuning().get("rate_limit", {})
+        rate = rate or float(_tuning.get("per_ip_per_second", 20))
+        capacity = capacity or int(_tuning.get("burst_capacity", 40))
         super().__init__(app)
         self.limiter = TokenBucketLimiter(rate=rate, capacity=capacity)
 
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
+        # Use X-Forwarded-For when behind a proxy (nginx), fall back to direct IP
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # Take the client's IP (first in the chain)
+            client_ip = forwarded.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "unknown"
         if not self.limiter.allow(client_ip):
             raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
         return await call_next(request)

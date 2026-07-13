@@ -21,6 +21,7 @@ logs/
 data/.session_secret
 
 # Python
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -41,11 +42,6 @@ data/reports/
 
 # 开发备份
 backup/
-
-# 视频制作临时文件
-xuefeng-promo-video/
-demo-thumb.gif
-demo-video.mp4
 
 # 系统文件
 .DS_Store
@@ -84,3 +80,17 @@ data/*.sqlite3
 grafana-data/
 prometheus-data/
 monitoring/data/
+
+# Open-source release: private/restricted source material retained locally
+knowledge/
+prompts/
+content_scripts/
+memory/
+skills/gaokao/*.md
+data/checkpoint_plans.json
+frontend/public/favicon.svg
+frontend/public/icons.svg
+frontend/src/assets/
+demo-preview.gif
+frontend/src/design/prototypes/*-preview.png
+docs/bug-report-*.md

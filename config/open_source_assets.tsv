@@ -6,7 +6,9 @@ knowledge/	mixed-third-party-and-derived-content	exclude
 prompts/	project-and-derived-prompt-content	exclude
 content_scripts/	internal-editorial-content	exclude
 memory/	internal-research-notes	exclude
+skills/gaokao/	derived-methodology-content	exclude
 frontend/public/favicon.svg	visual-asset-pending-provenance	exclude
 frontend/public/icons.svg	visual-asset-pending-provenance	exclude
 frontend/src/assets/	visual-and-upstream-brand-assets	exclude
 demo-preview.gif	project-screenshot-pending-privacy-review	exclude
+frontend/src/design/prototypes/	design-preview-pending-provenance	exclude

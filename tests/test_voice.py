@@ -1,6 +1,6 @@
 """Tests for server/services/voice.py — VoiceService and get_voice_service."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -53,9 +53,10 @@ class TestVoiceService:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "  这是口语化后的回复  "
 
-        with patch("openai.OpenAI") as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             mock_client = MagicMock()
-            mock_client.chat.completions.create.return_value = mock_response
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+            mock_client.close = AsyncMock()
             mock_openai.return_value = mock_client
 
             result = await svc.render_voice_reply("原始规划结论", scene="gaokao")
@@ -78,7 +79,7 @@ class TestVoiceService:
         monkeypatch.setenv("DASHSCOPE_CHAT_API_KEY", "sk-test")
         svc = VoiceService()
 
-        with patch("openai.OpenAI", side_effect=RuntimeError("network")):
+        with patch("openai.AsyncOpenAI", side_effect=RuntimeError("network")):
             result = await svc.render_voice_reply("原始文本", scene="career")
 
         assert result == "原始文本"
@@ -94,9 +95,10 @@ class TestVoiceService:
         mock_response.choices[0].message.content = "ok"
 
         for scene in SCENE_VOICE_STYLES:
-            with patch("openai.OpenAI") as mock_openai:
+            with patch("openai.AsyncOpenAI") as mock_openai:
                 mock_client = MagicMock()
-                mock_client.chat.completions.create.return_value = mock_response
+                mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+                mock_client.close = AsyncMock()
                 mock_openai.return_value = mock_client
 
                 await svc.render_voice_reply("test", scene=scene)
@@ -115,9 +117,10 @@ class TestVoiceService:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "ok"
 
-        with patch("openai.OpenAI") as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             mock_client = MagicMock()
-            mock_client.chat.completions.create.return_value = mock_response
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+            mock_client.close = AsyncMock()
             mock_openai.return_value = mock_client
 
             await svc.render_voice_reply("test", scene="unknown")

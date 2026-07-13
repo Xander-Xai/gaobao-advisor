@@ -11,7 +11,7 @@ import copy
 import re
 from typing import Any
 
-from config.constants import PROVINCES
+from config.constants import PROVINCES, SUBJECT_COMBOS_33, SUBJECT_SINGLE_33
 from slots.patterns import (
     CHINESE_DIGIT_MAP,
     CHINESE_UNIT_MAP,
@@ -29,37 +29,6 @@ from slots.patterns import (
     SUBJECT_COMBOS_312,
     SUBJECT_PERM_VARIANTS,
 )
-
-# ── 3+3 省份集合 ──
-PROVINCES_33 = {"浙江", "上海", "北京", "天津", "山东", "海南"}
-
-# ── 3+3 全部20种选科组合（在初始化时从 constants 模块获取） ──
-try:
-    from config.constants import SUBJECT_COMBOS_33, SUBJECT_SINGLE_33
-except ImportError:
-    SUBJECT_COMBOS_33 = [
-        "物化生",
-        "物化政",
-        "物化地",
-        "物生政",
-        "物生地",
-        "物政地",
-        "化生政",
-        "化生地",
-        "化政地",
-        "生政地",
-        "物化史",
-        "物生史",
-        "物政史",
-        "物地史",
-        "化生史",
-        "化政史",
-        "化地史",
-        "生政史",
-        "生地史",
-        "政地史",
-    ]
-    SUBJECT_SINGLE_33 = ["物理", "化学", "生物", "政治", "历史", "地理"]
 
 # ── 选科组合正则 ──
 _SUBJECT_COMBO_33_RE = re.compile(
@@ -312,17 +281,40 @@ class SlotExtractor:
 
         # 应用检测结果
         if score_match:
-            s["score_rank"]["value"] = score_match.group(1) + "分"
-            s["score_rank"]["filled"] = True
-            updated.append(f"分数→{score_match.group(1)}分")
+            score_val = score_match.group(1)
+            # Validate score is in reasonable range (0-750 for standard gaokao, up to 900 for Hainan)
+            try:
+                score_int = int(score_val)
+                if score_int < 0 or score_int > 900:
+                    score_val = ""
+            except (ValueError, TypeError):
+                score_val = ""
+            if score_val:
+                s["score_rank"]["value"] = score_val + "分"
+                s["score_rank"]["filled"] = True
+                updated.append(f"分数→{score_val}分")
         elif cn_score_match:
-            s["score_rank"]["value"] = str(cn_score_match) + "分"
-            s["score_rank"]["filled"] = True
-            updated.append(f"分数→{cn_score_match}分")
+            try:
+                cn_val = int(cn_score_match)
+                if cn_val < 0 or cn_val > 900:
+                    cn_score_match = None
+            except (ValueError, TypeError):
+                cn_score_match = None
+            if cn_score_match is not None:
+                s["score_rank"]["value"] = str(cn_score_match) + "分"
+                s["score_rank"]["filled"] = True
+                updated.append(f"分数→{cn_score_match}分")
         elif oral_score_match:
-            s["score_rank"]["value"] = str(oral_score_match) + "分"
-            s["score_rank"]["filled"] = True
-            updated.append(f"分数→{oral_score_match}分")
+            try:
+                oral_val = int(oral_score_match)
+                if oral_val < 0 or oral_val > 900:
+                    oral_score_match = None
+            except (ValueError, TypeError):
+                oral_score_match = None
+            if oral_score_match is not None:
+                s["score_rank"]["value"] = str(oral_score_match) + "分"
+                s["score_rank"]["filled"] = True
+                updated.append(f"分数→{oral_score_match}分")
         elif delta_line_match:
             s["score_rank"]["value"] = delta_line_match
             s["score_rank"]["filled"] = True

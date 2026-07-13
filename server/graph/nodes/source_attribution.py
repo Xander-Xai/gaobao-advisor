@@ -42,17 +42,15 @@ _SOURCE_MARKERS = [
     "来源",
     "数据来源",
     "出处",
-    "根据",
-    "数据显示",
     "考试院",
     "阳光高考",
     "就业质量报告",
     "招聘平台",
-    "据",
     "官网",
     "教育部",
     "统计局",
 ]
+_YEAR = re.compile(r"(?:19|20)\d{2}\s*年?")
 
 # 不需要来源的"安全数字"模式（句首问候/场景化数字）
 _SAFE_NUMBER_PATTERNS = [
@@ -69,6 +67,15 @@ _SAFE_NUMBER_PATTERNS = [
 def _has_source_marker(sentence: str) -> bool:
     """检查句子是否已包含来源标记。"""
     return any(m in sentence for m in _SOURCE_MARKERS)
+
+
+def _append_warning(sentence: str, warning: str) -> str:
+    stripped = sentence.rstrip()
+    suffix = ""
+    if stripped and stripped[-1] in "。！？\n":
+        suffix = stripped[-1]
+        stripped = stripped[:-1]
+    return f"{stripped}（{warning}）{suffix or '。'}"
 
 
 def _is_safe_number(sentence: str, match: re.Match) -> bool:
@@ -118,16 +125,13 @@ def validate_source_attribution(reply: str) -> str:
         if sent.strip().startswith("声明") or sent.strip().startswith("---"):
             annotated.append(sent)
             continue
-        # 如果已带来源标记，跳过
-        if _has_source_marker(sent):
+        if "数据来源待补全" in sent or "来源年份待补全" in sent:
             annotated.append(sent)
             continue
-        # 综合判定：是否有未带来源的具体数据
-        if _has_unattributed_data(sent):
-            stripped = sent.rstrip()
-            if stripped and stripped[-1] in "。！？\n":
-                stripped = stripped[:-1]
-            annotated.append(f"{stripped}（数据来源待补全）。")
+        if _has_unattributed_data(sent) and not _has_source_marker(sent):
+            annotated.append(_append_warning(sent, "数据来源待补全，无法验证"))
+        elif _has_unattributed_data(sent) and not _YEAR.search(sent):
+            annotated.append(_append_warning(sent, "来源年份待补全，无法验证"))
         else:
             annotated.append(sent)
 

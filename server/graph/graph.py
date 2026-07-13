@@ -14,7 +14,7 @@ from langgraph.graph import END, StateGraph
 from server.graph.nodes.check import profile_check_node
 from server.graph.nodes.data_nodes import data_query_node
 from server.graph.nodes.extract import slot_extract_node
-from server.graph.nodes.feedback_node import feedback_node
+from server.graph.nodes.feedback_node import feedback_node as feedback_node_fn
 from server.graph.nodes.intent import intent_detect_node
 from server.graph.nodes.judge_node import quality_judge_node
 from server.graph.nodes.memory import memory_node as memory_update_node
@@ -42,6 +42,13 @@ def _profile_has_data(state: AdvisorState) -> str:
     return "incomplete"
 
 
+def _should_rewrite(state: AdvisorState) -> str:
+    """If post-check flagged a rewrite, route back to render_reply for re-generation."""
+    if state.get("should_rewrite") and state.get("rewrite_attempts", 0) < 1:
+        return "rewrite"
+    return "proceed"
+
+
 def build_advisor_graph():
     """Build and compile the advisor StateGraph."""
     graph = StateGraph(AdvisorState)
@@ -62,7 +69,7 @@ def build_advisor_graph():
     graph.add_node("source_attribution", source_attribution_node)
     graph.add_node("quality_post_check", quality_post_check_node)
     graph.add_node("quality_judge", quality_judge_node)
-    graph.add_node("feedback", feedback_node)
+    graph.add_node("feedback", feedback_node_fn)
     graph.add_node("memory_update", memory_update_node)
 
     # ── Entry point ───────────────────────────────────────────
@@ -98,7 +105,14 @@ def build_advisor_graph():
     # ── Converge: render → source_attribution → quality_post_check → quality_judge → memory → END ────
     graph.add_edge("render_reply", "source_attribution")
     graph.add_edge("source_attribution", "quality_post_check")
-    graph.add_edge("quality_post_check", "quality_judge")
+    graph.add_conditional_edges(
+        "quality_post_check",
+        _should_rewrite,
+        {
+            "rewrite": "render_reply",
+            "proceed": "quality_judge",
+        },
+    )
     graph.add_edge("quality_judge", "feedback")
     graph.add_edge("feedback", "memory_update")
     graph.add_edge("memory_update", END)

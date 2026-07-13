@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 2 — 聊天页面 · Gaobao Advisor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #D4312E;
+    --red-dark: #B8282A;
+    --red-light: #FDF1F0;
+    --gold: #C6922A;
+    --gold-light: #FBF1E0;
+    --gold-dark: #A37822;
+    --paper: #f5f0e8;
+    --surface: #faf7f0;
+    --elevated: #ffffff;
+    --sidebar-bg: #e8e0d0;
+    --ink: #1a1817;
+    --secondary: #55504a;
+    --muted: #8a847b;
+    --disabled: #c0b8ad;
+    --border: #e0d8ca;
+    --border-light: #ece5d8;
+    --success: #2A9D3E;
+    --success-light: #e8f5e9;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-modal: 0 8px 30px rgba(0,0,0,0.12);
+    --motion-fast: 150ms;
+    --motion-normal: 250ms;
+    --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    --font-display: "Noto Serif SC", "Source Han Serif SC", STSong, SimSun, Georgia, serif;
+    --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--paper);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dark-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--secondary);
+    font-family: var(--font-body);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow var(--motion-fast);
+  }
+  .dark-toggle:hover { box-shadow: var(--shadow-raised); }
+
+  /* ===== LAYOUT ===== */
+  .app-layout {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 260px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-brand {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--red);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-brand .brand-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--red);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+  }
+
+  .btn-new-chat {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background var(--motion-fast);
+    font-family: var(--font-body);
+  }
+
+  .btn-new-chat:hover { background: var(--red-dark); }
+
+  .sidebar-conversations {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .conv-item {
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--secondary);
+    transition: all var(--motion-fast);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conv-item:hover {
+    background: rgba(0,0,0,0.04);
+    color: var(--ink);
+  }
+
+  .conv-item.active {
+    background: var(--red-light);
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  .sidebar-empty {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    margin-top: 32px;
+  }
+
+  /* ===== MAIN ===== */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    gap: 8px;
+  }
+
+  .scene-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .scene-tab {
+    padding: 6px 16px;
+    border-radius: var(--radius-full);
+    border: none;
+    font: 600 13px/1 var(--font-body);
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all var(--motion-fast);
+  }
+
+  .scene-tab.active {
+    background: var(--red);
+    color: white;
+  }
+
+  .scene-tab.inactive {
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .scene-tab.inactive:hover {
+    background: rgba(212, 49, 46, 0.06);
+    color: var(--red);
+  }
+
+  /* ===== CHAT AREA ===== */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Welcome Screen */
+  .welcome-screen {
+    text-align: center;
+    padding: 48px 20px;
+    max-width: 480px;
+    margin: auto;
+  }
+
+  .welcome-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    background: var(--red-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+  }
+
+  .welcome-screen h1 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .welcome-screen p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 4px;
+  }
+
+  /* Messages */
+  .message-ai {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    max-width: 76%;
+  }
+
+  .message-ai .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background: var(--red);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    flex-shrink: 0;
+    font-family: var(--font-display);
+  }
+
+  .message-ai .bubble {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    box-shadow: var(--shadow-card);
+  }
+
+  .message-ai .bubble strong {
+    color: var(--red);
+  }
+
+  .message-user {
+    display: flex;
+    justify-content: flex-end;
+    max-width: 72%;
+    margin-left: auto;
+  }
+
+  .message-user .bubble {
+    background: var(--red);
+    color: white;
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+    padding: 12px 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    box-shadow: 0 1px 3px rgba(212,49,46,0.15);
+  }
+
+  /* ===== INPUT BAR ===== */
+  .input-bar {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: var(--paper);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 8px 8px 8px 16px;
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(212,49,46,0.12);
+  }
+
+  .input-wrapper textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: 400 14px/1.5 var(--font-body);
+    color: var(--ink);
+    resize: none;
+    min-height: 24px;
+    max-height: 120px;
+  }
+
+  .input-wrapper textarea::placeholder {
+    color: var(--muted);
+  }
+
+  .input-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--muted);
+    transition: all var(--motion-fast);
+  }
+
+  .icon-btn:hover {
+    background: var(--border);
+    color: var(--secondary);
+  }
+
+  .icon-btn.mic-active {
+    color: var(--red);
+    background: var(--red-light);
+  }
+
+  .btn-send {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    border: none;
+    background: var(--red);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background var(--motion-fast);
+  }
+
+  .btn-send:hover { background: var(--red-dark); }
+  .btn-send:disabled { background: var(--disabled); cursor: not-allowed; }
+
+  /* ===== RIGHT PANEL ===== */
+  .right-panel {
+    width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--secondary);
+    text-transform: uppercase;
+  }
+
+  .slot-card {
+    background: var(--paper);
+    border-radius: var(--radius-md);
+    padding: 12px;
+  }
+
+  .slot-card .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .slot-card .value {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .slot-card .value.filled { color: var(--ink); }
+  .slot-card .value.empty { color: var(--disabled); }
+
+  .slot-empty-hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 24px;
+  }
+
+  /* ===== DARK MODE ===== */
+  body.dark {
+    --red: #E85450;
+    --red-dark: #CC403E;
+    --red-light: #3a1e1e;
+    --gold: #D4A843;
+    --gold-light: #2a2416;
+    --paper: #1a1817;
+    --surface: #252220;
+    --elevated: #302c28;
+    --sidebar-bg: #141211;
+    --ink: #e8e4da;
+    --secondary: #a8a092;
+    --muted: #6b655b;
+    --border: #3a3530;
+    --border-light: #2e2a26;
+    --success: #4CAF50;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.25);
+  }
+
+  body.dark .sidebar { border-right-color: var(--border); }
+  body.dark .header { border-bottom-color: var(--border); }
+  body.dark .input-bar { border-top-color: var(--border); }
+  body.dark .right-panel { border-left-color: var(--border); }
+  body.dark .conv-item:hover { background: rgba(255,255,255,0.04); }
+
+  /* Loading dots */
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: typing-bounce 1.4s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+  <button class="dark-toggle" onclick="document.body.classList.toggle('dark')">
+    <span>🌙</span> 切换深色
+  </button>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <span class="brand-icon">顾</span>
+          志愿顾问
+        </div>
+        <button class="btn-new-chat">
+          <span>+</span> 新对话
+        </button>
+      </div>
+
+      <div class="sidebar-conversations">
+        <div class="conv-item active">山东 624 分计算机方向咨询</div>
+        <div class="conv-item">河南理科 580 分医学院校推荐</div>
+        <div class="conv-item">浙江考生选科咨询</div>
+        <div class="conv-item">江苏 650 分南大机会分析</div>
+        <div class="conv-item">广东物理类 500 分二本院校</div>
+        <div class="conv-item empty">如何选择专业方向</div>
+
+        <div class="sidebar-empty">点击上方按钮开始新对话</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-area">
+
+      <!-- Header -->
+      <header class="header">
+        <div class="scene-tabs">
+          <button class="scene-tab active">🎓 高考</button>
+          <button class="scene-tab inactive">📚 考研</button>
+          <button class="scene-tab inactive">💼 职业</button>
+          <button class="scene-tab inactive">💬 通用</button>
+        </div>
+      </header>
+
+      <!-- Chat Area (with welcome screen and sample messages) -->
+      <div class="chat-area">
+
+        <!-- Welcome -->
+        <div class="welcome-screen">
+          <div class="welcome-icon">📜</div>
+          <h1>助力每一个梦想</h1>
+          <p>我是你的 AI 高考志愿顾问。告诉我你的省份、分数和意向，我来帮你分析最适合的院校和专业。</p>
+          <p style="margin-top: 12px; font-size: 13px; color: var(--disabled);">试试说："我是山东考生，624分，想学计算机"</p>
+        </div>
+
+        <!-- Sample conversation -->
+        <div class="message-ai">
+          <div class="avatar">顾</div>
+          <div class="bubble">
+            你好！请问你是哪个省份的考生？今年高考成绩如何？
+          </div>
+        </div>
+
+        <div class="message-user">
+          <div class="bubble">山东考生，624 分，选科物理+化学，想学计算机。</div>
+        </div>
+
+        <div class="message-ai">
+          <div class="avatar">顾</div>
+          <div class="bubble">
+            山东 624 分（物理+化学），成绩相当不错！根据往年数据，我为你推荐以下院校方案：
+            <br><br>
+            <strong>冲一冲：</strong>山东大学（往年 630-645）<br>
+            <strong>稳一稳：</strong>中国石油大学（华东）（往年 615-625）<br>
+            <strong>保一保：</strong>青岛大学（往年 595-605）
+            <br><br>
+            需要我进一步分析某所学校的计算机专业录取概率吗？
+          </div>
+        </div>
+
+        <div class="message-user">
+          <div class="bubble">帮我看看青岛大学计算机专业的就业情况</div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="message-ai">
+          <div class="avatar">顾</div>
+          <div class="bubble">
+            <div class="typing-indicator">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Input Bar -->
+      <div class="input-bar">
+        <div class="input-wrapper">
+          <textarea rows="1" placeholder="输入你的高考问题..." style="height: 24px;"></textarea>
+          <div class="input-actions">
+            <button class="icon-btn mic-active">🎤</button>
+            <button class="btn-send">➤</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Panel -->
+    <aside class="right-panel">
+      <div class="panel-title">考生画像</div>
+
+      <div class="slot-card">
+        <div class="label">省份</div>
+        <div class="value filled">山东</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">分数</div>
+        <div class="value filled">624 分</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">选科</div>
+        <div class="value filled">物理 + 化学</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">意向专业</div>
+        <div class="value filled">计算机</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">地域偏好</div>
+        <div class="value empty">未填写</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">家庭背景</div>
+        <div class="value empty">未填写</div>
+      </div>
+
+      <div class="slot-card">
+        <div class="label">升学目标</div>
+        <div class="value empty">未填写</div>
+      </div>
+
+      <div class="slot-empty-hint">
+        填写完整的画像信息可获得更精准的院校推荐
+      </div>
+    </aside>
+
+  </div>
+
+</body>
+</html>

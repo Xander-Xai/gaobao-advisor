@@ -33,14 +33,17 @@ class ReportGenerator:
             student_name: Optional student name for personalization.
         """
 
-        def _extract(key: str) -> str:
-            val = slots.get(key, "")
-            if isinstance(val, dict):
-                return str(val.get("value", ""))
-            return str(val) if val else ""
+        def _extract(*keys: str) -> str:
+            for key in keys:
+                val = slots.get(key, "")
+                if isinstance(val, dict):
+                    val = val.get("value", "")
+                if val:
+                    return str(val)
+            return ""
 
-        def _extract_int(key: str) -> int:
-            val = _extract(key)
+        def _extract_int(*keys: str) -> int:
+            val = _extract(*keys)
             try:
                 return int(val.replace("分", "").strip())
             except (ValueError, TypeError):
@@ -52,7 +55,7 @@ class ReportGenerator:
                 session_id=session_id,
                 student_name=student_name,
                 province=_extract("province"),
-                score=_extract_int("score"),
+                score=_extract_int("score", "score_rank"),
                 subject=_extract("subject"),
                 interest=_extract("interest"),
                 summary=card.summary,
@@ -71,7 +74,7 @@ class ReportGenerator:
             session_id=session_id,
             student_name=student_name,
             province=_extract("province"),
-            score=_extract_int("score"),
+            score=_extract_int("score", "score_rank"),
             subject=_extract("subject"),
             interest=_extract("interest"),
             summary="",

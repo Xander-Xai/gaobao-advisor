@@ -267,6 +267,7 @@ def import_plans_for_school(db, school: School, provinces: list[str], years: lis
                         EnrollmentPlan.school_id == school.id,
                         EnrollmentPlan.province == province,
                         EnrollmentPlan.year == year,
+                        EnrollmentPlan.subject_type == curriculum,
                     )
                     .count()
                 )
@@ -381,6 +382,7 @@ async def async_import_plans_for_school(
                             EnrollmentPlan.school_id == school.id,
                             EnrollmentPlan.province == province,
                             EnrollmentPlan.year == year,
+                            EnrollmentPlan.subject_type == curriculum,
                         )
                         .count()
                     )
@@ -486,7 +488,7 @@ def main():
         if args.resume:
             ckpt = load_checkpoint(args.checkpoint)
             if ckpt:
-                start_index = ckpt.get("school_index", 0)
+                start_index = min(ckpt.get("school_index", 0), len(target))
                 print(f"  [续传] 从第 {start_index} 校继续")
                 target = target[start_index:]
 

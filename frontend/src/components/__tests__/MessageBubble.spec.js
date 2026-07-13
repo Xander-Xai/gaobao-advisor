@@ -13,7 +13,8 @@ describe('MessageBubble', () => {
       },
     })
     expect(wrapper.text()).toContain('Hello world')
-    expect(wrapper.find('.bg-blue-600').exists()).toBe(true)
+    // User bubble has the red background class
+    expect(wrapper.find('.bubble-user').exists()).toBe(true)
   })
 
   it('renders assistant message correctly', () => {
@@ -26,7 +27,8 @@ describe('MessageBubble', () => {
       },
     })
     expect(wrapper.text()).toContain('Bold text')
-    expect(wrapper.find('.bg-white').exists()).toBe(true)
+    // Assistant bubble has the ai background class
+    expect(wrapper.find('.bubble-ai').exists()).toBe(true)
   })
 
   it('sanitizes XSS payload in content', () => {

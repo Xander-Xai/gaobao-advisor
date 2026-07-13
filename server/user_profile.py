@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from server.privacy import safe_log_reference
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,36 +49,51 @@ class UserProfile:
     def from_slots(cls, slots: dict) -> UserProfile:
         """Create a profile from the slot extractor's output format.
 
-        Slot format: {"province": {"value": "山东", "filled": True}, ...}
+        Supports both nested slot format
+        `{"province": {"value": "山东", "filled": True}}` and the flat
+        graph format `{"province": "山东", "score_rank": "580分"}`.
         """
         profile = cls()
-        field_map = {
-            "province": "province",
-            "score_rank": "score",
-            "subject": "subject",
-            "interest": "interest",
-            "region": "region",
-            "family": "family",
-            "goal": "goal",
-        }
-        for slot_key, profile_key in field_map.items():
-            slot = slots.get(slot_key, {})
-            if slot.get("filled") and slot.get("value"):
-                value = slot["value"]
-                # Extract numeric score from strings like "580分"
-                # but NOT from "位次3000" (which contains a rank number, not a score)
-                if profile_key == "score":
-                    import re
 
-                    # Only parse if the value explicitly contains "分"
-                    if "分" in str(value):
-                        m = re.search(r"(\d{2,3})", str(value))
-                        if m:
-                            score = int(m.group(1))
-                            if 100 <= score <= 750:
-                                setattr(profile, profile_key, score)
-                else:
-                    setattr(profile, profile_key, str(value))
+        def _slot_value(*keys: str) -> Any:
+            for key in keys:
+                slot = slots.get(key)
+                if isinstance(slot, dict):
+                    if slot.get("filled") and slot.get("value") not in (None, ""):
+                        return slot["value"]
+                elif slot not in (None, ""):
+                    return slot
+            return None
+
+        for slot_key, profile_key in (
+            ("province", "province"),
+            ("subject", "subject"),
+            ("interest", "interest"),
+            ("region", "region"),
+            ("family", "family"),
+            ("goal", "goal"),
+        ):
+            value = _slot_value(slot_key)
+            if value is not None:
+                setattr(profile, profile_key, str(value))
+
+        # Extract numeric score from strings like "580分" or legacy `score`.
+        # Avoid treating pure rank values such as "位次3000" as a score.
+        score_value = _slot_value("score_rank")
+        if score_value is not None and "分" not in str(score_value) and "score" in slots:
+            score_value = _slot_value("score")
+        elif score_value is None:
+            score_value = _slot_value("score")
+        if score_value is not None:
+            import re
+
+            raw = str(score_value)
+            if "分" in raw or "score" in slots:
+                m = re.search(r"(\d{2,3})", raw)
+                if m:
+                    score = int(m.group(1))
+                    if 100 <= score <= 750:
+                        profile.score = score
         return profile
 
     def to_dict(self) -> dict[str, Any]:
@@ -170,7 +187,7 @@ def load_profile(session_id: str) -> UserProfile:
         if slot_data:
             return UserProfile.from_slots(slot_data)
     except Exception:
-        logger.warning("Failed to load profile for session %s", session_id)
+        logger.warning("Failed to load profile for %s", safe_log_reference(session_id))
     finally:
         db.close()
 
@@ -204,6 +221,6 @@ def save_profile(session_id: str, profile: UserProfile) -> None:
 
         save_slots(db, session_id, slots)
     except Exception:
-        logger.warning("Failed to save profile for session %s", session_id)
+        logger.warning("Failed to save profile for %s", safe_log_reference(session_id))
     finally:
         db.close()

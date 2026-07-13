@@ -10,12 +10,12 @@ describe('AppRightPanel', () => {
 
   it('renders right panel with title', () => {
     const wrapper = mount(AppRightPanel)
-    expect(wrapper.text()).toContain('用户画像')
+    expect(wrapper.text()).toContain('考生画像')
   })
 
   it('displays empty state when no slots', () => {
     const wrapper = mount(AppRightPanel)
-    expect(wrapper.text()).toContain('对话后将显示用户画像')
+    expect(wrapper.text()).toContain('对话后将显示考生画像')
   })
 
   it('renders panel container', () => {

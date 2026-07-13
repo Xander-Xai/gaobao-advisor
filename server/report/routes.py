@@ -1,5 +1,10 @@
 """Report API routes — generate, retrieve, and export advisory reports.
 
+Rate limiting:
+    These endpoints inherit the global RateLimitMiddleware registered in
+    server/main.py (token bucket per IP), so no per-endpoint decorators
+    are needed. See server/middleware/ratelimit.py for configuration.
+
 Report generation reads the user's real conversation data (slots + recent AI
 replies) from the database. It scans the last N rounds of AI replies to
 accumulate suggestions, risks, and action items — not just the last reply,
@@ -12,8 +17,10 @@ import logging
 import re
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from server.auth import require_token_auth
+from server.privacy import safe_log_reference
 from server.report.cover import CoverGenerator
 from server.report.exporter import ReportExporter
 from server.report.generator import ReportGenerator
@@ -34,8 +41,9 @@ _MAX_RECENT_ROUNDS = 10
 class GenerateRequest(BaseModel):
     """Request body for report generation."""
 
-    session_id: str
+    session_id: str = Field(..., pattern=r"^[a-zA-Z0-9_\-]{4,64}$", min_length=4, max_length=64)
     student_name: str | None = None
+    token: str | None = None
 
 
 class GenerateResponse(BaseModel):
@@ -44,6 +52,18 @@ class GenerateResponse(BaseModel):
     report_id: str
     status: str
     message: str
+
+
+# ── Auth helper ────────────────────────────────────────────────────────────
+
+
+def _load_authorized_report(report_id: str, session_id: str | None, token: str | None):
+    """Load a report only after validating session ownership."""
+    require_token_auth(session_id or "", token)
+    report = _storage.load_by_session(report_id, session_id or "")
+    if report is None:
+        return None
+    return report
 
 
 # ── Data loading ───────────────────────────────────────────────────────
@@ -63,7 +83,7 @@ def _load_session_slots(session_id: str) -> dict:
         slots = load_conversation_slots(db, session_id)
         return slots or {}
     except Exception:
-        logger.warning("Failed to load slots for session %s", session_id)
+        logger.warning("Failed to load slots for %s", safe_log_reference(session_id))
         return {}
     finally:
         db.close()
@@ -97,7 +117,7 @@ def _load_recent_ai_replies(session_id: str, max_rounds: int = _MAX_RECENT_ROUND
         ai_replies.reverse()
         return ai_replies
     except Exception:
-        logger.warning("Failed to load history for session %s", session_id)
+        logger.warning("Failed to load history for %s", safe_log_reference(session_id))
         return []
     finally:
         db.close()
@@ -306,6 +326,7 @@ async def generate_report(body: GenerateRequest):
     risks, and action items across multiple turns — not just the last one.
     """
     session_id = body.session_id
+    require_token_auth(session_id, body.token)
 
     # 1. Load real data from conversation database
     slots = _load_session_slots(session_id)
@@ -336,15 +357,16 @@ async def generate_report(body: GenerateRequest):
     report.next_actions = next_actions
 
     # Calculate confidence based on profile completeness
-    filled = sum(1 for f in ("province", "score", "subject", "interest") if slots.get(f))
+    score_filled = bool(slots.get("score") or slots.get("score_rank"))
+    filled = sum(1 for f in ("province", "subject", "interest") if slots.get(f)) + int(score_filled)
     report.confidence = round(filled / 4, 2) if filled else 0.0
 
     # 4. Save and return
     _storage.save(report)
     logger.info(
-        "Report generated: %s for session %s (confidence=%.0f%%, facts=%d, suggestions=%d, scanned_rounds=%d)",
+        "Report generated: %s for %s (confidence=%.0f%%, facts=%d, suggestions=%d, scanned_rounds=%d)",
         report.id,
-        session_id,
+        safe_log_reference(session_id),
         report.confidence * 100,
         len(facts),
         len(suggestions),
@@ -359,9 +381,9 @@ async def generate_report(body: GenerateRequest):
 
 
 @router.get("/report/{report_id}")
-async def get_report(report_id: str):
+async def get_report(report_id: str, session_id: str | None = None, token: str | None = None):
     """Return report data as a JSON dict."""
-    report = _storage.load(report_id)
+    report = _load_authorized_report(report_id, session_id, token)
     if report is None:
         return Response(
             content='{"error": "报告不存在"}',
@@ -372,9 +394,9 @@ async def get_report(report_id: str):
 
 
 @router.get("/report/{report_id}/html")
-async def get_report_html(report_id: str):
+async def get_report_html(report_id: str, session_id: str | None = None, token: str | None = None):
     """Return the full HTML report page."""
-    report = _storage.load(report_id)
+    report = _load_authorized_report(report_id, session_id, token)
     if report is None:
         return Response(content="报告不存在", status_code=404)
     html = ReportExporter.to_html(report)
@@ -382,10 +404,17 @@ async def get_report_html(report_id: str):
 
 
 @router.get("/report/{report_id}/cover.svg")
-async def get_report_cover_svg(report_id: str):
+async def get_report_cover_svg(report_id: str, session_id: str | None = None, token: str | None = None):
     """Return the SVG cover image for a report."""
-    report = _storage.load(report_id)
+    report = _load_authorized_report(report_id, session_id, token)
     if report is None:
         return Response(content="报告不存在", status_code=404)
     svg = CoverGenerator.generate_svg(report)
-    return Response(content=svg, media_type="image/svg+xml")
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

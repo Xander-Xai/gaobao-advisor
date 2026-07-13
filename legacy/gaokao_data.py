@@ -545,7 +545,7 @@ def query_match_schools_v2(score, province, subject_type, strategy="稳", year=N
                 seen[sid] = r
 
         results = []
-        for r in sorted(seen.values(), key=lambda x: x.min_rank or 0, reverse=True):
+        for r in sorted(seen.values(), key=lambda x: x.min_rank or 0, reverse=False):
             results.append(
                 {
                     "school_id": r.school_id,
@@ -559,7 +559,12 @@ def query_match_schools_v2(score, province, subject_type, strategy="稳", year=N
                     "subject_type": r.subject_type,
                     "min_score": r.min_score,
                     "min_rank": r.min_rank,
-                    "data_source": f"数据库位次法（{year}年{province}{subject_type}，用户位次 {user_rank:,}，策略 {strategy}）",
+                    "data_source": (
+                        "SYNTHETIC DEMO DATA - NOT FOR REAL ADMISSION DECISIONS"
+                        if "SYNTHETIC DEMO" in (r.school.data_source_note or "")
+                        else f"数据库位次法（声明来源待部署者核验；{year}年{province}{subject_type}，策略 {strategy}）"
+                    ),
+                    "synthetic": "SYNTHETIC DEMO" in (r.school.data_source_note or ""),
                 }
             )
         return results[:15]

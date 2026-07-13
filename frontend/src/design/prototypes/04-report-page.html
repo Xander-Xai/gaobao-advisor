@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 4 — 报告页 · Gaobao Advisor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #D4312E;
+    --red-dark: #B8282A;
+    --red-light: #FDF1F0;
+    --gold: #C6922A;
+    --gold-light: #FBF1E0;
+    --gold-dark: #A37822;
+    --paper: #f5f0e8;
+    --surface: #faf7f0;
+    --elevated: #ffffff;
+    --ink: #1a1817;
+    --secondary: #55504a;
+    --muted: #8a847b;
+    --disabled: #c0b8ad;
+    --border: #e0d8ca;
+    --border-light: #ece5d8;
+    --success: #2A9D3E;
+    --success-light: #e8f5e9;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-modal: 0 8px 30px rgba(0,0,0,0.12);
+    --motion-fast: 150ms;
+    --motion-normal: 250ms;
+    --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    --font-display: "Noto Serif SC", "Source Han Serif SC", STSong, SimSun, Georgia, serif;
+    --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--paper);
+    min-height: 100vh;
+  }
+
+  .dark-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--secondary);
+    font-family: var(--font-body);
+    box-shadow: var(--shadow-card);
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* ===== 金榜 HEADER ===== */
+  .report-hero {
+    background: linear-gradient(135deg, #B8860B 0%, #D4A843 30%, #C6922A 60%, #B8860B 100%);
+    border-radius: var(--radius-xl);
+    padding: 48px 32px 40px;
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .report-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(255,215,0,0.15) 0%, transparent 70%),
+                radial-gradient(ellipse at 80% 50%, rgba(255,215,0,0.10) 0%, transparent 70%);
+  }
+
+  .report-hero h1 {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.15em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: relative;
+  }
+
+  .report-hero .subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+    margin-top: 8px;
+    letter-spacing: 0.04em;
+    position: relative;
+  }
+
+  .report-hero .hero-decoration {
+    width: 60px;
+    height: 2px;
+    background: rgba(255,255,255,0.4);
+    margin: 12px auto 0;
+    position: relative;
+  }
+
+  /* ===== SECTIONS ===== */
+  .report-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .report-section h2 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--gold);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .report-section h2 .section-icon {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  /* ===== INFO GRID ===== */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .info-item .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+
+  .info-item .value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* ===== SUMMARY ===== */
+  .summary-box {
+    background: var(--gold-light);
+    border: 1px solid var(--gold);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    color: var(--gold-dark);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ===== FACTS ===== */
+  .fact-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--secondary);
+  }
+
+  .fact-item:last-child { border-bottom: none; }
+
+  .fact-item .highlight {
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* ===== SCHOOL CARDS ===== */
+  .school-category { margin-bottom: 16px; }
+
+  .school-category:last-child { margin-bottom: 0; }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .category-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .category-badge.rush {
+    background: var(--red-light);
+    color: var(--red);
+  }
+
+  .category-badge.stable {
+    background: var(--gold-light);
+    color: var(--gold-dark);
+  }
+
+  .category-badge.safe {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .category-header .desc {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .school-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .school-card {
+    background: var(--elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: box-shadow var(--motion-fast);
+  }
+
+  .school-card:hover {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .school-card.rush { border-left: 3px solid var(--red); }
+  .school-card.stable { border-left: 3px solid var(--gold); }
+  .school-card.safe { border-left: 3px solid var(--success); }
+
+  .school-card .school-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .school-card .school-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .school-card .school-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .school-card .school-stats {
+    text-align: right;
+  }
+
+  .school-card .school-probability {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .school-card .school-probability.high { color: var(--success); }
+  .school-card .school-probability.medium { color: var(--gold-dark); }
+  .school-card .school-probability.low { color: var(--red); }
+
+  .school-card .school-score-range {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ===== RISK & ACTION ===== */
+  .risk-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .risk-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .risk-item:last-child { border-bottom: none; }
+
+  .risk-item .risk-icon {
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+  }
+
+  .action-list {
+    list-style: none;
+    counter-reset: action-counter;
+    padding: 0;
+  }
+
+  .action-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 14px;
+    line-height: 1.5;
+    counter-increment: action-counter;
+  }
+
+  .action-item:last-child { border-bottom: none; }
+
+  .action-item .action-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--red);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* ===== EXPORT ===== */
+  .export-section {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  .btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    border-radius: var(--radius-md);
+    font: 600 14px var(--font-body);
+    cursor: pointer;
+    border: none;
+    transition: all var(--motion-fast);
+  }
+
+  .btn-export.primary {
+    background: var(--red);
+    color: white;
+  }
+
+  .btn-export.primary:hover { background: var(--red-dark); }
+
+  .btn-export.secondary {
+    background: var(--surface);
+    color: var(--secondary);
+    border: 1px solid var(--border);
+  }
+
+  .btn-export.secondary:hover {
+    border-color: var(--muted);
+    color: var(--ink);
+  }
+
+  /* ===== DARK MODE ===== */
+  body.dark {
+    --red: #E85450;
+    --red-dark: #CC403E;
+    --red-light: #3a1e1e;
+    --gold: #D4A843;
+    --gold-light: #2a2416;
+    --gold-dark: #B8922E;
+    --paper: #1a1817;
+    --surface: #252220;
+    --elevated: #302c28;
+    --ink: #e8e4da;
+    --secondary: #a8a092;
+    --muted: #6b655b;
+    --border: #3a3530;
+    --border-light: #2e2a26;
+    --success: #4CAF50;
+    --success-light: #1a2e1a;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-modal: 0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  body.dark .summary-box { color: var(--gold); }
+</style>
+</head>
+<body>
+
+  <button class="dark-toggle" onclick="document.body.classList.toggle('dark')">
+    <span>🌙</span> 切换深色
+  </button>
+
+  <div class="container">
+
+    <!-- 金榜 Header -->
+    <div class="report-hero">
+      <h1>金 榜 题 名</h1>
+      <p class="subtitle">高考志愿填报分析报告 · 2026</p>
+      <div class="hero-decoration"></div>
+    </div>
+
+    <!-- Student Info -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">📋</span> 考生信息
+      </h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">姓名</span>
+          <span class="value">张同学</span>
+        </div>
+        <div class="info-item">
+          <span class="label">省份</span>
+          <span class="value">山东</span>
+        </div>
+        <div class="info-item">
+          <span class="label">分数</span>
+          <span class="value">624 分</span>
+        </div>
+        <div class="info-item">
+          <span class="label">选科</span>
+          <span class="value">物理 + 化学</span>
+        </div>
+        <div class="info-item">
+          <span class="label">意向专业</span>
+          <span class="value">计算机</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">📝</span> 综合分析
+      </h2>
+      <div class="summary-box">
+        根据你的分数（624 分）、选科（物理+化学）和意向专业（计算机），整体来看你处于一个<strong>很有竞争力的位置</strong>。山东作为高考大省，624 分属于省内前 10% 左右的水平。建议采取"冲刺 985、主攻 211、保底省重点"的填报策略。
+      </div>
+    </div>
+
+    <!-- Analysis Facts -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">📊</span> 数据分析
+      </h2>
+      <div class="fact-item">
+        📌 山东省 2026 年物理+化学组合考生约 <span class="highlight">28 万人</span>
+      </div>
+      <div class="fact-item">
+        📌 624 分在全省物理+化学组合中排名约 <span class="highlight">前 8%</span>
+      </div>
+      <div class="fact-item">
+        📌 近三年山东大学计算机专业录取分数线稳定在 <span class="highlight">630-645 分</span>之间
+      </div>
+      <div class="fact-item">
+        📌 中国石油大学（华东）计算机专业与你分数匹配度 <span class="highlight">较高</span>
+      </div>
+    </div>
+
+    <!-- School Suggestions -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">🏫</span> 院校推荐
+      </h2>
+
+      <!-- Rush -->
+      <div class="school-category">
+        <div class="category-header">
+          <span class="category-badge rush">冲</span>
+          <span class="desc">希望较小（30-45%），但值得尝试</span>
+        </div>
+        <div class="school-card-list">
+          <div class="school-card rush">
+            <div class="school-info">
+              <span class="school-name">山东大学</span>
+              <span class="school-meta">计算机科学与技术 · 山东济南 · 985/211</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability low">35%</div>
+              <div class="school-score-range">630-645分</div>
+            </div>
+          </div>
+          <div class="school-card rush">
+            <div class="school-info">
+              <span class="school-name">中国海洋大学</span>
+              <span class="school-meta">计算机类 · 山东青岛 · 985/211</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability low">40%</div>
+              <div class="school-score-range">625-640分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stable -->
+      <div class="school-category">
+        <div class="category-header">
+          <span class="category-badge stable">稳</span>
+          <span class="desc">希望较大（55-75%），主要填报目标</span>
+        </div>
+        <div class="school-card-list">
+          <div class="school-card stable">
+            <div class="school-info">
+              <span class="school-name">中国石油大学（华东）</span>
+              <span class="school-meta">计算机科学与技术 · 山东青岛 · 211</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability medium">72%</div>
+              <div class="school-score-range">615-625分</div>
+            </div>
+          </div>
+          <div class="school-card stable">
+            <div class="school-info">
+              <span class="school-name">南京理工大学</span>
+              <span class="school-meta">计算机类 · 江苏南京 · 211</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability medium">65%</div>
+              <div class="school-score-range">618-628分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Safe -->
+      <div class="school-category">
+        <div class="category-header">
+          <span class="category-badge safe">保</span>
+          <span class="desc">非常稳妥（80-95%），确保有学上</span>
+        </div>
+        <div class="school-card-list">
+          <div class="school-card safe">
+            <div class="school-info">
+              <span class="school-name">青岛大学</span>
+              <span class="school-meta">计算机科学与技术 · 山东青岛 · 省重点</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability high">92%</div>
+              <div class="school-score-range">595-605分</div>
+            </div>
+          </div>
+          <div class="school-card safe">
+            <div class="school-info">
+              <span class="school-name">山东师范大学</span>
+              <span class="school-meta">计算机类 · 山东济南 · 省重点</span>
+            </div>
+            <div class="school-stats">
+              <div class="school-probability high">95%</div>
+              <div class="school-score-range">590-600分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risks -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">⚠️</span> 风险提示
+      </h2>
+      <ul class="risk-list">
+        <li class="risk-item">
+          <span class="risk-icon">⚠</span>
+          <span><strong>大小年波动：</strong>山东大学计算机专业 2025 年分数可能因报考热度上升而上涨，建议准备备选方案。</span>
+        </li>
+        <li class="risk-item">
+          <span class="risk-icon">⚠</span>
+          <span><strong>专业调剂风险：</strong>冲刺 985 院校时如果分数不够目标专业，可能被调剂到冷门专业。</span>
+        </li>
+        <li class="risk-item">
+          <span class="risk-icon">💡</span>
+          <span><strong>建议：</strong>填报时勾选"服从专业调剂"，同时在第 2-3 志愿中确保能录取到满意的专业。</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="report-section">
+      <h2>
+        <span class="section-icon">📌</span> 建议行动
+      </h2>
+      <ol class="action-list">
+        <li class="action-item">
+          <span class="action-num">1</span>
+          <span>6 月 25 日成绩公布后，第一时间登录省招办官网确认位次</span>
+        </li>
+        <li class="action-item">
+          <span class="action-num">2</span>
+          <span>参加目标院校的线上招生咨询会，了解今年招生计划变化</span>
+        </li>
+        <li class="action-item">
+          <span class="action-num">3</span>
+          <span>7 月 2 日前完成志愿草表，与班主任或升学顾问讨论后提交</span>
+        </li>
+      </ol>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="export-section">
+      <button class="btn-export primary">📄 导出 HTML 报告</button>
+      <button class="btn-export secondary">🖼️ 下载封面</button>
+    </div>
+
+  </div>
+
+</body>
+</html>

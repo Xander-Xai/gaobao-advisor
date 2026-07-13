@@ -20,13 +20,87 @@ components:
           type: string
         slots:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Slots
       required:
       - session_id
       - message
       title: ChatRequest
+      type: object
+    FeedbackRequest:
+      description: 用户反馈请求
+      properties:
+        feedback_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Feedback Text
+        message_index:
+          minimum: 0.0
+          title: Message Index
+          type: integer
+        quality_score_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Quality Score Id
+        rating:
+          pattern: ^(helpful|not_helpful)$
+          title: Rating
+          type: string
+        session_id:
+          maxLength: 64
+          minLength: 4
+          title: Session Id
+          type: string
+      required:
+      - session_id
+      - message_index
+      - rating
+      title: FeedbackRequest
+      type: object
+    GenerateRequest:
+      description: Request body for report generation.
+      properties:
+        session_id:
+          maxLength: 64
+          minLength: 4
+          pattern: ^[a-zA-Z0-9_\-]{4,64}$
+          title: Session Id
+          type: string
+        student_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Name
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      required:
+      - session_id
+      title: GenerateRequest
+      type: object
+    GenerateResponse:
+      description: Response body for report generation.
+      properties:
+        message:
+          title: Message
+          type: string
+        report_id:
+          title: Report Id
+          type: string
+        status:
+          title: Status
+          type: string
+      required:
+      - report_id
+      - status
+      - message
+      title: GenerateResponse
       type: object
     HTTPValidationError:
       properties:
@@ -36,6 +110,29 @@ components:
           title: Detail
           type: array
       title: HTTPValidationError
+      type: object
+    HighlightExtractRequest:
+      description: 金句提取请求
+      properties:
+        content:
+          minLength: 10
+          title: Content
+          type: string
+        score:
+          default: 0
+          maximum: 100.0
+          minimum: 0.0
+          title: Score
+          type: integer
+        session_id:
+          maxLength: 64
+          minLength: 4
+          title: Session Id
+          type: string
+      required:
+      - session_id
+      - content
+      title: HighlightExtractRequest
       type: object
     KnowledgeSearchRequest:
       properties:
@@ -83,6 +180,7 @@ components:
     OnboardingRequest:
       properties:
         data:
+          additionalProperties: true
           title: Data
           type: object
         step:
@@ -104,6 +202,7 @@ components:
           title: Missing Fields
           type: array
         profile:
+          additionalProperties: true
           title: Profile
           type: object
         session_id:
@@ -171,9 +270,9 @@ components:
       title: ValidationError
       type: object
 info:
-  description: AI 高考志愿顾问 — 考研规划 — 职业方向
-  title: gaobao-advisor
-  version: 3.0.0
+  description: AI 志愿规划服务，支持高考、考研和职业方向分析
+  title: 高考志愿AI顾问
+  version: 3.1.0
 openapi: 3.1.0
 paths:
   /:
@@ -211,9 +310,77 @@ paths:
       summary: Chat
       tags:
       - chat
+  /api/v1/chat/feedback:
+    post:
+      description: 提交用户反馈（有帮助/没帮助）
+      operationId: submit_feedback_api_v1_chat_feedback_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit Feedback
+      tags:
+      - chat
+  /api/v1/chat/highlight:
+    post:
+      description: 提取金句
+      operationId: submit_highlight_api_v1_chat_highlight_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightExtractRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit Highlight
+      tags:
+      - chat
   /api/v1/data/plans:
     get:
-      description: Query enrollment plans for a school.
+      description: Query enrollment plans for a school with cursor-based pagination.
       operationId: get_plans_api_v1_data_plans_get
       parameters:
       - description: 学校名称
@@ -244,6 +411,27 @@ paths:
           - type: 'null'
           description: 年份
           title: Year
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -261,7 +449,7 @@ paths:
       - data
   /api/v1/data/schools:
     get:
-      description: Search schools by name, province, or level.
+      description: Search schools by name, province, or level with cursor-based pagination.
       operationId: get_schools_api_v1_data_schools_get
       parameters:
       - description: 学校名称关键词
@@ -294,6 +482,27 @@ paths:
           - type: 'null'
           description: 学校层次
           title: Level
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -311,7 +520,7 @@ paths:
       - data
   /api/v1/data/scores:
     get:
-      description: Query admission scores for a school.
+      description: Query admission scores for a school with cursor-based pagination.
       operationId: get_scores_api_v1_data_scores_get
       parameters:
       - description: 学校名称
@@ -350,6 +559,27 @@ paths:
           - type: 'null'
           description: 专业
           title: Major
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -367,7 +597,7 @@ paths:
       - data
   /api/v1/health:
     get:
-      description: Basic liveness probe with DB status.
+      description: Liveness probe with core and optional-service state.
       operationId: health_check_api_v1_health_get
       responses:
         '200':
@@ -622,3 +852,162 @@ paths:
       summary: Skip Field
       tags:
       - profile
+  /api/v1/report/generate:
+    post:
+      description: 'Generate a report from the user''s real conversation data.
+
+
+        Reads slots (province, score, subject, interest) for the student
+
+        profile, then scans recent AI replies to accumulate suggestions,
+
+        risks, and action items across multiple turns — not just the last one.'
+      operationId: generate_report_api_v1_report_generate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Generate Report
+      tags:
+      - report
+  /api/v1/report/{report_id}:
+    get:
+      description: Return report data as a JSON dict.
+      operationId: get_report_api_v1_report__report_id__get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: query
+        name: session_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - in: query
+        name: token
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report
+      tags:
+      - report
+  /api/v1/report/{report_id}/cover.svg:
+    get:
+      description: Return the SVG cover image for a report.
+      operationId: get_report_cover_svg_api_v1_report__report_id__cover_svg_get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: query
+        name: session_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - in: query
+        name: token
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report Cover Svg
+      tags:
+      - report
+  /api/v1/report/{report_id}/html:
+    get:
+      description: Return the full HTML report page.
+      operationId: get_report_html_api_v1_report__report_id__html_get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: query
+        name: session_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - in: query
+        name: token
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report Html
+      tags:
+      - report

@@ -1,97 +1,93 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50">
+  <div class="profile-page">
     <AppHeader />
 
-    <div class="max-w-3xl mx-auto px-6 py-8">
-      <header class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-red-900">👤 用户画像</h1>
-          <p class="text-sm text-gray-500 mt-1">session: {{ sessionId }}</p>
+    <div class="profile-container">
+      <!-- Header -->
+      <header class="profile-header">
+        <div class="header-left">
+          <h1 class="page-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            用户画像
+          </h1>
+          <p class="session-label">session: {{ sessionId }}</p>
         </div>
-        <div class="text-right">
-          <div class="text-sm text-gray-500">完整度</div>
-          <div class="flex items-center gap-2 mt-1">
-            <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                class="h-full bg-gradient-to-r from-amber-400 to-red-600 transition-all"
-                :style="{ width: completeness + '%' }"
-              ></div>
-            </div>
-            <span class="text-sm font-medium text-red-900">{{ completeness }}%</span>
+        <div class="completeness-box">
+          <div class="comp-label">完整度</div>
+          <div class="comp-bar">
+            <div class="comp-fill" :style="{ width: completeness + '%' }"></div>
           </div>
+          <span class="comp-pct"><span class="comp-num">{{ completeness }}</span>%</span>
         </div>
       </header>
 
       <!-- Auth gate -->
-      <div
-        v-if="!chatStore.sessionToken"
-        class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-sm text-amber-800"
-      >
-        ⚠ <strong>未认证</strong>：请先到
-        <router-link to="/" class="underline text-blue-600">对话页</router-link>
-        发送一条消息，后端会在 SSE done 事件中返回 session_token。
+      <div v-if="!chatStore.sessionToken" class="msg-warning">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span><strong>未认证：</strong>请先到 <router-link to="/" class="link-inline">对话页</router-link> 发送一条消息获取 session token。</span>
       </div>
 
-      <!-- Error banner -->
-      <div
-        v-if="errorMessage"
-        class="bg-red-50 border border-red-200 rounded-lg p-3 mb-6 text-sm text-red-700 flex justify-between items-center"
-      >
-        <span>❌ {{ errorMessage }}</span>
-        <button @click="errorMessage = ''" class="text-red-500 hover:text-red-700">✕</button>
+      <!-- Error -->
+      <div v-if="errorMessage" class="msg-error">
+        <span>{{ errorMessage }}</span>
+        <button @click="errorMessage = ''" class="error-dismiss">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
-      <!-- Next question card -->
-      <div
-        v-if="nextQuestion"
-        class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 mb-6"
-      >
-        <div class="text-xs uppercase tracking-wide text-amber-600 mb-1">灵魂提问 #{{ roundCount + 1 }}</div>
-        <p class="text-gray-800 leading-relaxed">{{ nextQuestion }}</p>
+      <!-- Soul question -->
+      <div v-if="nextQuestion" class="soul-card">
+        <div class="soul-tag">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          灵魂提问 #{{ roundCount + 1 }}
+        </div>
+        <p class="soul-text">{{ nextQuestion }}</p>
       </div>
 
       <!-- Field grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="field-grid">
         <div
           v-for="field in FIELDS"
           :key="field.key"
-          class="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
+          class="field-card"
         >
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-sm font-medium text-gray-700">
+          <div class="field-top">
+            <span class="field-label-text">
               {{ field.label }}
-              <span v-if="field.required" class="text-red-500">*</span>
-            </label>
+              <span v-if="field.required" class="required-star">*</span>
+            </span>
             <span
               v-if="isFilled(field.key)"
-              class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700"
-            >✓ 已填</span>
-            <span
-              v-else
-              class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500"
-            >未填</span>
+              class="badge badge-filled"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              已填
+            </span>
+            <span v-else class="badge badge-empty">未填</span>
           </div>
 
+          <!-- Display mode -->
           <div v-if="!editing[field.key]">
-            <div class="text-gray-800 text-sm min-h-[1.5em]">
+            <div :class="['field-value', isFilled(field.key) ? 'filled' : 'empty']">
               {{ displayValue(field.key) || '—' }}
             </div>
-            <div class="flex gap-3 mt-2">
+            <div class="field-actions">
               <button
                 @click="startEdit(field.key)"
                 :disabled="!chatStore.sessionToken"
-                class="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-300"
+                class="action-btn action-edit"
               >编辑</button>
               <button
                 v-if="!field.required && !isFilled(field.key)"
                 @click="skipField(field.key)"
                 :disabled="!chatStore.sessionToken"
-                class="text-xs text-gray-500 hover:text-gray-700 disabled:text-gray-300"
+                class="action-btn action-skip"
               >跳过</button>
             </div>
           </div>
 
-          <div v-else class="flex gap-2 mt-2">
+          <!-- Edit mode -->
+          <div v-else class="edit-row">
             <input
               v-model="editingValue"
               @keyup.enter="saveField(field.key)"
@@ -100,32 +96,29 @@
               :placeholder="field.placeholder"
               :min="field.min"
               :max="field.max"
-              class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="edit-input"
             />
-            <button
-              @click="saveField(field.key)"
-              class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >保存</button>
-            <button
-              @click="cancelEdit()"
-              class="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-            >取消</button>
+            <button @click="saveField(field.key)" class="save-btn">保存</button>
+            <button @click="cancelEdit()" class="cancel-btn">取消</button>
           </div>
         </div>
       </div>
 
-      <!-- Footer actions -->
-      <div class="mt-8 flex justify-between">
-        <router-link
-          to="/"
-          class="px-5 py-2.5 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
-        >← 返回对话</router-link>
+      <!-- Footer -->
+      <div class="profile-footer">
+        <router-link to="/" class="btn-back">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          返回对话
+        </router-link>
         <button
           v-if="nextQuestion"
           @click="refreshNextQuestion"
           :disabled="!chatStore.sessionToken"
-          class="px-5 py-2.5 text-sm bg-gradient-to-r from-amber-400 to-red-600 text-white rounded-lg shadow hover:opacity-90 disabled:opacity-40"
-        >🔄 下一题</button>
+          class="btn-next"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          下一题
+        </button>
       </div>
     </div>
   </div>
@@ -162,6 +155,7 @@ const FIELDS = [
 ]
 
 const TOTAL_FIELDS = FIELDS.length
+
 const completeness = computed(() => {
   const filled = FIELDS.filter(f => isFilled(f.key)).length
   return Math.round((filled / TOTAL_FIELDS) * 100)
@@ -257,3 +251,381 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.profile-page {
+  min-height: 100vh;
+  background: var(--paper);
+}
+
+.profile-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* Header */
+.profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.session-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.completeness-box {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.comp-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.comp-bar {
+  width: 140px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.comp-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--gold) 0%, var(--red) 100%);
+  transition: width 0.4s ease;
+}
+
+.comp-pct {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.comp-num {
+  color: var(--red);
+}
+
+/* Messages */
+.msg-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--gold-light);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--gold-dark);
+  line-height: 1.5;
+}
+
+.link-inline {
+  color: var(--red);
+  text-decoration: underline;
+}
+
+.msg-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--red-light);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--red);
+  line-height: 1.5;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+}
+
+/* Soul question */
+.soul-card {
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(198, 146, 42, 0.08);
+}
+
+.soul-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  margin-bottom: 8px;
+}
+
+.soul-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+/* Field grid */
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.field-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: box-shadow var(--motion-fast) var(--ease-smooth);
+}
+
+.field-card:hover {
+  box-shadow: var(--shadow-raised);
+}
+
+.field-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.field-label-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.required-star {
+  color: var(--red);
+  margin-left: 2px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.badge-filled {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.badge-empty {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.field-value {
+  font-size: 14px;
+  min-height: 1.5em;
+  margin-bottom: 8px;
+}
+
+.field-value.filled {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.field-value.empty {
+  color: var(--disabled);
+}
+
+.field-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  font-size: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 0;
+  font-family: var(--font-body);
+  transition: color var(--motion-fast);
+}
+
+.action-edit {
+  color: var(--red);
+}
+
+.action-edit:hover {
+  color: var(--red-dark);
+}
+
+.action-skip {
+  color: var(--muted);
+}
+
+.action-skip:hover {
+  color: var(--secondary);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Edit mode */
+.edit-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.edit-input {
+  flex: 1;
+  background: var(--elevated);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font: 400 14px var(--font-body);
+  color: var(--ink);
+  outline: none;
+}
+
+.edit-input:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(212, 49, 46, 0.12);
+}
+
+.save-btn {
+  padding: 8px 14px;
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font: 600 13px var(--font-body);
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background: var(--red-dark);
+}
+
+.cancel-btn {
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: 500 13px var(--font-body);
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+/* Footer */
+.profile-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--surface);
+  color: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: 500 14px var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-smooth);
+}
+
+.btn-back:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--red) 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font: 600 14px var(--font-body);
+  cursor: pointer;
+  transition: opacity var(--motion-fast);
+}
+
+.btn-next:hover {
+  opacity: 0.9;
+}
+
+.btn-next:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .completeness-box {
+    align-items: flex-start;
+  }
+}
+</style>

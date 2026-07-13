@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "gaobao-advisor",
-    "description": "AI 高考志愿顾问 — 考研规划 — 职业方向",
-    "version": "3.0.0"
+    "title": "高考志愿AI顾问",
+    "description": "AI 志愿规划服务，支持高考、考研和职业方向分析",
+    "version": "3.1.0"
   },
   "paths": {
     "/api/v1/health": {
@@ -12,7 +12,7 @@
           "health"
         ],
         "summary": "Health Check",
-        "description": "Basic liveness probe with DB status.",
+        "description": "Liveness probe with core and optional-service state.",
         "operationId": "health_check_api_v1_health_get",
         "responses": {
           "200": {
@@ -81,6 +81,122 @@
             }
           },
           "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/feedback": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Submit Feedback",
+        "description": "提交用户反馈（有帮助/没帮助）",
+        "operationId": "submit_feedback_api_v1_chat_feedback_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/highlight": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Submit Highlight",
+        "description": "提取金句",
+        "operationId": "submit_highlight_api_v1_chat_highlight_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HighlightExtractRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -362,7 +478,7 @@
           "data"
         ],
         "summary": "Get Schools",
-        "description": "Search schools by name, province, or level.",
+        "description": "Search schools by name, province, or level with cursor-based pagination.",
         "operationId": "get_schools_api_v1_data_schools_get",
         "parameters": [
           {
@@ -418,6 +534,38 @@
               "title": "Level"
             },
             "description": "学校层次"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "游标（上一页的 next_cursor）",
+              "title": "Cursor"
+            },
+            "description": "游标（上一页的 next_cursor）"
           }
         ],
         "responses": {
@@ -448,7 +596,7 @@
           "data"
         ],
         "summary": "Get Scores",
-        "description": "Query admission scores for a school.",
+        "description": "Query admission scores for a school with cursor-based pagination.",
         "operationId": "get_scores_api_v1_data_scores_get",
         "parameters": [
           {
@@ -508,6 +656,38 @@
               "title": "Major"
             },
             "description": "专业"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "游标（上一页的 next_cursor）",
+              "title": "Cursor"
+            },
+            "description": "游标（上一页的 next_cursor）"
           }
         ],
         "responses": {
@@ -538,7 +718,7 @@
           "data"
         ],
         "summary": "Get Plans",
-        "description": "Query enrollment plans for a school.",
+        "description": "Query enrollment plans for a school with cursor-based pagination.",
         "operationId": "get_plans_api_v1_data_plans_get",
         "parameters": [
           {
@@ -587,6 +767,38 @@
               "title": "Year"
             },
             "description": "年份"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "游标（上一页的 next_cursor）",
+              "title": "Cursor"
+            },
+            "description": "游标（上一页的 next_cursor）"
           }
         ],
         "responses": {
@@ -713,6 +925,267 @@
         }
       }
     },
+    "/api/v1/report/generate": {
+      "post": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Generate Report",
+        "description": "Generate a report from the user's real conversation data.\n\nReads slots (province, score, subject, interest) for the student\nprofile, then scans recent AI replies to accumulate suggestions,\nrisks, and action items across multiple turns — not just the last one.",
+        "operationId": "generate_report_api_v1_report_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/report/{report_id}": {
+      "get": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Get Report",
+        "description": "Return report data as a JSON dict.",
+        "operationId": "get_report_api_v1_report__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/report/{report_id}/html": {
+      "get": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Get Report Html",
+        "description": "Return the full HTML report page.",
+        "operationId": "get_report_html_api_v1_report__report_id__html_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/report/{report_id}/cover.svg": {
+      "get": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Get Report Cover Svg",
+        "description": "Return the SVG cover image for a report.",
+        "operationId": "get_report_cover_svg_api_v1_report__report_id__cover_svg_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -757,6 +1230,7 @@
           "slots": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -773,6 +1247,119 @@
         ],
         "title": "ChatRequest"
       },
+      "FeedbackRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 4,
+            "title": "Session Id"
+          },
+          "message_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Message Index"
+          },
+          "rating": {
+            "type": "string",
+            "pattern": "^(helpful|not_helpful)$",
+            "title": "Rating"
+          },
+          "feedback_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Text"
+          },
+          "quality_score_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Score Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "message_index",
+          "rating"
+        ],
+        "title": "FeedbackRequest",
+        "description": "用户反馈请求"
+      },
+      "GenerateRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 4,
+            "pattern": "^[a-zA-Z0-9_\\-]{4,64}$",
+            "title": "Session Id"
+          },
+          "student_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Name"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "GenerateRequest",
+        "description": "Request body for report generation."
+      },
+      "GenerateResponse": {
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "title": "Report Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "report_id",
+          "status",
+          "message"
+        ],
+        "title": "GenerateResponse",
+        "description": "Response body for report generation."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -785,6 +1372,35 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HighlightExtractRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 4,
+            "title": "Session Id"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Content"
+          },
+          "score": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "content"
+        ],
+        "title": "HighlightExtractRequest",
+        "description": "金句提取请求"
       },
       "KnowledgeSearchRequest": {
         "properties": {
@@ -860,6 +1476,7 @@
             "title": "Step"
           },
           "data": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Data"
           }
@@ -878,6 +1495,7 @@
             "title": "Session Id"
           },
           "profile": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Profile"
           },

@@ -14,7 +14,7 @@ async def test_health_returns_200():
     data = response.json()
     assert data["status"] == "ok"
     assert "version" in data
-    assert data["version"] == "3.0.0"
+    assert data["version"] == "3.1.0"
 
 
 @pytest.mark.asyncio

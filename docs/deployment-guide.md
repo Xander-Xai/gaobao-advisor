@@ -1,136 +1,174 @@
-# 部署指南 — gaobao-advisor v2.0
+# 部署指南 — gaobao-advisor v3.0
 
-> 两种部署方式：完整版（Streamlit Cloud）+ 免费轻量版（扣子 Bot）
+> 支持 Docker Compose 部署和裸机部署。
 
 ---
 
-## 方式一：Streamlit Cloud（完整版，推荐）
+## 方式一：Docker Compose（推荐）
 
 ### 前置条件
-- GitHub 账号
-- DeepSeek API Key（[免费注册](https://platform.deepseek.com)，约 1 元/500 次咨询）
+- Docker 和 Docker Compose v2+
+- LLM API Key（Agnes Flash / DeepSeek / Qwen / GLM / OpenAI 任选）
 
 ### 步骤
 
-#### 1. 推送代码到 GitHub
+#### 1. 克隆仓库
+```bash
+git clone https://github.com/your-org/gaobao-advisor.git
+cd gaobao-advisor
+```
+
+#### 2. 配置环境变量
+```bash
+cp .env.example .env
+# 编辑 .env，填入你的 API Key
+```
+
+#### 3. 启动服务
+```bash
+docker compose up -d
+```
+
+前端将在 `http://localhost:3080` 访问，API 在 `http://localhost:8000`。
+
+#### 4. 验证健康状态
+```bash
+curl -f http://localhost:8000/api/v1/health
+# {"status":"ok","version":"3.1.0","database":"connected"}
+```
+
+---
+
+## 方式二：裸机部署
+
+### 前置条件
+- Python 3.11+
+- Node.js 20+
+- LLM API Key
+
+### 步骤
+
+#### 1. 克隆 & 安装
+```bash
+git clone https://github.com/your-org/gaobao-advisor.git
+cd gaobao-advisor
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.lock
+```
+
+#### 2. 前端构建
+```bash
+cd frontend
+npm ci
+npm run build
+cd ..
+```
+
+#### 3. 配置
+```bash
+cp .env.example .env
+# 编辑 .env，填入 API Key
+```
+
+#### 4. 启动
+```bash
+# 启动后端 API
+uvicorn server.main:app --host 0.0.0.0 --port 8000 &
+
+# 启动前端开发服务器（或配置 nginx 代理 dist/）
+cd frontend && npm run dev -- --port 3080
+```
+
+---
+
+## 生产部署 Checklist
+
+参考 [deploy-checklist.md](deploy-checklist.md) 了解完整上线检查项。
+
+### 关键安全配置
 
 ```bash
-cd gaobao-advisor
-git remote add origin https://github.com/你的用户名/gaobao-advisor.git
-git push -u origin master
+# 1. 设置 SESSION_SECRET（所有 worker 共享）
+export SESSION_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+
+# 2. 设置 CORS 白名单
+export CORS_ORIGINS=https://your-domain.com
+
+# 3. 可选：Vue 前端 API 地址
+# 在 frontend/.env 中设置
+VITE_API_BASE_URL=https://your-domain.com/api/v1
+
+# 4. 设置 LLM API Key
+export LLM_API_KEY=sk-your-key
 ```
 
-#### 2. 部署到 Streamlit Cloud
-
-1. 打开 [share.streamlit.io](https://share.streamlit.io)
-2. 点击 **New app**
-3. 选择你的仓库 `gaobao-advisor`
-4. Main file path: `app.py`
-5. 点击 **Deploy!**
-
-#### 3. 配置 API Key（零配置给用户）
-
-在 Streamlit Cloud 的 **Settings → Secrets** 中粘贴：
-
-```toml
-LLM_API_KEY = "sk-你的DeepSeek-API-Key"
-LLM_BASE_URL = "https://api.deepseek.com"
-LLM_MODEL = "deepseek-chat"
-LLM_PROVIDER = "deepseek"
-ENABLE_SEARCH = "true"
+### 生产 Docker Compose
+```bash
+docker compose -f docker-compose.prod.yml --profile nginx up -d --build
 ```
-
-保存后应用自动重启。
-
-#### 4. 分享给用户
-
-用户打开链接即可直接使用，无需任何配置。
-
-**费用估算**：DeepSeek 约 1 元/500 次咨询，1000 个家长每人咨询 3 次 = 约 6 元。
 
 ---
 
-## 方式二：扣子 Bot（免费轻量版）
-
-### 前置条件
-- 扣子账号（[coze.cn](https://www.coze.cn)，手机号注册即可）
-
-### 步骤
-
-#### 1. 创建 Bot
-
-1. 登录 [coze.cn](https://www.coze.cn)
-2. 点击 **创建 Bot**
-3. 名称：`高考志愿顾问`
-4. 描述：`基于专业高考志愿规划方法论的 AI 志愿填报助手`
-
-#### 2. 配置人设与提示词
-
-在 **人设与回复逻辑** 中粘贴 `system_prompt.md` 的核心内容：
+## 架构概览
 
 ```
-你是高考志愿顾问，一个在高考志愿规划这一行干了十几年的老炮。
-说话直，不绕弯子，敢说真话。
-
-核心原则：
-1. 不跳步：信息不全不给结论
-2. 不说瞎话：不确定的数据标注"建议查最新官方信息"
-3. 敢说"不行"：不切实际的想法要指出
-4. 看人下菜碟：根据家庭背景给不同建议
-...
+nginx (:80 / :443)
+  |-- /api/*      --> FastAPI (port 8000)
+  |                   |-- /api/v1/chat       (SSE streaming)
+  |                   |-- /api/v1/data/*     (院校/分数/计划)
+  |                   |-- /api/v1/knowledge/* (RAG 知识检索)
+  |                   |-- /api/v1/profile/*  (用户画像)
+  |                   |-- /api/v1/report/*   (报告生成/导出，由前端 ChatView 触发)
+  |-- /ws/*       --> FastAPI (port 8000)
+  |-- /           --> Vue 3 SPA (nginx serving dist/)
 ```
-
-#### 3. 上传知识库
-
-在 **知识库** 中上传以下文件：
-- `knowledge_base.md`（主知识库）
-- `knowledge/00_ai_era_correction.md`（AI时代校正）
-- `knowledge/07_new_gaokao_subject_selection.md`（新高考选科）
-- `knowledge/08_vocational_strategy.md`（专科策略）
-
-#### 4. 配置工作流
-
-扣子自带工作流编辑器，可配置：
-1. **意图识别**：判断是否为志愿咨询
-2. **信息采集**：提取省份、分数、选科等
-3. **知识检索**：从知识库中检索相关内容
-4. **LLM 生成**：用豆包模型生成回答
-
-#### 5. 发布
-
-点击 **发布**，选择：
-- **扣子 Bot 商店**（可被搜索到）
-- **Web 链接**（可直接分享）
-- **微信小程序**（需要企业主体）
 
 ---
 
-## 两种方式对比
+## 环境变量参考
 
-| 维度 | Streamlit Cloud | 扣子 Bot |
-|------|----------------|---------|
-| 完整度 | 完整（含数据库、验证） | 轻量（知识库+对话） |
-| 成本 | LLM API 费用（约 1 元/500 次） | 完全免费 |
-| 分享 | 网页链接 | 微信二维码/小程序 |
-| 适合 | 深度使用、数据查询 | 快速体验、引流 |
-| 部署难度 | ⭐ 简单 | ⭐⭐ 中等 |
-| 维护 | 需关注 API 余额 | 无需维护 |
+| 变量 | 必需 | 默认值 | 说明 |
+|------|------|--------|------|
+| `LLM_API_KEY` | ✅ | - | LLM 提供商 API Key |
+| `LLM_PROVIDER` | | `ollama` | Provider 名称 |
+| `LLM_BASE_URL` | | `http://localhost:11434/v1` | API 地址 |
+| `LLM_MODEL` | | `qwen2.5:7b` | 模型名 |
+| `SESSION_SECRET` | ✅* | 自动生成 | 生产环境必须设置 |
+| `CORS_ORIGINS` | | `localhost:*` | 逗号分隔的允许域名 |
+| `SILICONFLOW_API_KEY` | | - | RAG 向量嵌入 API Key |
+| `SENTRY_DSN` | | - | 错误监控 |
+| `GAOBAO__DB_PATH` | | `data/gaokao.db` | SQLite 数据库路径 |
+| `GAOBAO__VOICE__API_KEY` / `DASHSCOPE_CHAT_API_KEY` | | - | 电话模式口语化渲染；缺失时回退原文本 |
+| `QUALITY_JUDGE_ALLOW_PLACEHOLDER_KEY` | | `false` | 仅本地 Ollama 调试时允许无 Key 占位调用；生产保持关闭 |
+| `VITE_WS_BASE_URL` | | 同 `VITE_API_BASE_URL` | 前端 WebSocket 连接地址覆盖；部署在反向代理后且 WS 路径与 API 不同时需设置 |
+
+> * `SESSION_SECRET` 在生产环境为强必需，缺失会阻止服务启动。
 
 ---
 
 ## 常见问题
 
-### Streamlit Cloud 部署失败
-- 检查 `requirements.txt` 是否完整
-- 检查 `app.py` 是否有语法错误
-- 查看 Streamlit Cloud 的日志
+### Docker 启动失败
+- 检查 Docker 是否运行：`docker ps`
+- 检查端口冲突：`lsof -i :8000` / `lsof -i :3080`
+- 查看容器日志：`docker compose logs api`
 
 ### API Key 费用过高
-- 使用 DeepSeek（最便宜）
-- 设置 `max_tokens` 限制回复长度
-- 考虑用扣子 Bot 分流轻度用户
+- 使用本地 Ollama 模型（最经济）
+- 设置 `LLM_MAX_TOKENS` 限制回复长度
+- 参考 [faq-troubleshooting.md](faq-troubleshooting.md)
 
-### 扣子 Bot 回答不准确
-- 上传更完整的知识库
-- 优化人设与提示词
-- 配置工作流增加信息采集环节
+### 前端无法连接后端
+- 检查 `VITE_API_BASE_URL` 是否指向正确的后端地址
+- 检查 nginx 反向代理路径配置
+- 跨域检查：`CORS_ORIGINS` 是否正确设置
+- WebSocket 连接失败时，检查 `VITE_WS_BASE_URL` 是否正确设置，以及 nginx 是否正确代理 `/ws/*` 路径（需包含 `Upgrade` / `Connection` 头以支持协议升级）
+
+### 多 Worker 部署
+所有 Worker 必须使用相同的 `SESSION_SECRET`，否则会话令牌验证失败。
+```yaml
+# docker-compose.yml
+environment:
+  - SESSION_SECRET=${SESSION_SECRET}  # 所有 Worker 必须相同
+```

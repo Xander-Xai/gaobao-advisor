@@ -6,6 +6,7 @@ import json
 
 from sqlalchemy.orm import Session, joinedload
 
+from config.loader import load_tuning
 from db.models import (
     AdmissionScore,
     Conversation,
@@ -124,6 +125,8 @@ def get_admission_scores(
             "max_score": r.max_score,
             "min_rank": r.min_rank,
             "plan_count": r.plan_count,
+            "data_source_note": r.school.data_source_note if r.school else None,
+            "synthetic": bool(r.school and "SYNTHETIC DEMO" in (r.school.data_source_note or "")),
         }
         for r in rows
     ]
@@ -185,6 +188,7 @@ def query_admission_from_db(db: Session, school_name: str, province: str, year: 
     results = []
     for s in scores:
         major = s.major if s.major_id else None
+        synthetic = "SYNTHETIC DEMO" in (school.data_source_note or "")
         results.append(
             {
                 "school": school.name,
@@ -197,20 +201,39 @@ def query_admission_from_db(db: Session, school_name: str, province: str, year: 
                 "avg_score": s.avg_score,
                 "min_rank": s.min_rank,
                 "major": major.name if major else "院校线",
-                "data_source": f"数据库（来源：{school.name}官方/省考试院 {s.year}年数据）",
+                "data_source": (
+                    "SYNTHETIC DEMO DATA - NOT FOR REAL ADMISSION DECISIONS"
+                    if synthetic
+                    else f"数据库（声明来源：{school.name}官方/省考试院 {s.year}年数据）"
+                ),
+                "synthetic": synthetic,
             }
         )
     return results
 
 
+def _get_strategy_ranges() -> dict[str, list[int]]:
+    """Load strategy score ranges from tuning.yaml."""
+    strategies = load_tuning().get("strategies", {})
+    return {
+        "冲": strategies.get("chong", {}).get("score_range", [0, 30]),
+        "保": strategies.get("bao", {}).get("score_range", [-60, 0]),
+        "稳": strategies.get("wen", {}).get("score_range", [-20, 10]),
+    }
+
+
 def query_match_schools(db: Session, score: int, province: str, subject_type: str, strategy: str = "稳") -> list[dict]:
     """分数匹配院校推荐（冲/稳/保）"""
+    ranges = _get_strategy_ranges()
     if strategy == "冲":
-        lo, hi = score, score + 30
+        sr = ranges["冲"]
+        lo, hi = score + sr[0], score + sr[1]
     elif strategy == "保":
-        lo, hi = score - 60, score
-    else:  # 稳
-        lo, hi = score - 20, score + 10
+        sr = ranges["保"]
+        lo, hi = score + sr[0], score + sr[1]
+    else:
+        sr = ranges["稳"]
+        lo, hi = score + sr[0], score + sr[1]
 
     rows = get_admission_scores(
         db, province=province, subject_type=subject_type, min_score_floor=lo, max_score_ceil=hi, limit=30
@@ -410,9 +433,29 @@ def save_message(db: Session, session_id: str, role: str, content: str) -> None:
 
 
 def save_slots(db: Session, session_id: str, slots: dict) -> None:
-    """更新对话的槽位信息。"""
+    """更新对话的槽位信息。
+
+    Slots are accumulated across chat, profile editing, and soul-query state.
+    A partial update must not wipe unrelated keys such as `_query_state` or
+    profile fields collected in earlier turns.
+    """
     conv = get_or_create_conversation(db, session_id)
-    conv.slots_json = json.dumps(slots, ensure_ascii=False)
+    existing: dict = {}
+    if conv.slots_json:
+        try:
+            existing = json.loads(conv.slots_json) or {}
+        except Exception:
+            existing = {}
+
+    merged = dict(existing)
+    for key, value in (slots or {}).items():
+        if value is None or value == "":
+            continue
+        if isinstance(value, dict) and not value.get("filled", True) and not value.get("value"):
+            continue
+        merged[key] = value
+
+    conv.slots_json = json.dumps(merged, ensure_ascii=False)
 
     # 同步核心字段，方便查询
     # 支持两种格式：扁平 {"province": "湖北"} 和嵌套 {"province": {"value": "湖北"}}
@@ -421,9 +464,9 @@ def save_slots(db: Session, session_id: str, slots: dict) -> None:
             return v.get("value", "") or None
         return v or None
 
-    conv.province = _val(slots.get("province"))
-    conv.score_rank = _val(slots.get("score_rank") or slots.get("score"))
-    conv.subject = _val(slots.get("subject"))
+    conv.province = _val(merged.get("province"))
+    conv.score_rank = _val(merged.get("score_rank") or merged.get("score"))
+    conv.subject = _val(merged.get("subject"))
     db.commit()
 
 

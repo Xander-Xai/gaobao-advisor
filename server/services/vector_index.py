@@ -32,6 +32,8 @@ from typing import Any
 import faiss
 import numpy as np
 
+from config.loader import load_runtime_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -277,5 +279,7 @@ def get_vector_store(index_dir: str = "data/vector_index") -> VectorIndexStore:
     """
     global _vector_store
     if _vector_store is None:
+        if index_dir == "data/vector_index":
+            index_dir = load_runtime_settings()["vector_index_dir"]
         _vector_store = VectorIndexStore(index_dir=index_dir)
     return _vector_store

@@ -11,6 +11,7 @@ from db.models import Highlight
 from server.auth import create_session_token, require_bearer_auth
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
+from server.privacy import safe_exception_name, safe_log_reference
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ async def _sse_generator(
     try:
         result = graph.invoke(initial_state)
     except Exception:
-        logger.exception("Phase 1 graph.invoke failed for session %s", session_id)
+        logger.exception("Phase 1 graph.invoke failed for %s", safe_log_reference(session_id))
         yield f"data: {json.dumps({'type': 'error', 'code': 'GRAPH_FAILED', 'message': '服务暂时不可用，请稍后重试'})}\n\n"
         return
 
@@ -201,5 +202,9 @@ async def submit_highlight(
         db.close()
         return {"success": True}
     except Exception as e:
-        logger.error("Highlight save failed for session %s: %s", request.session_id, e)
+        logger.error(
+            "Highlight save failed for %s: %s",
+            safe_log_reference(request.session_id),
+            safe_exception_name(e),
+        )
         return {"success": False, "error": "保存金句失败"}

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from db.crud import save_feedback
 from db.database import SessionLocal
+from server.privacy import safe_log_reference
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,8 @@ class FeedbackCollector:
                 return True
         except Exception:
             logger.exception(
-                "Failed to save feedback for session=%s index=%d",
-                conversation_id,
+                "Failed to save feedback for %s index=%d",
+                safe_log_reference(conversation_id),
                 message_index,
             )
             return False

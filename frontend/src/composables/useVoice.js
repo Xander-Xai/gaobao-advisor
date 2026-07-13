@@ -6,6 +6,7 @@ export function useVoice(wsUrl) {
   const phase = ref('idle')
   const liveUserText = ref('')
   const liveAssistantText = ref('')
+  const lastError = ref(null)
   const ws = ref(null)
 
   function connect(sessionId, scene, token) {
@@ -14,13 +15,16 @@ export function useVoice(wsUrl) {
     // verify_session_token(session_id, token) on the server side.
     const params = new URLSearchParams({ session_id: sessionId, scene })
     if (token) params.set('token', token)
-    const url = wsUrl || `ws://${location.host}/ws/call?${params.toString()}`
+    const defaultBase = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`
+    const base = wsUrl || import.meta.env.VITE_WS_BASE_URL || defaultBase
+    const url = `${base.replace(/\/$/, '')}/api/v1/ws/call?${params.toString()}`
     ws.value = new WebSocket(url)
     ws.value.binaryType = 'arraybuffer'
 
     ws.value.onopen = () => {
       isConnected.value = true
       phase.value = 'listening'
+      lastError.value = null
     }
     ws.value.onclose = () => {
       isConnected.value = false
@@ -33,15 +37,20 @@ export function useVoice(wsUrl) {
         if (msg.type === 'user_text') {
           liveUserText.value = msg.text
           phase.value = 'thinking'
+          lastError.value = null
         }
         if (msg.type === 'assistant_text') {
           liveAssistantText.value = msg.text
+          lastError.value = null
         }
         if (msg.type === 'tts_start') {
           phase.value = 'speaking'
         }
         if (msg.type === 'tts_end') {
           phase.value = 'listening'
+        }
+        if (msg.type === 'error') {
+          lastError.value = msg.message
         }
       }
     }
@@ -67,6 +76,7 @@ export function useVoice(wsUrl) {
     phase,
     liveUserText,
     liveAssistantText,
+    lastError,
     connect,
     sendAudio,
     disconnect,

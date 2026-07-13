@@ -70,7 +70,7 @@ make run-api     # 启动后端
 ruff check .
 ruff format --check .
 pytest tests/ -q --timeout=60 --timeout-method=thread
-cd frontend && npm ci && npm test -- --run && npm run build
+cd frontend && npm ci && npm test -- --run && npm run build && npm audit --audit-level=moderate
 cd .. && bash scripts/audit_open_source.sh
 ```
 

@@ -3,8 +3,8 @@
 ## Supported versions
 
 Until the first community release is published, security fixes target the
-latest commit on the default branch. After releases begin, this table will be
-updated with the supported release series.
+latest commit on the default branch and the local `3.1.x` community candidate.
+After releases begin, this section will be updated with the supported release series.
 
 ## Report a vulnerability privately
 
