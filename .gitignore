@@ -28,6 +28,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# JavaScript package-manager output
+node_modules/
+
 # 运行时数据库（自动生成）
 data/*.db
 data/*.db-journal

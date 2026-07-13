@@ -55,7 +55,7 @@ printf 'commit=%s\n' "$(git rev-parse HEAD)"
 printf 'branch=%s\n' "$(git branch --show-current)"
 
 section "Tracked runtime and restricted artifacts"
-tracked_risk_pattern='(^\.claude/|^backups/|^data/reports/|^frontend/test-results/|^test-results/|^logs/|^data/.*\.(db|sqlite|sqlite3)(\.|$)|(^|/)\.session_secret$)'
+tracked_risk_pattern='(^\.claude/|(^|/)node_modules/|^backups/|^data/reports/|^frontend/test-results/|^test-results/|^logs/|^data/.*\.(db|sqlite|sqlite3)(\.|$)|(^|/)\.session_secret$)'
 tracked_risks="$(git ls-files | grep -E "$tracked_risk_pattern" || true)"
 if [[ -n "$tracked_risks" ]]; then
   printf '%s\n' "$tracked_risks"
