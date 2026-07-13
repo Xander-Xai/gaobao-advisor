@@ -26,7 +26,12 @@ mkdir -p logs
 # Set environment variables for alerting
 export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
 export SMTP_PASSWORD="${SMTP_PASSWORD:-}"
-export GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-admin}"
+export GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
+
+if [[ -z "$GRAFANA_ADMIN_PASSWORD" ]]; then
+    echo "ERROR: GRAFANA_ADMIN_PASSWORD must be set; default admin passwords are not allowed"
+    exit 1
+fi
 
 # Validate Slack webhook URL if provided
 if [[ -n "$SLACK_WEBHOOK_URL" ]]; then

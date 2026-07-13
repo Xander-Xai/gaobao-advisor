@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import get_config
+from config.loader import load_runtime_settings, validate_deployment_settings
 from server import __version__
 from server.metrics import metrics_app, metrics_middleware
 from server.middleware.csp import CSPMiddleware
@@ -25,6 +27,7 @@ from server.routes.voice import router as voice_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
+    validate_deployment_settings()
     init_sentry()
 
     from db.database import init_db
@@ -34,7 +37,8 @@ async def lifespan(app: FastAPI):
     # Initialize RAG with knowledge base paths
     from server.services.rag import configure as configure_rag
 
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    runtime = load_runtime_settings()
+    _project_root = runtime["project_root"]
     _groups_dir = os.path.join(_project_root, "knowledge", "groups")
     _quotes_dir = os.path.join(_project_root, "knowledge", "quotes")
     if os.path.isdir(_groups_dir):
@@ -48,26 +52,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="gaobao-advisor",
-    description="AI 高考志愿顾问 — 考研规划 — 职业方向",
+    title=get_config()["brand"]["brand"]["name"],
+    description="AI 志愿规划服务，支持高考、考研和职业方向分析",
     version=__version__,
     lifespan=lifespan,
 )
 
 # ── CORS Configuration ────────────────────────────────────
-cors_origins_str = os.getenv("CORS_ORIGINS", "")
-cors_origins = (
-    [o.strip() for o in cors_origins_str.split(",")]
-    if cors_origins_str
-    else ["http://localhost:8000", "http://localhost:8501", "http://localhost:3080"]
-)
+cors_origins = load_runtime_settings()["cors_origins"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+    max_age=600,
 )
 
 # ── Security Middleware ───────────────────────────────────
@@ -99,8 +99,9 @@ app.include_router(report_router)
 @app.get("/")
 async def root():
     """Root endpoint with API info."""
+    runtime = load_runtime_settings()
     return {
-        "service": "gaobao-advisor",
+        "service": runtime["service_name"],
         "version": __version__,
         "docs": "/docs",
         "metrics": "/metrics",

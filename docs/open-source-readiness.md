@@ -120,3 +120,24 @@ the secret-scanning requirement as passed; CI provides the same gate.
   report, route, service, slot and test changes. The governance files do not
   introduce Python lint failures. Checkpoint E remains blocked until Task 12-13
   fixes or reconciles these files and reruns the full command.
+
+## Checkpoint D: no-key demo path
+
+- [x] Default configuration uses the deterministic `demo` provider, keyword
+  retrieval fallback and disabled voice/search integrations; no API key is
+  required.
+- [x] Production startup validation rejects missing `SESSION_SECRET` and
+  `CORS_ORIGINS`; monitoring rejects a default Grafana admin password.
+- [x] The CC0 dataset contains 3 synthetic schools, 3 synthetic majors and 6
+  synthetic score records. Seeding twice is idempotent and all institutions
+  are visibly marked as examples.
+- [x] Twelve focused configuration, seed and health tests pass; 26 auth, route,
+  SSE and integration regression tests also pass.
+- [x] Docker build contexts were reduced from about 467 MB/170 MB to about
+  82 KB/4 KB for backend/frontend rebuilds.
+- [x] Backend and frontend images build successfully. In a real Compose run,
+  the API became healthy with `mode=demo`, the frontend returned HTTP 200, the
+  database contained `3|3|6`, and SSE output disclosed “社区演示模式”, “合成示例”
+  and “非官方工具”.
+- [x] Demo containers were stopped after verification; the named demo-data
+  volume remains for idempotence checks and contains synthetic data only.

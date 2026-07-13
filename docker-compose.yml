@@ -1,16 +1,28 @@
-version: "3.8"
-
 services:
   api:
     build: .
     container_name: gaokao-api
-    command: uvicorn server.main:app --host 0.0.0.0 --port 8000
+    command:
+      - /bin/sh
+      - -c
+      - |
+        python scripts/seed_demo_data.py --database /app/data/demo.db
+        exec uvicorn server.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      APP_ENV: development
+      LLM_PROVIDER: demo
+      LLM_BASE_URL: demo://local
+      LLM_MODEL: gaobao-demo
+      ENABLE_RAG_KB: "false"
+      RAG_EMBEDDING_PROVIDER: keyword
+      VOICE_ENABLED: "false"
+      GAOBAO__DB_PATH: /app/data/demo.db
     volumes:
-      - ./data:/app/data
+      - gaobao-demo-data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
@@ -35,3 +47,6 @@ services:
     depends_on:
       - api
       - frontend
+
+volumes:
+  gaobao-demo-data:
