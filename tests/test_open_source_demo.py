@@ -121,6 +121,12 @@ def test_compose_initializes_demo_database_before_api_start():
     assert 'VOICE_ENABLED: "false"' in compose
 
 
+def test_missing_restricted_knowledge_corpus_degrades_to_empty_groups(tmp_path):
+    from server.services.kb_retriever import load_all_groups
+
+    assert load_all_groups(str(tmp_path / "not-distributed")) == {}
+
+
 @pytest.mark.asyncio
 async def test_demo_sse_discloses_synthetic_mode_for_graph_shortcuts(monkeypatch):
     """Graph-generated shortcut replies must not bypass the demo disclosure."""

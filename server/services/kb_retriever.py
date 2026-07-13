@@ -240,6 +240,8 @@ def split_group(content: str, group_id: str) -> list[Chunk]:
 def load_all_groups(groups_dir: str) -> dict[str, list[Chunk]]:
     """加载所有知识组文件，切分为 chunks。"""
     all_groups: dict[str, list[Chunk]] = {}
+    if not os.path.isdir(groups_dir):
+        return all_groups
     for filename in sorted(os.listdir(groups_dir)):
         if not filename.endswith(".md"):
             continue

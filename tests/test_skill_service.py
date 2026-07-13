@@ -8,6 +8,12 @@ import pytest
 
 from skills.service import SkillService
 
+_SKILL_ASSETS_AVAILABLE = (Path(__file__).parent.parent / "skills/gaokao/mental_models.md").exists()
+requires_restricted_skill_assets = pytest.mark.skipif(
+    not _SKILL_ASSETS_AVAILABLE,
+    reason="restricted methodology assets are intentionally absent from the public distribution",
+)
+
 
 @pytest.fixture
 def service() -> SkillService:
@@ -15,6 +21,7 @@ def service() -> SkillService:
     return SkillService(skills_dir=Path(__file__).parent.parent / "skills")
 
 
+@requires_restricted_skill_assets
 class TestLoadAssets:
     """Tests for load_assets functionality."""
 
@@ -42,6 +49,7 @@ class TestLoadAssets:
         assert service._loaded is True
 
 
+@requires_restricted_skill_assets
 class TestBuildContext:
     """Tests for build_context functionality."""
 

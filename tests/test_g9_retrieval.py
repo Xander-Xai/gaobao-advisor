@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from server.services.kb_retriever import GROUP_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
@@ -12,6 +14,10 @@ from server.services.kb_retriever import GROUP_TRIGGERS, KbRetriever, KeywordOnl
 _QUOTES_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "quotes")
 _GROUPS_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "groups")
 _G9_PATH = os.path.join(_GROUPS_DIR, "G9_zhangxuefeng_methodology_origin.md")
+requires_restricted_g9 = pytest.mark.skipif(
+    not os.path.exists(_G9_PATH),
+    reason="restricted G9 corpus is intentionally absent from the public distribution",
+)
 
 
 def _make_retriever() -> KbRetriever:
@@ -22,6 +28,7 @@ def _make_retriever() -> KbRetriever:
     )
 
 
+@requires_restricted_g9
 class TestG9FileExists:
     """G9 知识组文件存在性测试。"""
 
@@ -62,6 +69,7 @@ class TestG9Triggers:
         assert "他的人生" in triggers or "张雪峰的经历" in triggers, "应包含人物经历类触发词"
 
 
+@requires_restricted_g9
 class TestG9Retrieval:
     """G9 召回测试。"""
 
@@ -102,6 +110,7 @@ class TestG9Retrieval:
             assert "G9_zhangxuefeng_methodology_origin" not in result.groups, f"Unexpected G9 in normal query: {query}"
 
 
+@requires_restricted_g9
 class TestG9ContentQuality:
     """G9 内容质量测试（保证 LLM 拿到的是高质量内容）。"""
 
@@ -143,6 +152,7 @@ class TestG9ContentQuality:
                 )
 
 
+@requires_restricted_g9
 class TestG9NoRegression:
     """回归测试：增加 G9 后其他 8 个 group 仍正常工作。"""
 
