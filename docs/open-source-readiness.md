@@ -1,6 +1,6 @@
 # Open-source readiness
 
-Status date: 2026-07-11
+Status date: 2026-07-13
 
 This document is the evidence ledger for preparing the community developer
 edition. A checked item means that current commands or files prove the claim;
@@ -10,8 +10,8 @@ historical reports are not sufficient evidence.
 
 - Current implementation branch: `codex/open-source-readiness`.
 - The existing private repository history remains intact.
-- The public candidate will be produced as a clean mirror after local gates
-  pass. Rewriting the existing repository history is not automatic.
+- The public candidate is produced as a clean Git archive from the release
+  branch. Rewriting the existing repository history is not automatic.
 - Creating a remote repository, pushing, making it public, publishing images,
   or creating a release requires final user authorization.
 - The working tree contained pre-existing uncommitted development work when
@@ -90,19 +90,18 @@ the secret-scanning requirement as passed; CI provides the same gate.
 - The local `.claude/worktrees/` directory remained present after its gitlink
   was removed from the Git index.
 
-## Remaining release gates
+## Release gates
 
 - [x] Code, data, content, third-party and brand rights are classified in
   `config/open_source_assets.tsv` and the root policy documents. Assets marked
-  `exclude` still need to be omitted from the final public archive.
+  `exclude` are omitted from the final public archive.
 - [x] Security, privacy, support and community governance documents are complete.
-- [ ] README links to every policy document; this remains part of the planned
-  README reconciliation because the file has pre-existing uncommitted changes.
-- [ ] No-key demo configuration and synthetic sample data are verified.
-- [ ] Backend, frontend, container and supply-chain CI gates pass.
-- [ ] README and release documentation match the verified implementation.
-- [ ] High-stakes education output and privacy controls pass their fixed tests.
-- [ ] A clean candidate copy passes every completion criterion in the design.
+- [x] README links to every policy document and documents the no-key path.
+- [x] No-key demo configuration and synthetic sample data are verified.
+- [x] Backend, frontend, container and supply-chain CI gates pass.
+- [x] README and release documentation match the verified implementation.
+- [x] High-stakes education output and privacy controls pass their fixed tests.
+- [x] A clean candidate copy passes every local completion criterion in the design.
 
 ## Checkpoint C: rights and governance
 
@@ -112,14 +111,16 @@ the secret-scanning requirement as passed; CI provides the same gate.
 - [x] Security, privacy, support, conduct, ownership and changelog files exist.
 - [x] Public issue and pull-request templates warn against secrets and personal
   data and require provenance for new data contributions.
-- [ ] README policy links are pending Task 14; Checkpoint C is otherwise ready.
+- [x] README links the public policy surface.
 
-## Current quality blockers
+## Resolved quality blockers
 
-- `ruff check .` currently reports 19 errors in pre-existing uncommitted MCP,
-  report, route, service, slot and test changes. The governance files do not
-  introduce Python lint failures. Checkpoint E remains blocked until Task 12-13
-  fixes or reconciles these files and reruns the full command.
+- The initial 19 Ruff errors were reconciled; `ruff check .` and
+  `ruff format --check .` pass for 237 public Python files.
+- DOMPurify was raised to 3.4.12 and the deprecated icon package was replaced;
+  the frontend moderate-level audit reports zero vulnerabilities.
+- LangSmith was raised to 0.8.18 after `pip-audit` identified
+  `GHSA-f4xh-w4cj-qxq8`; the final lock-file audit reports no known vulnerabilities.
 
 ## Checkpoint D: no-key demo path
 
@@ -139,5 +140,42 @@ the secret-scanning requirement as passed; CI provides the same gate.
   the API became healthy with `mode=demo`, the frontend returned HTTP 200, the
   database contained `3|3|6`, and SSE output disclosed “社区演示模式”, “合成示例”
   and “非官方工具”.
-- [x] Demo containers were stopped after verification; the named demo-data
-  volume remains for idempotence checks and contains synthetic data only.
+- [x] Demo containers and named demo-data volumes were removed after final verification.
+
+## Checkpoint E: automated quality and supply-chain gates
+
+- [x] Required CI jobs cover complete-history Gitleaks, Ruff, Python tests and
+  coverage, frontend tests/build/audit, dependency licenses, documentation,
+  Compose validation and a no-key container smoke test.
+- [x] Frontend clean-lock verification passes: 48 tests, Vite production build
+  and `npm audit --audit-level=moderate` with zero vulnerabilities.
+- [x] Python dependency audit reports no known vulnerabilities; the dependency
+  license inventory contains no prohibited or unreviewed identifiers.
+- [x] Documentation validation rejects placeholder organizations, broken local
+  links and public version drift; its injected canary test passes.
+- [x] Local npm network commands emitted a warning because the invoking shell
+  externally set `NODE_TLS_REJECT_UNAUTHORIZED=0`. This variable is not stored
+  in the repository; CI uses its default TLS verification.
+
+## Checkpoint F: clean public candidate
+
+- [x] Verified source commit: `7c56e47` (followed only by CI disclosure-parser
+  correction `3b14ff0` before this evidence update).
+- [x] Verified clean archive SHA-256:
+  `82e1acdae502d6f3029c69428d6f7d761dfcde52430ed5715447f726236f8245`.
+- [x] The archive contained 446 files and omitted `knowledge/`, `prompts/`,
+  `content_scripts/`, `memory/`, restricted skill Markdown, databases, reports,
+  `node_modules/`, local previews and every asset classified `exclude`.
+- [x] Clean-archive Python result: 835 passed, 37 skipped, coverage 77.74%.
+  Every skip is an explicit test for restricted corpus content that is not
+  redistributed; the same tests run in the private tree when the corpus exists.
+- [x] Clean-archive frontend result: 48 tests passed, production build passed,
+  and moderate-level audit reported zero vulnerabilities.
+- [x] Clean-archive container result: backend/frontend images built, health
+  returned version 3.1.0 in demo mode, frontend returned HTTP 200, SQLite counts
+  were `3|3|6`, and decoded SSE content included demo, synthetic and non-official
+  disclosures. Containers and volumes were removed afterward.
+- [x] Gitleaks v8.30.1 scanned 370 commits and found no leaks before the final
+  test-only and CI-only corrections; the final release command is rerun before handoff.
+- [ ] External publication remains intentionally blocked pending explicit user
+  authorization for push, tag, GitHub Release or any other network mutation.
