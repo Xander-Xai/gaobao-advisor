@@ -32,7 +32,7 @@ def test_plans_rejects_negative_cursor():
 
 
 def test_scores_filters_major_by_related_major_name():
-    """The `major` query parameter must filter Major.name, not compare a relationship to str."""
+    """The `major` parameter filters Major.name instead of comparing a relationship to str."""
     init_db()
     suffix = uuid.uuid4().hex[:10]
     school_name = f"测试大学-{suffix}"
@@ -40,6 +40,9 @@ def test_scores_filters_major_by_related_major_name():
     other_major_name = f"测试专业B-{suffix}"
 
     db = SessionLocal()
+    school = None
+    target_major = None
+    other_major = None
     try:
         school = School(name=school_name, province="河北", city="测试市")
         target_major = Major(name=target_major_name, category="工学")
@@ -87,14 +90,12 @@ def test_scores_filters_major_by_related_major_name():
         assert items[0]["major"] == target_major_name
         assert items[0]["min_score"] == 600
     finally:
-        db.query(AdmissionScore).filter(AdmissionScore.school_id == getattr(school, "id", -1)).delete(
-            synchronize_session=False
-        ) if "school" in locals() else None
-        if "school" in locals():
+        if school is not None:
+            db.query(AdmissionScore).filter(AdmissionScore.school_id == school.id).delete(synchronize_session=False)
             db.delete(school)
-        if "target_major" in locals():
+        if target_major is not None:
             db.delete(target_major)
-        if "other_major" in locals():
+        if other_major is not None:
             db.delete(other_major)
         db.commit()
         db.close()
