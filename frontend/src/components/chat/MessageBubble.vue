@@ -28,10 +28,12 @@
 import { ref, computed } from 'vue'
 import { renderMarkdown } from '../../utils/sanitize'
 import { feedbackAPI, highlightAPI } from '../../api/client'
+import { useChatStore } from '../../stores/chat'
 
 const props = defineProps({ message: Object })
 const feedback = ref(null)
 const highlighted = ref(false)
+const chat = useChatStore()
 
 const renderedContent = computed(() => {
   return renderMarkdown(props.message.content || '')
@@ -61,6 +63,7 @@ async function sendFeedback(rating) {
     messageIndex: props.message.messageIndex || 0,
     rating,
     qualityScoreId: props.message.qualityScoreId,
+    token: chat.sessionToken,
   })
   if (error) console.error('Feedback failed:', error.message)
 }
@@ -73,6 +76,7 @@ async function extractHighlight() {
     sessionId: props.message.sessionId || '',
     content,
     score: 80,
+    token: chat.sessionToken,
   })
   if (error) {
     console.error('Highlight failed:', error.message)
