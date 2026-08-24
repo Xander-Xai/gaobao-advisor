@@ -8,22 +8,25 @@ from typing import Any
 _DISCLAIMER = "\n\n---\n声明：以上分析基于公开数据和AI模型，仅供参考。最终志愿填报请以各省教育考试院官方发布信息为准。"
 
 
+def ensure_disclaimer(reply: str) -> str:
+    """Append the standard disclaimer exactly once."""
+    if "声明：以上分析基于" in reply:
+        return reply
+    return reply + _DISCLAIMER
+
+
 def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     """Build the final reply text for the user.
 
     If a reply is already set (e.g. from question_generate or
-    security_scan), pass it through unchanged.  Otherwise, assemble
-    a reply from the structured result and reasoning.
+    security_scan), pass it through with the standard disclaimer.
+    Otherwise, assemble a fallback reply from structured state.
     """
-    # 如果 reply 已有,追加 disclaimer(来源标注由 source_attribution 节点处理)
     existing_reply = state.get("reply", "")
     if existing_reply:
-        if "声明：以上分析基于" not in existing_reply:
-            final_reply = existing_reply + _DISCLAIMER
-        else:
-            final_reply = existing_reply
+        final_reply = ensure_disclaimer(existing_reply)
         trace = list(state.get("trace", []))
-        trace.append({"node": "render_reply", "event": "llm_reply_with_disclaimer"})
+        trace.append({"node": "render_reply", "event": "reply_with_disclaimer"})
         return {"reply": final_reply, "trace": trace}
 
     scene = state.get("scene", "general")
@@ -34,7 +37,6 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     parts = []
 
     if scene == "gaokao":
-        # Build gaokao-specific reply
         province = slots.get("province", "")
         score = slots.get("score", "")
         subject = slots.get("subject", "")
@@ -49,9 +51,9 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
         matched = structured.get("matched_schools", [])
         if matched:
             parts.append("\n推荐院校：")
-            for i, s in enumerate(matched[:5], 1):
-                name = s.get("name", "")
-                line = s.get("score_line", "")
+            for i, school in enumerate(matched[:5], 1):
+                name = school.get("name", "")
+                line = school.get("score_line", "")
                 parts.append(f"{i}. {name}（录取线参考：{line}分）")
 
         rank = structured.get("rank_analysis")
@@ -70,14 +72,11 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
             parts.append(str(major.get("description", ""))[:300])
 
     else:
-        # Generic fallback
         parts.append("收到您的信息，以下是我的分析：")
         if reasoning:
             parts.append(reasoning[:500])
 
-    # 先构建回复,再追加 disclaimer(来源标注由 source_attribution 节点处理)
-    reply = "\n".join(parts)
-    reply = reply + _DISCLAIMER
+    reply = ensure_disclaimer("\n".join(parts))
 
     trace = list(state.get("trace", []))
     trace.append({"node": "render_reply", "event": "reply_built"})
