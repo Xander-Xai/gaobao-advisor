@@ -1,15 +1,9 @@
 /**
  * Unified API client — one namespace per backend route module.
  *
- * Each non-streaming method returns a `{ data, error }` envelope (per
- * common/patterns.md). Network/parse failures populate `error`;
- * HTTP 2xx populates `data`; HTTP 4xx/5xx populates `error` with the
- * server's detail when present.
- *
- * Auth: profile endpoints require `Authorization: Bearer <session_token>`.
- * The token is received in the chat SSE `done` event and stored in
- * the chat store. Callers pass the token explicitly (avoids circular
- * import between this client and the Pinia store).
+ * Each non-streaming method returns a `{ data, error }` envelope. Chat uses a
+ * streaming reader, while session-scoped mutations send the session Bearer
+ * token issued by the backend.
  */
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
@@ -31,7 +25,6 @@ async function _request(path, { method = 'GET', body, headers = {}, token } = {}
     return { data: null, error: { code: 'NETWORK_ERROR', message: networkError.message } }
   }
 
-  // Try to parse JSON regardless of status — FastAPI always returns JSON.
   let payload = null
   const text = await response.text()
   if (text) {
@@ -69,15 +62,22 @@ function _toQuery(params) {
 // ── chat (SSE — special-cased; the helper above cannot read a stream) ─
 
 export const chatAPI = {
+  async createSession(scene = 'gaokao') {
+    return _request('/session', { method: 'POST', body: { scene } })
+  },
+
   /**
    * Send a chat message and consume SSE events as they arrive.
-   * `onEvent` is optional for backwards compatibility; all parsed events are
-   * still returned after the stream completes.
+   * The session token must match sessionId; `onEvent` receives each parsed
+   * event immediately while the full event list is still returned at EOF.
    */
-  async send(sessionId, message, slots = {}, scene = 'gaokao', onEvent = null) {
+  async send(sessionId, message, slots = {}, scene = 'gaokao', onEvent = null, token = null) {
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ session_id: sessionId, message, slots, scene }),
     })
     if (!response.ok || !response.body) {
@@ -128,9 +128,10 @@ export const onboardingAPI = {
 // ── chat metadata (feedback + highlight) ────────────────────────────
 
 export const feedbackAPI = {
-  async submit({ sessionId, messageIndex, rating, feedbackText, qualityScoreId }) {
+  async submit({ sessionId, messageIndex, rating, feedbackText, qualityScoreId, token }) {
     return _request('/chat/feedback', {
       method: 'POST',
+      token,
       body: {
         session_id: sessionId,
         message_index: messageIndex,
@@ -143,13 +144,10 @@ export const feedbackAPI = {
 }
 
 export const highlightAPI = {
-  /**
-   * Submit a highlight (金句) extracted from an assistant reply.
-   * `score` defaults to 80; UI may allow the user to adjust later.
-   */
-  async submit({ sessionId, content, score = 80 }) {
+  async submit({ sessionId, content, score = 80, token }) {
     return _request('/chat/highlight', {
       method: 'POST',
+      token,
       body: { session_id: sessionId, content, score },
     })
   },
@@ -158,11 +156,6 @@ export const highlightAPI = {
 // ── data — schools / scores / plans ─────────────────────────────────
 
 export const dataAPI = {
-  /**
-   * Search schools. Returns either `{count, results}` (school_name mode,
-   * FTS-based single match) or `{items, next_cursor, has_more}` (cursor
-   * pagination when listing by province/level).
-   */
   async searchSchools({ schoolName, province, level, limit = 50, cursor } = {}) {
     const qs = _toQuery({
       school_name: schoolName,
@@ -174,7 +167,6 @@ export const dataAPI = {
     return _request(`/data/schools${qs}`)
   },
 
-  /** Admission scores for a school in a province. */
   async getScores({ schoolName, province, year, major, limit = 50, cursor }) {
     const qs = _toQuery({
       school_name: schoolName,
@@ -187,7 +179,6 @@ export const dataAPI = {
     return _request(`/data/scores${qs}`)
   },
 
-  /** Enrollment plans for a school. */
   async getPlans({ schoolName, province, year, limit = 50, cursor }) {
     const qs = _toQuery({
       school_name: schoolName,
@@ -215,7 +206,7 @@ export const knowledgeAPI = {
   },
 }
 
-// ── profile — requires Bearer token from chat SSE `done` event ─────
+// ── profile — requires Bearer token ─────────────────────────────────
 
 export const profileAPI = {
   async get(sessionId, token) {
