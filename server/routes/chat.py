@@ -134,12 +134,17 @@ async def _run_post_generation(result: dict) -> dict:
     try:
         return await asyncio.to_thread(post_graph.invoke, result)
     except Exception:
-        logger.exception("Post-generation pipeline failed for session %s", result.get("session_id"))
+        logger.exception(
+            "Post-generation pipeline failed for session %s", result.get("session_id")
+        )
         try:
             memory_update = await asyncio.to_thread(memory_node, result)
             return _merge_node_result(result, memory_update)
         except Exception:
-            logger.exception("Fallback memory persistence failed for session %s", result.get("session_id"))
+            logger.exception(
+                "Fallback memory persistence failed for session %s",
+                result.get("session_id"),
+            )
             return result
 
 
@@ -263,7 +268,9 @@ class FeedbackRequest(BaseModel):
 
 
 @router.post("/chat/feedback")
-async def submit_feedback(request: FeedbackRequest, authorization: str | None = Header(None)):
+async def submit_feedback(
+    request: FeedbackRequest, authorization: str | None = Header(None)
+):
     """提交用户反馈（有帮助/没帮助）"""
     _require_session_auth(request.session_id, authorization)
     from server.quality.feedback import FeedbackCollector
@@ -290,7 +297,9 @@ class HighlightExtractRequest(BaseModel):
 
 
 @router.post("/chat/highlight")
-async def submit_highlight(request: HighlightExtractRequest, authorization: str | None = Header(None)):
+async def submit_highlight(
+    request: HighlightExtractRequest, authorization: str | None = Header(None)
+):
     """提取金句"""
     _require_session_auth(request.session_id, authorization)
     db = get_session()
