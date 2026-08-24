@@ -151,8 +151,5 @@ def _max_rounds_reply(missing_fields: list[str]) -> str:
     labels = [field_labels.get(field, field) for field in missing_fields]
     missing_text = "、".join(dict.fromkeys(labels))
     if missing_text:
-        return (
-            f"已达到信息追问上限，目前仍缺少：{missing_text}。"
-            "为避免生成不可靠的志愿方案，请直接补充这些信息后继续。"
-        )
+        return f"已达到信息追问上限，目前仍缺少：{missing_text}。为避免生成不可靠的志愿方案，请直接补充这些信息后继续。"
     return "已达到信息追问上限。请补充尚缺的关键信息后继续，我再为您生成志愿方案。"

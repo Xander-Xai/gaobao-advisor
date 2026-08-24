@@ -91,9 +91,7 @@ def test_scores_filters_major_by_related_major_name():
         assert items[0]["min_score"] == 600
     finally:
         if school is not None:
-            db.query(AdmissionScore).filter(AdmissionScore.school_id == school.id).delete(
-                synchronize_session=False
-            )
+            db.query(AdmissionScore).filter(AdmissionScore.school_id == school.id).delete(synchronize_session=False)
             db.delete(school)
         if target_major is not None:
             db.delete(target_major)
