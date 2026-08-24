@@ -4,15 +4,16 @@ import asyncio
 import json
 import logging
 import re
+import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from db.crud import load_conversation_slots
+from db.crud import get_or_create_conversation, load_conversation_slots
 from db.database import get_session
 from db.models import Highlight
-from server.auth import create_session_token
+from server.auth import create_session_token, verify_session_token
 from server.graph.graph import get_advisor_graph, get_post_generation_graph
 from server.graph.nodes.llm_node import llm_node_stream
 from server.graph.nodes.memory import memory_node
@@ -24,6 +25,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 _SENTENCE_BOUNDARY = re.compile(r"[。！？\n]")
 _STREAM_END = object()
+
+
+def _require_session_auth(session_id: str, authorization: str | None) -> None:
+    """Require a valid Bearer token bound to the requested session."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing session token")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not verify_session_token(session_id, token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+
+
+class SessionCreateRequest(BaseModel):
+    scene: str = Field(default="gaokao", min_length=1, max_length=32)
+
+
+@router.post("/session")
+async def create_chat_session(request: SessionCreateRequest):
+    """Create a server-owned session and return its ownership token."""
+    session_id = f"session-{uuid.uuid4().hex}"
+    db = get_session()
+    try:
+        get_or_create_conversation(db, session_id)
+    except Exception:
+        logger.exception("Failed to create chat session")
+        raise HTTPException(status_code=503, detail="Unable to create session") from None
+    finally:
+        db.close()
+
+    return {
+        "session_id": session_id,
+        "session_token": create_session_token(session_id),
+        "scene": request.scene,
+    }
 
 
 class ChatRequest(BaseModel):
@@ -204,7 +238,8 @@ async def _sse_generator(
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, authorization: str | None = Header(None)):
+    _require_session_auth(request.session_id, authorization)
     return StreamingResponse(
         _sse_generator(
             request.session_id,
@@ -228,8 +263,9 @@ class FeedbackRequest(BaseModel):
 
 
 @router.post("/chat/feedback")
-async def submit_feedback(request: FeedbackRequest):
+async def submit_feedback(request: FeedbackRequest, authorization: str | None = Header(None)):
     """提交用户反馈（有帮助/没帮助）"""
+    _require_session_auth(request.session_id, authorization)
     from server.quality.feedback import FeedbackCollector
 
     collector = FeedbackCollector()
@@ -254,19 +290,21 @@ class HighlightExtractRequest(BaseModel):
 
 
 @router.post("/chat/highlight")
-async def submit_highlight(request: HighlightExtractRequest):
+async def submit_highlight(request: HighlightExtractRequest, authorization: str | None = Header(None)):
     """提取金句"""
+    _require_session_auth(request.session_id, authorization)
+    db = get_session()
     try:
         hl = Highlight(
             session_id=request.session_id,
             content=request.content,
             score=request.score,
         )
-        db = get_session()
         db.add(hl)
         db.commit()
-        db.close()
         return {"success": True}
-    except Exception as e:
-        logger.error(f"Highlight error: {e}")
-        return {"success": False, "error": str(e)}
+    except Exception:
+        logger.exception("Highlight persistence failed for session %s", request.session_id)
+        return {"success": False, "error": "Failed to save highlight"}
+    finally:
+        db.close()
