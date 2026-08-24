@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from db.crud import load_conversation_slots
 from db.database import get_session
 from db.models import Highlight
 from server.auth import create_session_token
@@ -32,32 +33,48 @@ class ChatRequest(BaseModel):
     slots: dict | None = None
 
 
+def _load_persisted_state(session_id: str) -> tuple[dict, dict]:
+    """Load persisted slots and query state for a chat turn.
+
+    Keeping this server-side avoids relying on the frontend to echo every slot
+    on every request and lets soul-query round tracking survive reconnects.
+    """
+    db = get_session()
+    try:
+        persisted = load_conversation_slots(db, session_id) or {}
+    except Exception:
+        logger.warning("Failed to hydrate session slots for %s", session_id, exc_info=True)
+        return {}, {}
+    finally:
+        db.close()
+
+    query_state = persisted.get("_query_state", {})
+    slots = {key: value for key, value in persisted.items() if key != "_query_state"}
+    return slots, query_state if isinstance(query_state, dict) else {}
+
+
 async def _sse_generator(
     session_id: str,
     scene: str,
     message: str,
     existing_slots: dict | None,
 ):
-    """Yield SSE events for a chat response via the LangGraph pipeline.
-
-    Two-phase streaming:
-    1. Run graph up to LLM node (yields metadata: slots, emotion, structured)
-    2. Stream LLM tokens in real-time via llm_node_stream
-
-    The final 'done' event returns a session_token for Bearer auth
-    on subsequent requests (profile/voice endpoints).
-    """
+    """Yield SSE events for a chat response via the LangGraph pipeline."""
     graph = get_advisor_graph()
+    persisted_slots, query_state = _load_persisted_state(session_id)
+    merged_slots = dict(persisted_slots)
+    merged_slots.update(existing_slots or {})
+
     initial_state = {
         "session_id": session_id,
         "input_text": message,
         "scene": scene,
-        "slots": existing_slots or {},
+        "slots": merged_slots,
+        "_query_state": query_state,
         "messages": [],
         "trace": [],
     }
 
-    # Phase 1: Run graph (synchronous, offloaded to thread)
     try:
         result = await asyncio.to_thread(graph.invoke, initial_state)
     except Exception:
@@ -65,28 +82,22 @@ async def _sse_generator(
         yield f"data: {json.dumps({'type': 'error', 'code': 'GRAPH_FAILED', 'message': '服务暂时不可用，请稍后重试'})}\n\n"
         return
 
-    # Emit updated slots
     if result.get("slots"):
         yield f"data: {json.dumps({'type': 'slots', 'data': result['slots']})}\n\n"
 
-    # Emit emotion state
     if result.get("emotion_state"):
         yield f"data: {json.dumps({'type': 'emotion', 'state': result['emotion_state']})}\n\n"
 
-    # Emit structured result if present
     if result.get("structured_result"):
         yield f"data: {json.dumps({'type': 'structured', 'result': result['structured_result']})}\n\n"
 
-    # Phase 2: Stream LLM tokens in real-time
     if result.get("reply"):
-        # Non-LLM reply (security block, question generation): emit in chunks
         reply = result["reply"]
         chunk_size = 20
         for i in range(0, len(reply), chunk_size):
             chunk = reply[i : i + chunk_size]
             yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
     else:
-        # LLM reply: stream tokens one by one
         full_reply = []
         degraded = False
         for token, is_degraded in llm_node_stream(result):
