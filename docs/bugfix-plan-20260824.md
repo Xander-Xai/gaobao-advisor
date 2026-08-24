@@ -57,8 +57,8 @@ Acceptance criteria:
 - [x] Make backend `pip-audit` pass without weakening the audit policy.
 - [x] Resolve frontend advisories in `brace-expansion`, `nanoid`, `postcss`, and `dompurify`; regenerate the lockfile.
 - [x] Make frontend `npm audit` pass without changing the severity threshold.
-- [x] Apply Ruff formatting to all files reported by the formatter while keeping `ruff check` clean.
-- [ ] Confirm the final PR head passes the complete CI matrix after the last formatting/documentation commits.
+- [x] Apply Ruff formatting to all Python files reported by the formatter while keeping `ruff check` clean; exclude Markdown from Ruff formatting so Ruff 0.16+ does not rewrite historical documentation code blocks in this bugfix PR.
+- [x] Confirm the complete CI matrix passes after the final code/configuration fixes (Python 3.10, Python 3.11, Ruff lint/format, backend `pip-audit`, and frontend `npm audit`).
 
 ## Merge strategy
 
