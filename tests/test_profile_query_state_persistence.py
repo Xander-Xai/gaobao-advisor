@@ -51,6 +51,10 @@ def test_save_query_state_preserves_existing_profile_slots():
             "skipped_fields": ["family"],
         }
     finally:
-        db.query(Conversation).filter(Conversation.session_id == session_id).delete(synchronize_session=False)
+        (
+            db.query(Conversation)
+            .filter(Conversation.session_id == session_id)
+            .delete(synchronize_session=False)
+        )
         db.commit()
         db.close()
