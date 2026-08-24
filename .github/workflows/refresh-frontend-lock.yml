@@ -1,0 +1,44 @@
+name: Refresh frontend lockfile
+
+on:
+  push:
+    branches:
+      - fix/bug-audit-20260824
+    paths:
+      - frontend/package.json
+      - .github/workflows/refresh-frontend-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/bug-audit-20260824
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Refresh package lock
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit generated lockfile
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            echo "package-lock.json is already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore: refresh frontend lockfile"
+          git push origin HEAD:fix/bug-audit-20260824
