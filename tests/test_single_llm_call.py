@@ -16,11 +16,11 @@ def test_graph_does_not_contain_llm_reason_node():
 
 
 def test_graph_complete_path_ends_at_structure_output():
-    """The complete profile path should go structure_output → render_reply."""
+    """The complete-profile pre-generation path should stop after structure_output."""
     graph = build_advisor_graph()
     compiled = graph.get_graph()
     edges_from_structure = [e for e in compiled.edges if e.source == "structure_output"]
     assert len(edges_from_structure) == 1
-    assert edges_from_structure[0].target == "render_reply", (
-        f"structure_output should connect to render_reply, got: {edges_from_structure[0].target}"
+    assert edges_from_structure[0].target == "__end__", (
+        f"structure_output should connect to __end__, got: {edges_from_structure[0].target}"
     )

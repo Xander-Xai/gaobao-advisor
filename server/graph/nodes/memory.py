@@ -3,9 +3,6 @@
 Upgraded from bare persistence to dual-layer memory management:
 1. Recent N rounds preserved verbatim (in the DB conversation history).
 2. Older rounds can be summarized via LLM for long-running conversations.
-
-The actual summarization happens in MemoryManager; this node handles the
-persistence side and flagging whether summarization is needed.
 """
 
 from __future__ import annotations
@@ -19,27 +16,19 @@ from server.agent.llm_reliability import estimate_messages_tokens
 
 logger = logging.getLogger(__name__)
 
-# How many rounds before we flag for summarization
 SUMMARIZE_AFTER_ROUNDS = 15
 
 
 def memory_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Persist conversation data and flag if summarization is needed.
-
-    This node runs at the end of every graph invocation:
-    - Saves user input and assistant reply to the database.
-    - Updates slot values.
-    - Checks whether the conversation has grown long enough to warrant
-      summarization (reported via a flag in the trace).
-
-    The actual summarization (LLM call) is done by MemoryManager
-    via build_memory_messages() at the start of the next graph invocation.
-    """
+    """Persist conversation data, slots, and per-session query state."""
     session_id = state.get("session_id", "")
-    slots = state.get("slots", {})
+    slots = dict(state.get("slots", {}) or {})
+    query_state = state.get("_query_state")
+    if query_state:
+        slots["_query_state"] = query_state
+
     input_text = state.get("input_text", "")
     reply = state.get("reply", "")
-
     trace = list(state.get("trace", []))
 
     if not session_id:
@@ -55,10 +44,8 @@ def memory_node(state: dict[str, Any]) -> dict[str, Any]:
             save_message(db, session_id, "assistant", reply)
         save_slots(db, session_id, slots)
 
-        # Check conversation length for summarization need
         msg_count = len(conv.messages) if conv.id else 0
         needs_summary = msg_count > SUMMARIZE_AFTER_ROUNDS * 2
-
         estimated_tokens = estimate_messages_tokens([{"content": m.content} for m in (conv.messages or [])])
 
         trace.append(

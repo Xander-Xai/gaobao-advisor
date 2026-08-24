@@ -71,7 +71,6 @@ async def update_profile_field(session_id: str, req: ProfileUpdateRequest, autho
     if req.field not in valid_fields:
         raise HTTPException(status_code=400, detail=f"Invalid field: {req.field}")
 
-    # Parse numeric fields
     if req.field == "score":
         try:
             val = int(req.value)
@@ -153,19 +152,18 @@ def _load_query_state(session_id: str) -> QueryState:
 
 
 def _save_query_state(session_id: str, state: QueryState) -> None:
-    """Save QueryState to the database."""
-    from db.crud import get_or_create_conversation, save_slots
+    """Merge QueryState into session slots without deleting profile data."""
+    from db.crud import get_or_create_conversation, load_conversation_slots, save_slots
     from db.database import get_session
 
     db = get_session()
     try:
         get_or_create_conversation(db, session_id)
-        slot_data = {
-            "_query_state": {
-                "round_count": state.round_count,
-                "asked_fields": state.asked_fields,
-                "skipped_fields": state.skipped_fields,
-            }
+        slot_data = load_conversation_slots(db, session_id) or {}
+        slot_data["_query_state"] = {
+            "round_count": state.round_count,
+            "asked_fields": state.asked_fields,
+            "skipped_fields": state.skipped_fields,
         }
         save_slots(db, session_id, slot_data)
     except Exception as exc:

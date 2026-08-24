@@ -15,10 +15,11 @@ class AdvisorState(TypedDict, total=False):
     # ── Conversation history ───────────────────────────────────
     messages: list[dict]
 
-    # ── Slot extraction ────────────────────────────────────────
+    # ── Slot extraction / profile ──────────────────────────────
     slots: dict
     profile_snapshot: dict
     missing_fields: list[str]
+    _query_state: dict
 
     # ── Quality pipeline ───────────────────────────────────────
     emotion_state: str
@@ -42,12 +43,12 @@ class AdvisorState(TypedDict, total=False):
     trace: list[dict]
 
     # ── Quality Judge (LLM-as-Judge) ──────────────────────────
-    quality_scores: dict  # 4 维度评分
-    aggregate_score: float  # 聚合分
-    hallucination_flags: list  # 幻觉标记列表
-    quality_grade: str  # excellent / pass / fail
+    quality_scores: dict
+    aggregate_score: float
+    hallucination_flags: list
+    quality_grade: str
 
     # ── Feedback & Rewrite ────────────────────────────────────
-    should_rewrite: bool  # post-check flagged rewrite
-    needs_rewrite: bool  # feedback node confirms rewrite
-    rewrite_attempts: int  # number of rewrite attempts made
+    should_rewrite: bool
+    needs_rewrite: bool
+    rewrite_attempts: int

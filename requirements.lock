@@ -2,8 +2,10 @@
 #    uv pip compile requirements.txt -o requirements.lock
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.14.1
-    # via dashscope
+aiohttp==3.14.3
+    # via
+    #   -r requirements.txt
+    #   dashscope
 aiosignal==1.4.0
     # via aiohttp
 altair==6.2.1
@@ -47,8 +49,10 @@ click==8.4.1
     # via
     #   streamlit
     #   uvicorn
-cryptography==49.0.0
-    # via dashscope
+cryptography==50.0.0
+    # via
+    #   -r requirements.txt
+    #   dashscope
 dashscope==1.25.21
     # via -r requirements.txt
 distro==1.9.0
@@ -61,8 +65,10 @@ frozenlist==1.8.0
     #   aiosignal
 gitdb==4.0.12
     # via gitpython
-gitpython==3.1.50
-    # via streamlit
+gitpython==3.1.58
+    # via
+    #   -r requirements.txt
+    #   streamlit
 greenlet==3.5.1
     # via sqlalchemy
 h11==0.16.0
@@ -122,8 +128,10 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.3.15
     # via langgraph
-langsmith==0.8.15
-    # via langchain-core
+langsmith==0.8.18
+    # via
+    #   -r requirements.txt
+    #   langchain-core
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.3
@@ -159,8 +167,9 @@ packaging==26.2
     #   streamlit
 pandas==3.0.3
     # via streamlit
-pillow==12.2.0
+pillow==12.3.0
     # via
+    #   -r requirements.txt
     #   reportlab
     #   streamlit
 pluggy==1.6.0

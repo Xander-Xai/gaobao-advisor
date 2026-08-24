@@ -3,9 +3,7 @@
 from fastapi import APIRouter, Query
 
 from db.pagination import paginate_cursor
-from server.services.data_query import (
-    query_school_info,
-)
+from server.services.data_query import query_school_info
 
 router = APIRouter(prefix="/api/v1/data", tags=["data"])
 
@@ -24,20 +22,17 @@ async def get_schools(
 
     session = SessionLocal()
     try:
-        # Build filters
         filters = {}
         if province:
             filters["province"] = province
         if level:
             filters["level"] = level
 
-        # For school_name search, use full-text search instead of pagination
         if school_name:
             result = query_school_info(school_name)
             results = [result] if result else []
             return {"count": len(results), "results": results}
 
-        # Use cursor-based pagination for listing
         page_result = paginate_cursor(
             session,
             School,
@@ -63,22 +58,20 @@ async def get_scores(
     year: int | None = Query(None, description="年份"),
     major: str | None = Query(None, description="专业"),
     limit: int = Query(50, ge=1, le=200, description="每页数量"),
-    cursor: str | None = Query(None, description="游标（上一页的 next_cursor）"),
+    cursor: int | None = Query(None, ge=0, description="游标（上一页的 next_cursor）"),
 ):
     """Query admission scores for a school with cursor-based pagination."""
     from sqlalchemy import and_
 
     from db.database import SessionLocal
-    from db.models import AdmissionScore, School
+    from db.models import AdmissionScore, Major, School
 
     session = SessionLocal()
     try:
-        # Find school by name
         school = session.query(School).filter(School.name == school_name).first()
         if not school:
             return {"items": [], "next_cursor": None, "has_more": False}
 
-        # Build query
         query = session.query(AdmissionScore).filter(
             and_(
                 AdmissionScore.school_id == school.id,
@@ -89,25 +82,20 @@ async def get_scores(
         if year:
             query = query.filter(AdmissionScore.year == year)
         if major:
-            query = query.filter(AdmissionScore.major == major)
+            query = query.join(Major, AdmissionScore.major_id == Major.id).filter(Major.name == major)
 
-        # Apply cursor
-        if cursor:
-            query = query.filter(AdmissionScore.id > int(cursor))
+        if cursor is not None:
+            query = query.filter(AdmissionScore.id > cursor)
 
-        # Order and limit
         query = query.order_by(AdmissionScore.id).limit(limit + 1)
         items = query.all()
 
-        # Check has_more
         has_more = len(items) > limit
         if has_more:
             items = items[:limit]
 
-        # Next cursor
         next_cursor = str(items[-1].id) if items and has_more else None
 
-        # Convert to dict with school/major names
         results = []
         for item in items:
             result = {
@@ -141,21 +129,18 @@ async def get_plans(
     province: str | None = Query(None, description="省份"),
     year: int | None = Query(None, description="年份"),
     limit: int = Query(50, ge=1, le=200, description="每页数量"),
-    cursor: str | None = Query(None, description="游标（上一页的 next_cursor）"),
+    cursor: int | None = Query(None, ge=0, description="游标（上一页的 next_cursor）"),
 ):
     """Query enrollment plans for a school with cursor-based pagination."""
-
     from db.database import SessionLocal
     from db.models import EnrollmentPlan, School
 
     session = SessionLocal()
     try:
-        # Find school by name
         school = session.query(School).filter(School.name == school_name).first()
         if not school:
             return {"items": [], "next_cursor": None, "has_more": False}
 
-        # Build query
         query = session.query(EnrollmentPlan).filter(EnrollmentPlan.school_id == school.id)
 
         if province:
@@ -163,23 +148,18 @@ async def get_plans(
         if year:
             query = query.filter(EnrollmentPlan.year == year)
 
-        # Apply cursor
-        if cursor:
-            query = query.filter(EnrollmentPlan.id > int(cursor))
+        if cursor is not None:
+            query = query.filter(EnrollmentPlan.id > cursor)
 
-        # Order and limit
         query = query.order_by(EnrollmentPlan.id).limit(limit + 1)
         items = query.all()
 
-        # Check has_more
         has_more = len(items) > limit
         if has_more:
             items = items[:limit]
 
-        # Next cursor
         next_cursor = str(items[-1].id) if items and has_more else None
 
-        # Convert to dict with school/major names
         results = []
         for item in items:
             result = {

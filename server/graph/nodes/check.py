@@ -4,24 +4,32 @@ from __future__ import annotations
 
 from typing import Any
 
+from server.graph.nodes.extract import _parse_score_rank
 from server.graph.nodes.route import SCENE_CONFIGS
 
 
-def profile_check_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Check whether all required slots for the scene are filled.
+def _slot_filled(slots: dict[str, Any], field: str) -> bool:
+    """Return whether a required field is satisfied by the canonical slot contract."""
+    if field == "score_rank":
+        if slots.get("score"):
+            return True
+        score_rank = slots.get("score_rank")
+        if score_rank:
+            score, _rank = _parse_score_rank(score_rank)
+            return score is not None
+        return False
+    return bool(slots.get(field))
 
-    Sets missing_fields to any required slot that is missing or falsy.
-    Also builds a profile_snapshot from filled slots.
-    """
+
+def profile_check_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Check whether all required slots for the scene are filled."""
     scene = state.get("scene", "general")
-    slots = state.get("slots", {})
+    slots = state.get("slots", {}) or {}
     config = SCENE_CONFIGS.get(scene, SCENE_CONFIGS["general"])
     required = config["required_slots"]
 
-    missing = [field for field in required if not slots.get(field)]
-
-    # Build profile snapshot from filled slots
-    profile = {k: v for k, v in slots.items() if v}
+    missing = [field for field in required if not _slot_filled(slots, field)]
+    profile = {key: value for key, value in slots.items() if value}
 
     trace = list(state.get("trace", []))
     trace.append(
@@ -32,9 +40,8 @@ def profile_check_node(state: dict[str, Any]) -> dict[str, Any]:
         }
     )
 
-    result: dict[str, Any] = {
+    return {
         "missing_fields": missing,
         "profile_snapshot": profile,
         "trace": trace,
     }
-    return result

@@ -40,18 +40,21 @@ class TestGraphIntegration:
     """图节点注册集成测试。"""
 
     def test_graph_has_quality_nodes(self) -> None:
-        """验证图中包含所有质量相关节点。"""
-        from server.graph.graph import get_advisor_graph
+        """Quality post-processing belongs to the post-generation graph."""
+        from server.graph.graph import get_advisor_graph, get_post_generation_graph
 
-        g = get_advisor_graph()
-        quality_nodes = [
+        pre_graph = get_advisor_graph()
+        post_graph = get_post_generation_graph()
+        post_quality_nodes = [
             "source_attribution",
             "quality_post_check",
             "quality_judge",
             "feedback",
+            "memory_update",
         ]
-        for node in quality_nodes:
-            assert node in g.nodes, f"{node} not in graph"
+        for node in post_quality_nodes:
+            assert node in post_graph.nodes, f"{node} not in post-generation graph"
+            assert node not in pre_graph.nodes, f"{node} must not run before answer generation"
 
 
 class TestScorecardIntegration:
@@ -79,7 +82,6 @@ class TestScorecardIntegration:
             "数据显示计算机就业率95%",
             knowledge_chunks=["计算机就业率92%"],
         )
-        # May detect source_missing or numeric mismatch
         assert isinstance(flags, list)
 
     def test_feedback_collector(self) -> None:

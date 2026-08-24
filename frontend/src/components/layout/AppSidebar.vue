@@ -7,7 +7,7 @@
     </div>
     <div class="flex-1 overflow-y-auto px-2">
       <div v-for="s in chat.sessions" :key="s.id"
-        @click="chat.currentSessionId = s.id"
+        @click="chat.selectSession(s.id)"
         :class="['rounded-lg px-3 py-2.5 mb-1 cursor-pointer text-sm truncate', s.id === chat.currentSessionId ? 'bg-gray-700' : 'hover:bg-gray-800']">
         {{ s.title || '新对话' }}
       </div>

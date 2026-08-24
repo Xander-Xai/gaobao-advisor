@@ -1,10 +1,10 @@
 """Tests for multi-scene support (gaokao, kaoyan, career).
 
-Validates that the LangGraph workflow correctly:
+Validates that the LangGraph pre-generation workflow correctly:
 - Detects scene from input keywords
 - Preserves explicitly set scenes
 - Generates missing-field questions per scene
-- Routes complete profiles through the full pipeline
+- Routes complete profiles through retrieval/reasoning/structure before SSE generation
 """
 
 from unittest.mock import MagicMock, patch
@@ -28,15 +28,11 @@ def _mock_llm():
 
 @pytest.fixture
 def graph():
-    """Build a fresh compiled graph for each test."""
+    """Build a fresh compiled pre-generation graph for each test."""
     return build_advisor_graph()
 
 
-# ── Scene detection ───────────────────────────────────────────
-
-
 def test_kaoyan_scene_detection(graph):
-    """Keywords like '考研' should trigger kaoyan scene."""
     result = graph.invoke(
         {
             "input_text": "我想考研到北大计算机专业",
@@ -49,7 +45,6 @@ def test_kaoyan_scene_detection(graph):
 
 
 def test_career_scene_detection(graph):
-    """Keywords like '就业'/'薪资' should trigger career scene."""
     result = graph.invoke(
         {
             "input_text": "计算机专业毕业好找工作吗？薪资怎么样？",
@@ -62,7 +57,6 @@ def test_career_scene_detection(graph):
 
 
 def test_gaokao_scene_detection(graph):
-    """Keywords like '高考'/'志愿' should trigger gaokao scene."""
     result = graph.invoke(
         {
             "input_text": "今年高考志愿怎么填报",
@@ -74,11 +68,7 @@ def test_gaokao_scene_detection(graph):
     assert result.get("scene") == "gaokao"
 
 
-# ── Scene override ────────────────────────────────────────────
-
-
 def test_explicit_scene_override_kaoyan(graph):
-    """When scene is pre-set to 'kaoyan', it should not be overridden."""
     result = graph.invoke(
         {
             "input_text": "你好",
@@ -91,7 +81,6 @@ def test_explicit_scene_override_kaoyan(graph):
 
 
 def test_explicit_scene_override_career(graph):
-    """When scene is pre-set to 'career', it should not be overridden."""
     result = graph.invoke(
         {
             "input_text": "你好",
@@ -103,11 +92,7 @@ def test_explicit_scene_override_career(graph):
     assert result.get("scene") == "career"
 
 
-# ── Missing slots per scene ──────────────────────────────────
-
-
 def test_kaoyan_missing_slots_asks_question(graph):
-    """Kaoyan scene with empty slots should report missing fields."""
     result = graph.invoke(
         {
             "input_text": "我想考研",
@@ -118,12 +103,10 @@ def test_kaoyan_missing_slots_asks_question(graph):
     )
     missing = result.get("missing_fields", [])
     assert len(missing) > 0
-    # kaoyan requires interest and goal
     assert "interest" in missing or "goal" in missing
 
 
 def test_career_missing_slots_asks_question(graph):
-    """Career scene with empty slots should report missing fields."""
     result = graph.invoke(
         {
             "input_text": "我想了解就业方向",
@@ -134,12 +117,10 @@ def test_career_missing_slots_asks_question(graph):
     )
     missing = result.get("missing_fields", [])
     assert len(missing) > 0
-    # career requires interest
     assert "interest" in missing
 
 
 def test_gaokao_missing_slots_reports_all_four(graph):
-    """Gaokao scene with empty slots should report all four required fields."""
     result = graph.invoke(
         {
             "input_text": "帮我填志愿",
@@ -149,14 +130,11 @@ def test_gaokao_missing_slots_reports_all_four(graph):
         }
     )
     missing = result.get("missing_fields", [])
-    assert len(missing) >= 3  # province, score, subject, interest
-
-
-# ── Complete profile per scene ───────────────────────────────
+    assert len(missing) >= 3
 
 
 def test_kaoyan_complete_profile_full_pipeline(graph):
-    """Kaoyan with all required slots should run the full pipeline."""
+    """Complete kaoyan profile should finish pre-generation at structure_output."""
     result = graph.invoke(
         {
             "input_text": "我想考研到北大计算机",
@@ -165,12 +143,14 @@ def test_kaoyan_complete_profile_full_pipeline(graph):
             "slots": {"interest": "计算机", "goal": "北京大学"},
         }
     )
-    assert result.get("reply")
+    assert not result.get("reply")
     assert result.get("scene") == "kaoyan"
+    assert result.get("structured_result", {}).get("scene") == "kaoyan"
+    assert result.get("trace", [])[-1].get("node") == "structure_output"
 
 
 def test_career_complete_profile_full_pipeline(graph):
-    """Career with all required slots should run the full pipeline."""
+    """Complete career profile should finish pre-generation at structure_output."""
     result = graph.invoke(
         {
             "input_text": "计算机就业前景如何",
@@ -179,19 +159,13 @@ def test_career_complete_profile_full_pipeline(graph):
             "slots": {"interest": "计算机"},
         }
     )
-    assert result.get("reply")
+    assert not result.get("reply")
     assert result.get("scene") == "career"
-
-
-# ── Partial slots ────────────────────────────────────────────
+    assert result.get("structured_result", {}).get("scene") == "career"
+    assert result.get("trace", [])[-1].get("node") == "structure_output"
 
 
 def test_kaoyan_partial_slots_still_incomplete(graph):
-    """Kaoyan with only 'interest' filled should still report 'goal' as missing.
-
-    Note: The slot extractor auto-extracts 'goal' from text containing '考研'.
-    We use an input that does NOT contain goal keywords to verify the check node.
-    """
     result = graph.invoke(
         {
             "input_text": "你好，我想咨询研究生的事情",
@@ -206,7 +180,6 @@ def test_kaoyan_partial_slots_still_incomplete(graph):
 
 
 def test_gaokao_partial_slots_still_incomplete(graph):
-    """Gaokao with only province and score should still ask for subject and interest."""
     result = graph.invoke(
         {
             "input_text": "帮我报志愿",
@@ -219,11 +192,7 @@ def test_gaokao_partial_slots_still_incomplete(graph):
     assert "subject" in missing or "interest" in missing
 
 
-# ── Trace verification ───────────────────────────────────────
-
-
 def test_multi_scene_trace_contains_all_nodes(graph):
-    """Every scene run should produce a trace with key nodes."""
     result = graph.invoke(
         {
             "input_text": "我想考研",
