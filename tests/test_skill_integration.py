@@ -36,7 +36,6 @@ def test_quality_node_injects_skill_context(graph):
     )
     reasoning = result.get("reasoning", "")
     assert isinstance(reasoning, str)
-    # Skill context should be injected into reasoning
     assert "社会筛子论" in reasoning or "就业倒推法" in reasoning or len(reasoning) > 50
 
 
@@ -55,7 +54,7 @@ def test_reasoning_contains_mental_model(graph):
 
 
 def test_full_pipeline_with_skill(graph):
-    """Full pipeline should still work with SkillService integrated."""
+    """Skill-enabled complete profile should finish pre-generation before LLM streaming."""
     result = graph.invoke(
         {
             "input_text": "河北考生600分物理类想学计算机普通家庭",
@@ -64,9 +63,10 @@ def test_full_pipeline_with_skill(graph):
             "slots": {},
         }
     )
-    assert result.get("reply")
+    assert not result.get("reply")
     assert result.get("structured_result")
     trace = result.get("trace", [])
     node_names = [t.get("node") for t in trace]
     assert "quality_orchestrate" in node_names
     assert "reason" in node_names
+    assert trace[-1].get("node") == "structure_output"
