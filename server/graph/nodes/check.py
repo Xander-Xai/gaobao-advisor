@@ -4,13 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from server.graph.nodes.extract import _parse_score_rank
 from server.graph.nodes.route import SCENE_CONFIGS
 
 
 def _slot_filled(slots: dict[str, Any], field: str) -> bool:
     """Return whether a required field is satisfied by the canonical slot contract."""
     if field == "score_rank":
-        return bool(slots.get("score_rank") or slots.get("score") or slots.get("rank"))
+        if slots.get("score"):
+            return True
+        score_rank = slots.get("score_rank")
+        if score_rank:
+            score, _rank = _parse_score_rank(score_rank)
+            return score is not None
+        return False
     return bool(slots.get(field))
 
 
