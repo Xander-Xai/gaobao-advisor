@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
+from db.database import init_db
 from server.main import app
 
 client = TestClient(app)
@@ -24,6 +25,7 @@ class _FakeGraph:
 
 class TestChatSessionOwnership:
     def test_server_can_issue_owned_session(self):
+        init_db()
         response = client.post("/api/v1/session", json={"scene": "gaokao"})
         assert response.status_code == 200
         payload = response.json()
