@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from server.soul_query import OPTIONAL_QUESTIONS, REQUIRED_QUESTIONS, QueryState, SoulQueryEngine
+from server.soul_query import (
+    MAX_QUERY_ROUNDS,
+    OPTIONAL_QUESTIONS,
+    REQUIRED_QUESTIONS,
+    QueryState,
+    SoulQueryEngine,
+)
 from server.user_profile import load_profile
 
 QUESTION_BANK: dict[str, dict[str, str]] = {
@@ -59,6 +65,23 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
                     )
                     return {
                         "reply": question,
+                        "_query_state": query_state_data,
+                        "trace": trace,
+                    }
+
+                if query_state.round_count >= MAX_QUERY_ROUNDS:
+                    query_state_data = _serialize_query_state(query_state)
+                    trace = list(state.get("trace", []))
+                    trace.append(
+                        {
+                            "node": "question_generate",
+                            "event": "max_rounds_reached",
+                            "round": query_state.round_count,
+                            "missing_fields": list(missing),
+                        }
+                    )
+                    return {
+                        "reply": _max_rounds_reply(missing),
                         "_query_state": query_state_data,
                         "trace": trace,
                     }
@@ -114,3 +137,22 @@ def _find_target_field(question: str, engine: SoulQueryEngine) -> str | None:
             if question.startswith(variant[:10]):
                 return field_name
     return None
+
+
+def _max_rounds_reply(missing_fields: list[str]) -> str:
+    """Return a deterministic stop message instead of asking beyond the cap."""
+    field_labels = {
+        "province": "省份",
+        "score_rank": "高考分数",
+        "score": "高考分数",
+        "subject": "选科/科类",
+        "interest": "专业兴趣",
+    }
+    labels = [field_labels.get(field, field) for field in missing_fields]
+    missing_text = "、".join(dict.fromkeys(labels))
+    if missing_text:
+        return (
+            f"已达到信息追问上限，目前仍缺少：{missing_text}。"
+            "为避免生成不可靠的志愿方案，请直接补充这些信息后继续。"
+        )
+    return "已达到信息追问上限。请补充尚缺的关键信息后继续，我再为您生成志愿方案。"
