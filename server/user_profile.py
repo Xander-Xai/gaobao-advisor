@@ -11,25 +11,14 @@ what to ask next.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class UserProfile:
-    """Student/user profile with required and optional fields.
-
-    Required fields (gate questions — must collect before giving advice):
-    - province: 省份
-    - score: 高考分数 (int)
-    - subject: 选科 (文/理 or 3+1+2/3+3 combination)
-    - interest: 专业意向
-
-    Optional fields (nice-to-have):
-    - region: 地域偏好
-    - family: 家庭背景
-    - goal: 核心诉求 (考研/就业/考公/出国)
-    """
+    """Student/user profile with required and optional fields."""
 
     REQUIRED_FIELDS = {"province", "score", "subject", "interest"}
 
@@ -38,49 +27,60 @@ class UserProfile:
         self.score: int | None = None
         self.subject: str | None = None
         self.interest: str | None = None
-        # Optional
         self.region: str | None = None
         self.family: str | None = None
         self.goal: str | None = None
 
+    @staticmethod
+    def _slot_value(slots: dict, key: str) -> Any:
+        """Read either legacy nested slots or the graph's flat slot format."""
+        raw = slots.get(key)
+        if isinstance(raw, dict):
+            if not raw.get("filled"):
+                return None
+            return raw.get("value")
+        return raw
+
+    @staticmethod
+    def _parse_score(value: Any) -> int | None:
+        if isinstance(value, int):
+            return value if 100 <= value <= 750 else None
+        if value is None:
+            return None
+        text = str(value)
+        match = re.search(r"(\d{2,3})\s*分", text)
+        if not match and text.strip().isdigit():
+            match = re.search(r"(\d{2,3})", text)
+        if match:
+            score = int(match.group(1))
+            if 100 <= score <= 750:
+                return score
+        return None
+
     @classmethod
     def from_slots(cls, slots: dict) -> UserProfile:
-        """Create a profile from the slot extractor's output format.
-
-        Slot format: {"province": {"value": "山东", "filled": True}, ...}
-        """
+        """Create a profile from either nested or flat persisted slots."""
         profile = cls()
-        field_map = {
-            "province": "province",
-            "score_rank": "score",
-            "subject": "subject",
-            "interest": "interest",
-            "region": "region",
-            "family": "family",
-            "goal": "goal",
-        }
-        for slot_key, profile_key in field_map.items():
-            slot = slots.get(slot_key, {})
-            if slot.get("filled") and slot.get("value"):
-                value = slot["value"]
-                # Extract numeric score from strings like "580分"
-                # but NOT from "位次3000" (which contains a rank number, not a score)
-                if profile_key == "score":
-                    import re
 
-                    # Only parse if the value explicitly contains "分"
-                    if "分" in str(value):
-                        m = re.search(r"(\d{2,3})", str(value))
-                        if m:
-                            score = int(m.group(1))
-                            if 100 <= score <= 750:
-                                setattr(profile, profile_key, score)
-                else:
-                    setattr(profile, profile_key, str(value))
+        profile.province = cls._slot_value(slots, "province") or None
+        profile.subject = cls._slot_value(slots, "subject") or None
+        profile.interest = cls._slot_value(slots, "interest") or None
+        profile.region = cls._slot_value(slots, "region") or None
+        profile.family = cls._slot_value(slots, "family") or None
+        profile.goal = cls._slot_value(slots, "goal") or None
+
+        # Prefer the canonical score field. Fall back to legacy score_rank.
+        profile.score = cls._parse_score(cls._slot_value(slots, "score"))
+        if profile.score is None:
+            profile.score = cls._parse_score(cls._slot_value(slots, "score_rank"))
+
+        for key in ("province", "subject", "interest", "region", "family", "goal"):
+            value = getattr(profile, key)
+            if value is not None:
+                setattr(profile, key, str(value))
         return profile
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict for storage/API."""
         return {
             "province": self.province,
             "score": self.score,
@@ -93,7 +93,6 @@ class UserProfile:
 
     @classmethod
     def from_dict(cls, data: dict) -> UserProfile:
-        """Deserialize from dict."""
         profile = cls()
         for key in ("province", "score", "subject", "interest", "region", "family", "goal"):
             val = data.get(key)
@@ -102,7 +101,6 @@ class UserProfile:
         return profile
 
     def is_required_complete(self) -> bool:
-        """All required fields are filled."""
         return all(
             [
                 self.province is not None,
@@ -113,7 +111,6 @@ class UserProfile:
         )
 
     def missing_required_fields(self) -> list[str]:
-        """Return list of missing required field names."""
         missing = []
         if self.province is None:
             missing.append("province")
@@ -126,15 +123,13 @@ class UserProfile:
         return missing
 
     def count_filled(self) -> int:
-        """Count how many fields (required + optional) are filled."""
         return sum(
             1
-            for f in ("province", "score", "subject", "interest", "region", "family", "goal")
-            if getattr(self, f) is not None
+            for field in ("province", "score", "subject", "interest", "region", "family", "goal")
+            if getattr(self, field) is not None
         )
 
     def to_context_dict(self) -> dict[str, str]:
-        """Export as context dict for LLM prompt injection."""
         ctx = {}
         if self.province:
             ctx["省份"] = self.province
@@ -153,14 +148,8 @@ class UserProfile:
         return ctx
 
 
-# ── Load/save profile from DB conversation slots ──────────────────
-
-
 def load_profile(session_id: str) -> UserProfile:
-    """Load profile from the database (stored as conversation slots).
-
-    If no profile exists, returns an empty UserProfile.
-    """
+    """Load profile from the database (stored as conversation slots)."""
     from db.crud import load_conversation_slots
     from db.database import get_session
 
@@ -170,7 +159,7 @@ def load_profile(session_id: str) -> UserProfile:
         if slot_data:
             return UserProfile.from_slots(slot_data)
     except Exception:
-        logger.warning("Failed to load profile for session %s", session_id)
+        logger.warning("Failed to load profile for session %s", session_id, exc_info=True)
     finally:
         db.close()
 
@@ -178,32 +167,33 @@ def load_profile(session_id: str) -> UserProfile:
 
 
 def save_profile(session_id: str, profile: UserProfile) -> None:
-    """Save profile by extracting filled fields."""
-    from db.crud import get_or_create_conversation, save_slots
+    """Merge profile fields into the session's flat slot representation."""
+    from db.crud import get_or_create_conversation, load_conversation_slots, save_slots
     from db.database import get_session
 
     db = get_session()
     try:
         get_or_create_conversation(db, session_id)
-        # Extract slots from profile fields
-        slots = {}
+        slots = load_conversation_slots(db, session_id) or {}
+
         if profile.province:
-            slots["province"] = {"value": profile.province, "filled": True}
+            slots["province"] = profile.province
         if profile.score is not None:
-            slots["score_rank"] = {"value": f"{profile.score}分", "filled": True}
+            slots["score"] = profile.score
+            slots["score_rank"] = f"{profile.score}分"
         if profile.subject:
-            slots["subject"] = {"value": profile.subject, "filled": True}
+            slots["subject"] = profile.subject
         if profile.interest:
-            slots["interest"] = {"value": profile.interest, "filled": True}
+            slots["interest"] = profile.interest
         if profile.region:
-            slots["region"] = {"value": profile.region, "filled": True}
+            slots["region"] = profile.region
         if profile.family:
-            slots["family"] = {"value": profile.family, "filled": True}
+            slots["family"] = profile.family
         if profile.goal:
-            slots["goal"] = {"value": profile.goal, "filled": True}
+            slots["goal"] = profile.goal
 
         save_slots(db, session_id, slots)
     except Exception:
-        logger.warning("Failed to save profile for session %s", session_id)
+        logger.warning("Failed to save profile for session %s", session_id, exc_info=True)
     finally:
         db.close()
