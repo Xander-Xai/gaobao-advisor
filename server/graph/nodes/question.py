@@ -3,12 +3,6 @@
 Generates a follow-up question when the user's profile is incomplete.
 Uses the SoulQueryEngine for intelligent, conversational questions and
 falls back to the static question bank if the engine is unavailable.
-
-The soul query engine is preferred because it:
-- Only asks about genuinely missing fields
-- Cycles through multiple question variants
-- Stops after MAX_QUERY_ROUNDS even if incomplete
-- Supports skip/default values for optional fields
 """
 
 from __future__ import annotations
@@ -18,7 +12,6 @@ from typing import Any
 from server.soul_query import OPTIONAL_QUESTIONS, REQUIRED_QUESTIONS, QueryState, SoulQueryEngine
 from server.user_profile import load_profile
 
-# Static question bank (fallback when soul query is not available)
 QUESTION_BANK: dict[str, dict[str, str]] = {
     "gaokao": {
         "province": "请问您是哪个省的考生呢？",
@@ -41,18 +34,11 @@ QUESTION_BANK: dict[str, dict[str, str]] = {
 
 
 def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Generate a follow-up question using soul query or static bank.
-
-    Priority:
-    1. SoulQueryEngine (if session_id is available and profile can be loaded)
-    2. Static QUESTION_BANK (fallback based on scene and missing_fields)
-    3. Generic "what else" question (if nothing matches)
-    """
+    """Generate a follow-up question using soul query or static bank."""
     session_id = state.get("session_id", "")
     scene = state.get("scene", "general")
     missing = state.get("missing_fields", [])
 
-    # Try soul query first
     if session_id:
         try:
             profile = load_profile(session_id)
@@ -61,7 +47,7 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
                 query_state = _load_query_state(state)
                 question = engine.get_next_question(profile, query_state)
                 if question:
-                    _save_query_state_into_state(state, query_state)
+                    query_state_data = _serialize_query_state(query_state)
                     trace = list(state.get("trace", []))
                     trace.append(
                         {
@@ -71,11 +57,14 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
                             "round": query_state.round_count,
                         }
                     )
-                    return {"reply": question, "trace": trace}
+                    return {
+                        "reply": question,
+                        "_query_state": query_state_data,
+                        "trace": trace,
+                    }
         except Exception:
-            pass  # Fall through to static bank
+            pass
 
-    # Static fallback
     bank = QUESTION_BANK.get(scene, QUESTION_BANK["general"])
     questions = []
     for field in missing:
@@ -87,7 +76,6 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
         questions.append("请问还有什么我可以帮您了解的吗？")
 
     reply = "\n".join(questions)
-
     trace = list(state.get("trace", []))
     trace.append(
         {
@@ -101,7 +89,7 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
 
 def _load_query_state(state: dict[str, Any]) -> QueryState:
     """Load QueryState from state dict (per-session tracking)."""
-    qs = state.get("_query_state", {})
+    qs = state.get("_query_state", {}) or {}
     return QueryState(
         round_count=qs.get("round_count", 0),
         asked_fields=qs.get("asked_fields", []),
@@ -109,12 +97,12 @@ def _load_query_state(state: dict[str, Any]) -> QueryState:
     )
 
 
-def _save_query_state_into_state(state: dict[str, Any], qs: QueryState) -> None:
-    """Save QueryState back into the state dict."""
-    state["_query_state"] = {
+def _serialize_query_state(qs: QueryState) -> dict[str, Any]:
+    """Serialize QueryState for LangGraph state and persistence."""
+    return {
         "round_count": qs.round_count,
-        "asked_fields": qs.asked_fields,
-        "skipped_fields": qs.skipped_fields,
+        "asked_fields": list(qs.asked_fields),
+        "skipped_fields": list(qs.skipped_fields),
     }
 
 
