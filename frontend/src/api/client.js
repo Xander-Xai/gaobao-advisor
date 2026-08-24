@@ -70,11 +70,11 @@ function _toQuery(params) {
 
 export const chatAPI = {
   /**
-   * Send a chat message and yield SSE events one by one.
-   * Returns the list of parsed JSON events collected from the stream.
-   * Caller must read the final `done.session_token` to auth profile/voice.
+   * Send a chat message and consume SSE events as they arrive.
+   * `onEvent` is optional for backwards compatibility; all parsed events are
+   * still returned after the stream completes.
    */
-  async send(sessionId, message, slots = {}, scene = 'gaokao') {
+  async send(sessionId, message, slots = {}, scene = 'gaokao', onEvent = null) {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,22 +83,36 @@ export const chatAPI = {
     if (!response.ok || !response.body) {
       throw new Error(`Chat failed: HTTP ${response.status}`)
     }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     const events = []
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const text = decoder.decode(value)
-      for (const line of text.split('\n')) {
+    let buffer = ''
+
+    const consumeLines = (text, flush = false) => {
+      buffer += text
+      const lines = buffer.split('\n')
+      buffer = flush ? '' : (lines.pop() || '')
+
+      for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         try {
-          events.push(JSON.parse(line.slice(6)))
+          const event = JSON.parse(line.slice(6))
+          events.push(event)
+          if (onEvent) onEvent(event)
         } catch {
-          // Ignore malformed lines — server may emit heartbeat separators.
+          // Ignore malformed SSE data lines.
         }
       }
     }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      consumeLines(decoder.decode(value, { stream: true }))
+    }
+    consumeLines(decoder.decode(), true)
+
     return events
   },
 }
