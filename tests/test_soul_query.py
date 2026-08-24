@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from server.graph.nodes.question import question_generate_node
 from server.soul_query import (
     MAX_QUERY_ROUNDS,
     OPTIONAL_QUESTIONS,
@@ -78,6 +79,35 @@ class TestSoulQueryEngine:
         state = QueryState(round_count=MAX_QUERY_ROUNDS)
         question = engine.get_next_question(empty_profile, state)
         assert question is None
+
+    def test_question_node_does_not_fall_back_after_max_rounds(self, monkeypatch):
+        profile = UserProfile()
+        profile.province = "广东"
+        profile.subject = "物理"
+        profile.interest = "计算机"
+        monkeypatch.setattr(
+            "server.graph.nodes.question.load_profile",
+            lambda _session_id: profile,
+        )
+
+        state = {
+            "session_id": "session-max-rounds",
+            "scene": "gaokao",
+            "missing_fields": ["score_rank"],
+            "_query_state": {
+                "round_count": MAX_QUERY_ROUNDS,
+                "asked_fields": ["province", "score", "subject", "interest"],
+                "skipped_fields": [],
+            },
+            "trace": [],
+        }
+
+        result = question_generate_node(state)
+
+        assert "已达到信息追问上限" in result["reply"]
+        assert "请问您的高考分数是多少分" not in result["reply"]
+        assert result["_query_state"]["round_count"] == MAX_QUERY_ROUNDS
+        assert result["trace"][-1]["event"] == "max_rounds_reached"
 
     def test_skipped_field_is_remembered(self, engine, full_profile):
         state = QueryState()
