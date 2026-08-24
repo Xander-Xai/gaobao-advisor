@@ -1,749 +1,670 @@
 # gaobao — AI 高考志愿顾问
 
-> **不是 ChatGPT 套壳。** 是基于大量高考志愿规划方法论和院校数据构建的、有咨询逻辑的 AI 顾问。
+> 一个基于 **LangGraph + Hybrid RAG + 结构化高考数据** 构建的 AI 志愿填报顾问。
+>
+> 它不是“把用户问题直接丢给大模型”的 ChatBot，而是把真实志愿咨询拆成 **画像采集 → 数据查询 → 知识检索 → 决策推理 → 来源标注 → 质量检查 → 多轮记忆** 的完整工作流。
 
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42b883.svg)](https://vuejs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Agent_Workflow-orange.svg)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
 ---
 
 ![](demo-preview.gif)
 
-> 🎬 [观看完整演示视频]() — 把视频发 B站或抖音后把链接贴这里
+## 项目定位
+
+高考志愿填报不是一个单轮问答问题。
+
+真正的咨询过程通常需要同时处理：
+
+- 省份、分数、位次、选科等硬约束；
+- 院校和专业的历史录取数据；
+- 地域、家庭条件、职业目标等个体偏好；
+- “冲 / 稳 / 保”风险控制；
+- 专业就业、考研、考公、行业趋势等非结构化知识；
+- 用户信息不完整时的多轮追问；
+- 数据来源、回答可信度和风险提示。
+
+`gaobao-advisor` 的目标是把这些步骤显式工程化，让大模型负责它擅长的理解、归纳和表达，而不是让它凭记忆“猜学校”。
 
 ---
 
-## 为什么做这个？
+## v3.0 架构
 
-我是一名 AI 工程师，我相信技术应该让每个人都能获得优质教育资源。高考志愿填报是中国家庭最重要的决策之一，但优质咨询资源严重不均。gaobao 用开源 AI 技术，让每个考生都能获得专业级的志愿指导。
+当前版本已经从早期单体原型迁移为完整 Web 应用：
+
+```text
+Browser / Mobile
+       │
+       ▼
+     Nginx
+       │
+       ├── /            → Vue 3 SPA
+       ├── /api/*       → FastAPI
+       └── /ws/*        → WebSocket Voice
+                            │
+                            ▼
+                       LangGraph
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+     SQLite Data       Hybrid RAG        LLM Provider
+     Schools           Knowledge         DeepSeek/Qwen/
+     Scores            Expert Quotes     GLM/GPT/Ollama
+     YiFenYiDuan
+```
+
+核心技术栈：
+
+| 层 | 技术 |
+|---|---|
+| 前端 | Vue 3 + Pinia + Vue Router + Tailwind CSS + Vite |
+| API | FastAPI + Pydantic + SSE + WebSocket |
+| Agent 编排 | LangGraph StateGraph |
+| 数据库 | SQLite + SQLAlchemy + WAL |
+| RAG | Dense Embedding + Keyword Hybrid Retrieval |
+| Embedding | SiliconFlow / OpenAI / DashScope / Ollama |
+| LLM | OpenAI Compatible API，可切换 DeepSeek / Qwen / GLM / GPT / Ollama |
+| 语音 | DashScope ASR + TTS + WebSocket |
+| 可观测性 | Prometheus + Sentry + Analytics Event Tracker |
+| 部署 | Docker Compose + Nginx |
 
 ---
 
-## 知识库规模
+## LangGraph：把咨询流程变成状态机
 
-这个 Agent 不是空壳。它的知识体系来自对海量志愿填报资料的深度学习：
+项目的核心不是单次 LLM 调用，而是一条可观测、可测试的 Agent Workflow。
 
-| 来源 | 数量 | 说明 |
-|------|------|------|
-| 志愿填报专著 | **8 本** | 涵盖选专业、报志愿、稳就业、考研、专科、升学规划等 |
-| 原始页数 | **1,932 页** | 全部 OCR 提取，总文字量 **2.7MB** |
-| 专业视频课程 | **61 节 / 1,500+ 分钟** | 涵盖全部学科门类专业详解 |
-| 专业就业数据 | **792 个本科专业** | 12大学科门类完整就业方向+薪资 |
-| 院校数据 | **3,016 所** | 覆盖985/211/双非/专科全层次 |
-| 行业联盟分类 | **20+ 个** | C9/国防七子/五院四系/两电一邮等 |
-| 知识库模块 | **20+ 个** | 方法论/选科/专业/学校/考研/就业/专科/AI时代趋势 |
+当前主链路：
 
-一句话：**把志愿填报领域能找到的系统性知识，全塞进去了。**
-
----
-
-## v2.0 升级（2026.06）
-
-**v2.0 让这个 Agent 从"能聊"变成"能用"**——接入真实数据，强化表达引擎。
-
-### 数据层（从 0 到有）
-
-| 数据 | 来源 | 规模 | 等级 |
-|------|------|------|------|
-| 全国院校 | 百度高考 API（gaokao.baidu.com） | **3,016 所**（985/211/双一流/普通） | T2 |
-| 本科专业 | 教育部 2024 专业目录 | **215 个**（12 学科门类，含就业率/薪资） | T1 |
-| 录取分数线 | 百度高考 API（gaokao.baidu.com） | **35 万+ 条**（2022-2025年，覆盖30个省份） | T2 |
-| 一分一段表 | 各省教育考试院 | **30 省份全覆盖**，位次法推荐核心 | T1 |
-| 行业语录 | dongsheng123132/gaokao-mentor-wisdom + 张雪峰原版 | **155+ 条**（含 50 条张雪峰原版金句，9 个分类） | T3 |
-| 知识库 | 公开方法论整理 | **20 个模块**（含 AI 时代校正） | T2 |
-
-> 数据采集脚本：`python scripts/import_baidu_gaokao.py --top-n 80` 可扩展到万级分数线
-
-### 智能层（从"能聊"到"能用"）
-
-| 升级 | 内容 |
-|------|------|
-| **位次法推荐** | 分数→位次映射（一分一段表反推），冲/稳/保三档位次法推荐 |
-| **百度高考 API** | 替代低质量百度 HTML 解析，直接获取结构化 JSON 数据 |
-| **语录库注入** | 根据用户提到的专业，自动注入相关行业专家语录（含张雪峰原版溯源） |
-| **表达引擎 v2.0** | 8 种开场模板、铺垫→反转→金句节奏、禁词列表、8 项自检清单 |
-| **省份自适应** | Step 0 自动识别高考模式（3+3/3+1+2/传统文理） |
-| **情绪 SOP** | 5 阶段情绪危机处理（接住→稳定→转场→方案→收尾） |
-| **多轮状态** | 4 阶段对话流程（探测→定向→推荐→风险审查） |
-| **数据来源标注硬规则** | 代码层后处理强制来源标注，每条数据都有出处
-
-### 知识库模块（20+ 个）
-
-```
-knowledge_base.md         # 主知识库（838 行，17 个核心模块）
-knowledge/
-├── 00_ai_era_correction.md    # AI 时代校正框架（红/黄/绿区）
-├── 06_university_life_planning.md  # 大学在校 4 年规划
-├── 07_new_gaokao_subject_selection.md  # 新高考选科指南
-├── 08_vocational_strategy.md  # 专科策略
-├── groups/                     # RAG 知识组（G1-G9）
-│   ├── G1_core_method.md              # 核心方法论
-│   ├── G2_major_school.md             # 选专业与选学校
-│   ├── G3_career_future.md            # 职业与未来
-│   ├── G4_life_planning.md            # 人生规划
-│   ├── G5_data_format.md              # 数据格式
-│   ├── G6_quick_ref.md                # 快速参考
-│   ├── G7_employment_paths.md         # 就业路径
-│   ├── G8_graduate_and_vocational.md  # 考研与专科
-│   └── G9_zhangxuefeng_methodology_origin.md  # 张雪峰方法论溯源
-└── quotes/                     # 行业专家语录库（155+ 条）
-    ├── _index.json            # 全量索引
-    ├── _by_major.json         # 按专业反查索引（74 个专业）
-    ├── zhangxuefeng_originals.json # 张雪峰原版金句（50 条，含出处/年份）
-    ├── zhuanye.json           # 专业选择（28 条）
-    ├── jiuye.json             # 就业前景（18 条）
-    ├── rensheng.json          # 人生哲理（18 条）
-    ├── yuanxiao.json          # 院校推荐（16 条）
-    ├── xuexi.json             # 学习建议（12 条）
-    ├── expansion_v2.json      # 扩展语录 v2
-    ├── expansion_v3.json      # 扩展语录 v3
-    └── zhiyuan-celue.json     # 志愿策略（13 条）
+```text
+security_scan
+    ↓
+intent_detect
+    ↓
+scene_route
+    ↓
+slot_extract
+    ↓
+profile_check
+    ├── 信息不足 ─→ question_generate ──────────────┐
+    ├── 已有直接回复 ───────────────────────────────┤
+    │                                               ▼
+    └── 信息完整 → quality_orchestrate          render_reply
+                      ↓                            ↓
+                  data_query                source_attribution
+                      ↓                            ↓
+                  rag_retrieve              quality_post_check
+                      ↓                            ↓
+                    reason                  quality_judge
+                      ↓                            ↓
+               structure_output              feedback
+                                                   ↓
+                                              memory_update
+                                                   ↓
+                                                  END
 ```
 
----
+### 为什么要这么拆？
 
-## 效果展示
+例如用户只输入：
 
-```
-👤：我是广东考生，物理类，600分，位次大概5500，想学计算机，普通家庭，最看重就业
+> “广东 600 分，想学计算机，怎么报？”
 
-🤖：你这条件在广东算中上游，但想靠计算机翻身，路只有一条：
-    去有行业壁垒的学校，别去那些名字好听但没干货的"综合类大学"。
+系统不会立即让模型生成答案，而是依次完成：
 
-    广东本地600分5500位次，想上广州/深圳的211计算机，基本没戏。
-    华南理工、中山大学的计算机录取位次通常在2000-3000名以内。
+1. 识别咨询场景与意图；
+2. 抽取省份、分数、选科、兴趣等槽位；
+3. 判断画像是否完整，不完整就继续追问；
+4. 查询一分一段和历史录取数据；
+5. 检索计算机就业、院校选择、AI 时代风险等知识；
+6. 将结构化数据、RAG 证据、用户画像和决策启发组合成 reasoning context；
+7. 再由 LLM 生成最终回复；
+8. 对输出做来源标注、质量检查和会话记忆更新。
 
-    冲的话——中山大学，985，计算机专业非常强，能让你接触到
-    最新的科研资源和技术。但冲上的概率不大，建议冲的同时留好保底。
+可以把它理解为：
 
-    稳的——广州大学、深圳大学。广大的计算机在广州市内口碑不错，
-    深大背靠深圳产业，就业极硬。
-
-    保底——广东工业大学。计算机在广东内稳上，性价比高。
-
-    别死磕"计算机科学与技术"这个专业名。软件工程、网络工程、
-    信息安全，在就业市场上是一样的。
-
-    专业选对，努力不废；学校选错，全家受罪。
+```text
+Answer = LLM(Profile + AdmissionData + RAG + DecisionRules + Memory)
 ```
 
----
+而不是：
 
-## 案例精选
-
-### 案例一：普通家庭选专业
-
-```
-👤：我是湖北的，物理类，考了580，位次大概2万8。
-    家里就是普通工薪，爸妈一年加起来十来万，没什么特别的资源。
-    想去武汉或者南方大城市，学个好就业的专业，能挣钱就行。
-
-🤖：你这情况很典型——湖北580分，2万8位次，普通家庭想靠技术吃饭。
-    我说句实话，你这个分在湖北不差，但也别想985了。
-
-    我先确认一下——你数学和物理怎么样？能接受天天对着电脑写代码吗？
-    还是说想学个能进国企的、比较稳的方向？
-
-👤：数学还行，物理也可以。写代码能接受，国企也行，都行。
-
-🤖：那方向很明确了。普通家庭没资源，就两条路最稳：
-
-    第一，计算机/电子信息。靠技术吃饭，不用拼爹。
-    第二，电气工程。进国家电网，稳定体面。
-
-    冲的话——武汉理工。211，工科底子硬。你的位次冲它的计算机
-    有点悬，但电子信息类专业组可以试试。
-
-    稳的——湖北大学、武汉科技大。这两个在武汉本地口碑很好，
-    580分稳稳地进计算机或电气。长沙理工也可以，
-    原电力部的学校，电气进电网有优势。
-
-    保底——武汉工程大学、三峡大学。三峡大学的电气是原电力部直属，
-    年年电网来校招，虽然不在武汉，但就业真不差。
-
-    提醒你一句：现在计算机行业在分化。大学期间必须往AI和大数据
-    方向靠，别光学学校教的那点东西。
-```
-
-### 案例二：文科考公方向
-
-```
-👤：河南文科生，考了510。家在县城，爸妈都是普通打工人，
-    没什么背景。我想考公务员，能去哪个学校？
-
-🤖：河南文科510，想考公。方向很明确，但分数确实不算高。
-
-    我先问你一句——你是想留在河南，还是能接受去外省？
-    还有，你讨厌背书吗？因为考公的专业，大学四年基本都在背。
-
-👤：留在河南就行，背书我倒是不怕。
-
-🤖：那好办了。文科考公，专业选汉语言文学和法学，
-    千万别选英语——英语考公岗位少得可怜。
-
-    冲的话河南大学——双一流，法学和汉语言都是考公大户。
-
-    稳的是河南师范大学——汉语言文学和思政都是强项，
-    毕业考公考编都方便，新乡生活成本也低。
-
-    还有河南财经政法大学在郑州，法学和会计学都不错，
-    考公岗位多，而且在省会。
-
-    保底就是洛阳师范、河南科技学院——分数肯定够，
-    进去把行测申论刷起来，大四直接考。
-
-    提醒你：考公这件事，专业比学校重要。汉语言和法学是
-    万金油——哪个单位都招。大一开始看行测和申论，
-    别等到大四才慌。
-```
-
-### 案例三：家里有电网资源
-
-```
-👤：河北物理600分，家里亲戚在电力系统，想进国家电网，怎么选学校？
-
-🤖：家里有电网的资源？那这条路就是通的！
-
-    我跟你说，电气这个行业，资源是可以传代的。
-    别人挤破头进不去的国家电网，你里面有熟人，那就不一样了。
-
-    你这个分很舒服。冲的话——华北电力大学，保定校区或者
-    北京校区都行。电力系统的黄埔军校，全国电网都认。
-
-    稳的——东北电力大学、上海电力大学。都是原电力部直属，
-    每年电网校招大户。选电气工程及其自动化，别选其他专业。
-
-    保底——三峡大学。也是原电力部直属，分不高但就业好，
-    年年电网来招人。
-
-    但有一点你必须记住：资源是敲门砖，本事才是铁饭碗。
-    进了大学好好学，别因为有关系就混日子。
-    电网招人也要考试的，你专业不行照样进不去。
-```
-
-### 案例四：金融劝退
-
-```
-👤：河南560分，想学金融，怎么样？
-
-🤖：停停停，你先别急着说金融。我问你几个问题。
-
-    家里是做金融的吗？爸妈在银行、证券、基金公司？
-    有没有亲戚在这个行业里？
-
-👤：没有，就是觉得金融听起来高大上，能赚钱。
-
-🤖：那我跟你说句实话——金融这个行业，千万别碰。
-
-    你去看看每年金融专业毕业的学生，中位数去了哪？
-    不是去了高盛中金，是去了你家门口的银行网点卖理财。
-
-    560分在河南，大概率去个双非一本学金融。
-    毕业出来跟985的抢岗位，你拿什么抢？
-
-    金融是典型的看起来光鲜，进去才知道是坑。
-    你看到的是年薪百万的基金经理，看不到的是90%的人
-    在银行网点站着数钱。
-
-    你这560分，我建议你学计算机或者电气工程。
-    理工科选专业，文科选学校。学门手艺，不用求人。
-```
-
-### 案例五：专科也有出路
-
-```
-👤：我只考了380分，只能上专科了。是不是这辈子废了？
-
-🤖：谁跟你说专科就废了？我告诉你，专科选对了专业，
-    就业比很多普通本科还强。
-
-    专科的关键是：必须选有技术壁垒的专业。
-
-    第一，电力类专科。毕业进电网基层、电厂，稳定有保障。
-    第二，铁路类专科。进铁路局，福利待遇不差。
-    第三，医护类专科。护理、医学检验，医院永远缺人。
-
-    千万别学市场营销、行政管理——本科都不好就业，
-    你专科学了更完蛋。也别碰什么电子商务、物流管理，
-    听着高大上，出来就是送快递。
-
-    还有一条路——专升本想好了吗？有些省专升本政策好，
-    你选学校的时候就要考虑到。专科不是终点，但你得选对路。
-```
-
-### 案例六：高分+有资源（多轮追问）
-
-```
-👤：河北物理类650分，位次1500名，家里在电力系统有亲戚，
-    想去北京或者天津，能冲985吗？电气和计算机选哪个？
-
-🤖：能冲985。但先确认几个关键——你家里在电力系统具体做什么？
-    电网、发电还是设备？这关系到你能不能直接进系统。
-
-👤：亲戚在国家电网做管理层的。物理数学都还行。
-
-🤖：那这条路就是通的！家里有电网管理层的亲戚，
-    你学电气就是最优解。别人挤破头进不去的国家电网，
-    你里面有熟人，只要专业对口、考试过关，基本稳。
-
-    计算机虽然热门，但你家资源用不上。何必放着现成的
-    电网资源不用，去跟几百万人卷计算机？
-
-    冲——天津大学，985，电气学科评估B+。
-    稳——华北电力大学，电气王牌，全国电网都认。
-    保——河北工业大学，211，电气在河北就业很吃香。
-
-    记住，资源是敲门砖，本事才是铁饭碗。
-```
-
-### 案例七：低分求生存（多轮追问）
-
-```
-👤：河南文科430分，家在县城，爸妈打工没资源，
-    不想离家太远，就想毕业能找个稳定工作，大专也行。
-
-🤖：430分在河南确实不高，但大专选对了专业，就业不比本科差。
-    先问几个关键的——讨厌什么科目？河南本省行不行？
-    稳定工作是想考编还是学技术进企业？
-
-👤：讨厌数学，河南本省就行。最好能考个编制那种。
-
-🤖：方向很明确，三条路：
-
-    第一条，护理。河南省内各大医院年年招护士。
-    护理考编岗位多，很多县医院护士都有编制。
-
-    第二条，学前教育。公办幼儿园招人越来越多，
-    有寒暑假、不用跟数学打交道。
-
-    第三条，铁道类专科。郑州铁路职业技术学院，
-    毕业进郑州铁路局，铁饭碗。
-
-    千万别学会计——你讨厌数学，学会计就是折磨自己。
-```
-
-### 案例八：新高考选科
-
-```
-👤：我高一，马上要选科了。以后想学医，该怎么选？
-
-🤖：想学医，选科很简单——物理+化学+生物，纯理组合。
-    这个组合能覆盖全国所有医学院的临床医学专业。
-
-    如果你觉得生物太难，物理+化学+地理也可以。
-
-    但千万别选历史——选了历史，临床医学基本跟你说再见了。
-
-    另外提醒你：学医是条长路。5年本科+3年规培+3年专硕，
-    11年起步。35岁以前基本挣不到什么钱。
-    家里经济条件一般的话，要跟父母商量好。
-
-    但如果你真的喜欢、能坚持，医生是个越老越吃香的职业。
-```
-
-### 案例九：考研方向
-
-```
-👤：本科普通二本计算机，想考研。冲985还是稳211？
-
-🤖：先问你——考研是为了做科研，还是想要个名校文凭好找工作？
-
-👤：想要个名校文凭好找工作。
-
-🤖：那别盲目冲985。二本冲985计算机，难度太大了。
-    你竞争对手是985本校生和211的卷王。
-
-    我建议你稳211。选一个计算机学科评估B以上的211，
-    比如合肥工业大学、西安电子科技大学。
-
-    还有一个思路——考行业特色院校。
-    比如南京邮电大学、杭州电子科技大学。
-    不是211，但在IT行业认可度极高，华为中兴年年去校招。
-
-    关键是：考研先定专业，再定地区，最后定学校。
-    毕业在哪上学，大概率就在哪工作。
+```text
+Answer = LLM(UserQuery)
 ```
 
 ---
 
-## 为什么选择它
+## Hybrid RAG
 
-| 对比维度 | 普通志愿工具 | gaobao |
-|---------|------------|-----------|
-| 交互方式 | 输入分数→吐表格 | 先反问：家里干什么的？想去哪？讨厌什么？ |
-| 推荐逻辑 | 只看分 | 分数 + 家庭资源 + 地域偏好 + 就业诉求 |
-| 表达风格 | 冷冰冰 | 敢说真话，不适合的专业直接劝退 |
-| 数据来源 | 不明 | 教育部评估+考试院公告+就业报告，全公开可查 |
-| 模型兼容 | 绑定特定模型 | DeepSeek/通义千问/GLM/GPT/Ollama 任意换 |
-| 部署方式 | 需特定平台 | 一个 Python 脚本，Windows/Mac/Linux 都能跑 |
+知识库目前按领域拆为 G1-G9 九个知识组：
 
----
-
-## 核心能力
-
-```
-① 意图识别 → 自动判断你是否在咨询志愿问题
-② 结构化采集 → 省份+分数+兴趣+家庭资源+就业诉求，缺啥问啥
-③ 冲稳保匹配 → 位次法 + 家庭资源禀赋 + 专业就业前景
-④ RAG 知识检索 → 17+ 知识库模块 + 105 条专家语录
-⑤ 多源数据 → 本地DB + 百度高考API + 搜索引擎三级数据链
-⑥ 质量控制 → 情绪检测 / 交叉验证 / 反模式检查 / AI时代风险评估
-⑦ 会话持久化 → SQLite 持久化，关闭页面不丢失
-⑧ 敢说真话 → 不适合你的专业直接告诉你
-⑨ 模型无关 → OpenAI 兼容协议，换模型改一行配置
-⑩ 多端部署 → CLI / Web / REST API，Docker 一键启动
+```text
+knowledge/groups/
+├── G1_core_method.md
+├── G2_major_school.md
+├── G3_career_future.md
+├── G4_life_planning.md
+├── G5_data_format.md
+├── G6_quick_ref.md
+├── G7_employment_paths.md
+├── G8_graduate_and_vocational.md
+└── G9_zhangxuefeng_methodology_origin.md
 ```
 
+此外还有独立的专家观点 / 语录库：
+
+```text
+knowledge/quotes/
+├── _by_major.json
+├── zhangxuefeng_originals.json
+└── ...
+```
+
+### 检索流程
+
+```text
+User Query
+    │
+    ├── Dense Embedding Similarity
+    │
+    └── Keyword / Trigger Score
+              │
+              ▼
+       Hybrid Group Score
+              │
+              ▼
+       Top Knowledge Groups
+              │
+              ├── Top Chunks
+              └── Expert Quotes
+                     │
+                     ▼
+              Agent Reasoning Context
+```
+
+默认知识组打分使用：
+
+```text
+hybrid_score = 0.6 × vector_score + 0.4 × keyword_score
+```
+
+Embedding Provider 已抽象，可通过配置切换：
+
+- `siliconflow`：默认推荐中文向量模型；
+- `openai`；
+- `dashscope`；
+- `ollama`：本地 Embedding；
+- `keyword`：Embedding 不可用时自动降级。
+
+RAG 查询结果会按照 `query + slots` 缓存，减少重复 Embedding 与检索开销。
+
 ---
 
-## 技术架构亮点
+## 结构化高考数据
 
-本项目在技术实现上的一些关键设计：
+相比只做知识问答，本项目另外维护独立的结构化数据层。
 
-- **RAG 架构**：17+ 知识库模块，混合向量 + 关键词检索，6 个知识组 + 105 条专家语录
-- **多源数据**：三级数据管线（本地DB → 百度高考 API → 搜索引擎），置信度分层
-- **质量控制**：7 个独立模块（情绪检测 / 交叉验证 / AI 时代风险评估 / 决策启发式 / 反模式检测 / 模型选择 / 知识加载）
-- **模型无关**：任何 OpenAI 兼容 API 都能用，换模型改一行配置
-- **30 省份全覆盖**：自动识别省份高考模式（3+3 / 3+1+2 / 传统文理），自适应推荐策略
+当前数据包括：
 
----
+| 数据 | 当前规模 / 范围 |
+|---|---|
+| 全国院校 | 3,016+ 所 |
+| 历史录取数据 | 35 万+ 条 |
+| 省份覆盖 | 30 个省份 |
+| 年份 | 2022–2025 |
+| 一分一段表 | 30 省份 |
+| 专业 / 就业知识 | 多学科门类 |
+| RAG 知识模块 | 20+ |
+| 专家语录 | 155+ |
 
-## 快速开始
+数据查询节点会根据用户槽位执行：
 
-> ⭐ **完全零基础、不懂编程？** → [小白教程：10分钟，复制粘贴搞定](小白教程-零基础也能用.md)
+- 分数 → 位次查询；
+- 院校匹配；
+- 专业对应院校查询；
+- 专业信息查询；
+- 冲 / 稳 / 保候选集生成。
 
-### 推荐方式：Docker Compose（一键启动）
+### 数据来源与采集
+
+项目内置数据导入脚本：
 
 ```bash
-# 1. 配置环境变量
-cp .env.example .env
-# 编辑 .env，填入 LLM_API_KEY=你的key
+# 全量导入
+python scripts/import_baidu_gaokao.py --full --provinces ALL --top-n 3000
 
-# 2. 一键启动（FastAPI + Frontend + Nginx）
-docker-compose up -d
+# 断点续传
+python scripts/import_baidu_gaokao.py --full --provinces ALL --resume
 
-# 3. 访问
-open http://localhost          # 前端页面
-open http://localhost:8000/docs  # API 文档
+# 导入一分一段
+python scripts/import_yi_fen_yi_duan.py
+
+# 数据校验
+python scripts/validate_data.py
 ```
 
-> 前端通过 Nginx 代理到 `localhost`，API 服务在 `localhost:8000`。
-> 数据库文件在 `./data/` 目录，通过 volume 挂载到容器中，重启不丢失。
+采集器支持 checkpoint / resume，便于大规模数据任务中断恢复。
 
-### 本地开发
-
-```bash
-# 1. 安装依赖
-pip install -r requirements.txt
-
-# 2. 配置 API Key
-cp .env.example .env
-# 编辑 .env，填入 LLM_API_KEY=你的key
-
-# 3. 启动 API 服务
-uvicorn server.main:app --host 0.0.0.0 --port 8000
-
-# 4. 启动前端（新终端）
-cd frontend && npm install && npm run dev
-```
-
-### 模型选择
-
-任何 OpenAI 兼容协议的模型都能用。但不同模型效果差异很大：
-
-| 模型 | 推荐度 | 中文 | 指令遵循 | 速度 | 费用 | 说明 |
-|------|--------|------|---------|------|------|------|
-| **DeepSeek V3** | 首选 | 极好 | 强 | 快 | ~1元/百万token | 综合最佳 |
-| **通义千问 Qwen-Plus** | 推荐 | 极好 | 强 | 快 | ~2元/百万token | 有免费额度 |
-| **智谱 GLM-4** | 推荐 | 好 | 较强 | 快 | ~1元/百万token | 国产稳定 |
-| **Moonshot v1** | 可选 | 好 | 较强 | 快 | ~2元/百万token | 128K长上下文 |
-| **GPT-4o** | 可选 | 好 | 极强 | 中 | 较贵 | 需国外网络 |
-| **Ollama 本地** | 可用 | 看模型 | 弱-中 | 看配置 | 免费 | 推荐 qwen2.5:14b+ |
-
-**不推荐**：
-- 7B 级别小模型 — 无法稳定遵循复杂指令，容易复读、格式错乱
-- DeepSeek R1 — 推理模型会自言自语，不适合对话场景
-
-在 `.env` 里设置 `LLM_PROVIDER` 即可，不用记 base_url：
-
-```bash
-LLM_PROVIDER=deepseek   # DeepSeek（首选）
-LLM_PROVIDER=qwen       # 通义千问
-LLM_PROVIDER=glm        # 智谱 GLM
-LLM_PROVIDER=moonshot   # Moonshot
-LLM_PROVIDER=openai     # GPT-4o
-LLM_PROVIDER=ollama     # 本地模型
-```
-
-完整配置说明 → [TUTORIAL.md](TUTORIAL.md)
-
-> ⭐ **完全零基础？** → [小白教程：10分钟，复制粘贴就能用](小白教程-零基础也能用.md)
+> 高考录取政策和招生计划每年都会变化。历史数据只能作为决策依据之一，真实填报应以当年各省考试院、院校招生章程和正式招生计划为准。
 
 ---
 
-## 运营看板
+## 用户画像与多轮咨询
 
-独立的 `/admin` 页面，密码保护，展示运营数据（会话数、消息数、热门省份/专业、情绪分布、槽位填充率）。
+系统维护一组高考咨询槽位，例如：
 
-```bash
-# 设置管理员密码并启动
-ADMIN_PASSWORD=your_password streamlit run admin.py
+```text
+province   省份
+score      分数
+subject    科类 / 选科
+interest   兴趣 / 目标专业
+region     地域偏好
+family     家庭条件
+career     就业 / 考研 / 考公目标
 ```
 
-浏览器自动打开 `http://localhost:8502`，输入密码后即可查看运营数据。
+`profile_check` 会根据当前信息决定：
 
-功能：
-- **核心指标卡片**：今日/本周/总会话数、消息数、平均每会话消息数
-- **热门查询 TOP 10**：热门省份、热门专业（从用户消息中提取关键词）
-- **情绪分布**：正面/中性/焦虑的比例柱状图
-- **槽位填充率**：7 个信息采集槽位的填充率可视化
-- **日期筛选**：侧边栏日期范围选择器
-- **双数据源**：优先从 `analytics.db` 的 events 表读取，降级到 `gaokao.db` 的 conversations 表
+```text
+信息不足 → 继续追问
+信息完整 → 进入完整推荐链路
+```
 
-> 未设置 `ADMIN_PASSWORD` 时，看板无需密码即可访问（仅限本地开发）。
+因此项目支持真正的多轮决策，而不仅是聊天历史拼接。
 
 ---
 
-## 项目数据
+## 决策与质量控制
 
-| 指标 | 数据 |
-|------|------|
-| 院校覆盖 | 3,016 所 |
-| 录取分数线 | 35 万+ 条 |
-| 省份覆盖 | 30/30 |
-| 年份跨度 | 2022-2025 |
-| 知识库模块 | 20+ |
-| 专家语录 | 155+ 条（含张雪峰原版 50 条） |
-| 数据库表 | 13 张（院校/专业/分数线/招生计划/考研/职业/对话/反馈等） |
-| 测试用例 | 538 个（全部通过） |
-| 核心代码 | 15,000+ 行 Python + Vue 3 |
+项目把志愿推荐中的部分业务判断从 Prompt 中拆成独立模块。
+
+当前 Quality / Skill 层包括：
+
+- 情绪状态检测；
+- 决策启发式；
+- 认知模型选择；
+- AI 时代专业风险提示；
+- 反模式检查；
+- 数据交叉验证能力；
+- 上下文知识加载；
+- 来源标注；
+- 生成后质量检查；
+- 用户反馈记录。
+
+`reason_node` 最终会把以下信息组合为统一推理上下文：
+
+```text
+用户画像
++ 结构化院校 / 位次数据
++ RAG Knowledge Chunks
++ Expert Quotes
++ Emotion State
++ Cognitive Model
++ Decision Heuristics
+```
+
+再交给 LLM 负责自然语言生成。
 
 ---
 
-## 技术架构
+## 两阶段 SSE Streaming
 
-```
-用户输入 → 安全扫描 → 意图检测 → 场景路由 → 槽位提取 → 画像检查
-                          │                               │
-                          ▼                               ▼
-                    RAG 知识检索                     灵魂追问（补全画像）
-                    (9 知识组 + 语录库)
-                          │
-                          ▼
-                    质量编排 → 数据查询 → 推理组装 → LLM 流式输出
-                    (情绪检测     (30省DB +     (OpenAI兼容
-                    /反模式      百度高考API)   任何模型)
-                    /启发式)
-                          │
-                          ▼
-                    结构化卡片 → 来源标注 → 渲染回复 → 记忆持久化
+聊天接口采用两阶段架构，避免同一个请求重复调用 LLM：
+
+```text
+Phase 1
+LangGraph.invoke()
+→ slots / emotion / structured metadata
+
+Phase 2
+llm_node_stream()
+→ token-by-token SSE streaming
 ```
 
-**LangGraph 工作流**（13 个节点，2 条路径）：
-| 路径 | 条件 | 流程 |
-|------|------|------|
-| 画像补全 | 缺少必填信息 | 画像检查 → 灵魂追问 → 渲染 → 记忆 |
-| 完整咨询 | 画像已完备 | 质量编排 → 数据查询 → RAG → 推理 → 结构输出 → 来源标注 → 渲染 → 记忆 |
+SSE 事件包括：
 
-**核心能力矩阵**：
-| 层 | 技术 | 组件数 |
-|----|------|--------|
-| 安全 | 注入检测 + XSS 消毒 + SSRF + 限流 + HMAC 会话令牌 | 5 |
-| 质量 | 情绪 / 风险 / 反模式 / 交叉验证 / 决策启发式 / 模型选择 / 知识加载 | 7 |
-| 知识 | RAG（混合向量 + 关键词）+ G1-G9 知识组 + 155+ 条语录 | 9 组 |
-| 数据 | SQLite / SQLAlchemy / 百度高考 API / 位次法 / 13 张表 | 30 省 |
-| 前端 | Vue 3 + Pinia + Tailwind CSS / SSE 流式 / WebSocket 语音 | 22 组件 |
-| 模型 | 任意 OpenAI 兼容 API（DeepSeek/Qwen/GLM/GPT/Ollama） | 6+ |
-| 部署 | FastAPI + Nginx + Docker Compose / 3 服务 | 容器化 |
+```text
+slots
+emotion
+structured
+token
+degraded
+done
+```
+
+LLM 调用同时实现：
+
+- 429 / 5xx 自动重试；
+- 指数退避；
+- 上下文裁剪；
+- 历史会话加载；
+- Provider 可切换；
+- 失败降级回复。
 
 ---
 
-## ⚠️ 重要免责声明
+## Voice Pipeline
 
-1. **本工具仅供决策参考，不构成任何形式的专业志愿填报建议。**
-2. AI 生成的内容可能存在错误、过时或不准确。**最终志愿填报决定必须由用户本人根据官方发布的最新招生简章和录取数据做出。**
-3. 项目开发者**不对使用本工具产生的任何后果承担法律责任**。高考志愿关系重大，请务必以官方数据为准。
-4. 录取分数线、招生计划等信息每年变化。请到目标院校官网和各省教育考试院官网核实。
-5. 本项目中所有知识均整理自教育部公开数据、高校公开信息、公开就业报告等**公开来源**，不包含任何受版权保护的未公开内容。
-6. 本项目与任何教育机构、招生机构、志愿填报服务机构无关。
+除了文字聊天，项目还提供语音交互链路：
 
-> **我们的建议供你参考，官方数据才是决策依据。**
+```text
+Microphone
+   ↓
+WebSocket
+   ↓
+DashScope ASR
+   ↓
+LangGraph Advisor
+   ↓
+LLM Response
+   ↓
+DashScope TTS
+   ↓
+Audio Playback
+```
+
+接口：
+
+```text
+WS /ws/call
+```
+
+通过环境变量可以独立开关语音功能。
+
+---
+
+## API
+
+FastAPI 默认文档：
+
+```text
+http://localhost:8000/docs
+```
+
+主要接口：
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/health` | 健康检查 |
+| `POST` | `/api/v1/chat` | LangGraph + SSE 聊天 |
+| `GET` | `/api/v1/data/schools` | 院校查询 |
+| `GET` | `/api/v1/data/scores` | 录取分数查询 |
+| `GET` | `/api/v1/data/plans` | 招生计划查询 |
+| `POST` | `/api/v1/knowledge/search` | RAG 检索 |
+| `GET` | `/api/v1/knowledge/quotes` | 专家语录查询 |
+| `POST` | `/api/v1/onboarding` | 用户初始化 |
+| `GET/PUT` | `/api/v1/profile/{session_id}` | 用户画像 |
+| `WS` | `/ws/call` | 实时语音咨询 |
+| `GET` | `/metrics` | Prometheus Metrics |
 
 ---
 
 ## 项目结构
 
-```
-├── server/               # ⭐ FastAPI 后端（主入口）
-│   ├── main.py           # FastAPI 应用入口
-│   ├── graph/            # LangGraph 工作流（state/graph/nodes/）
-│   │   ├── state.py      # AdvisorState 状态定义
-│   │   ├── graph.py      # 13 节点流水线编排
-│   │   └── nodes/        # 15 个处理节点（安全/意图/槽位/质量/RAG/推理等）
-│   ├── routes/           # API 路由（chat / data / health / knowledge / onboarding / profile / voice）
-│   ├── services/         # 业务逻辑（RAG / KB检索 / 数据查询 / 语音 / 质量）
-│   ├── middleware/       # 中间件（限流 / 安全 / CORS）
-│   ├── auth.py           # HMAC 会话令牌认证
-│   ├── monitoring.py     # Sentry 监控集成
-│   ├── soul_query.py     # 灵魂追问引擎（5 轮智能补全画像）
-│   └── user_profile.py   # 用户画像模型（7 字段：省份/分数/选科/兴趣等）
-├── frontend/             # ⭐ 前端（Vue 3 + Vite + Pinia + Tailwind CSS）
-│   ├── src/
-│   │   ├── stores/       # Pinia 状态管理（chat / scene / voice）
-│   │   ├── components/   # 22 个 Vue 组件（chat / layout / voice）
-│   │   ├── views/        # ChatView（主界面）/ AdminView / ReportView
-│   │   ├── api/          # API 客户端（SSE 流式 + onboarding）
-│   │   └── composables/  # useVoice（WebSocket 语音通话）
-│   └── Dockerfile        # 前端 Nginx 构建
-├── db/                   # 数据库 ORM 层
-│   ├── database.py       # SQLite 连接（WAL 模式，零依赖）
-│   ├── models.py         # 13 张表（院校/专业/分数线/招生计划/考研/职业/对话/反馈等）
-│   └── crud.py           # CRUD + 位次法匹配算法 + 选科兼容性检查
-├── quality/              # 7 个质量控制模块
-│   ├── emotion_detector.py     # 情绪检测（危机/焦虑/正常 三级）
-│   ├── cross_validator.py      # 多源数据交叉验证
-│   ├── ai_era_risk.py          # AI 时代专业风险评估
-│   ├── decision_framework.py   # 8 大决策启发式
-│   ├── anti_pattern_checker.py # 8 种反模式检测
-│   ├── model_selector.py       # 心智模型选择矩阵
-│   └── knowledge_loader.py     # 上下文知识加载器
-├── skills/               # 技能框架（Gaokao 方法论）
-│   ├── bootstrap.py      # 技能加载器
-│   ├── service.py        # SkillService（与 LangGraph 集成）
-│   └── gaokao/           # 6 份方法论文档
-│       ├── mental_models.md     # 5 大心智模型
-│       ├── heuristics.md        # 8 条决策启发式 + If-Then 表
-│       ├── anti_patterns.md     # 8 条反模式黑名单
-│       ├── expression_engine.md # 表达引擎 v2（8 开场/金句节奏/禁词）
-│       ├── expression_samples.md # 完整示例
-│       └── safety_rules.md      # 安全边界（锁定/防泄漏/隐私）
-├── slots/                # 槽位提取
-│   ├── extractor.py      # SlotExtractor（省份/分数/选科/兴趣等）
-│   └── patterns.py       # 提取模式定义
-├── config/               # 配置管理
-│   ├── loader.py         # LLM 配置加载（YAML + 环境变量合并）
-│   ├── constants.py      # 共享常量（31 省/高考模式/兴趣分类）
-│   └── llm_providers.yaml # 多 Provider 配置
-├── scrapers/             # 数据采集器
-│   ├── baidu_gaokao.py   # ⭐ 百度高考 API 采集（结构化 JSON，公开无认证）
-│   ├── baidu.py          # 百度搜索爬虫（兜底 T4 级）
-│   ├── zhiyuan.py        # 掌上高考 API（备选 T2 级）
-│   ├── provinces.py      # 30 省份 + 课程模式映射
-│   └── checkpoint.py     # 导入断点续传
-├── analytics/            # 事件追踪
-│   └── tracker.py        # SQLite 事件追踪器
-├── prompts/              # 提示词版本管理
-│   ├── system/           # 系统提示词版本存档（v1.0 - v2.14）
-│   ├── templates/        # 可复用提示词模板（14 个：注入防御/输出过滤/合规/测试等）
-│   └── sessions/         # 会话归档
-├── tests/                # ⭐ 测试套件（538 个测试，48 个测试文件）
-│   ├── test_agent_core.py, test_langgraph.py, test_chat_sse.py ...
-│   ├── test_middleware_*.py    # 安全 + 限流中间件
-│   ├── test_integration_*.py   # E2E + RAG 集成
-│   ├── test_quality_*.py      # 7 个质量模块
-│   └── test_p1_features.py, test_p2_features.py  # 阶段特性验证
-├── knowledge/            # RAG 知识库
-│   ├── groups/           # G1-G9 知识组（含 G9 张雪峰方法论溯源）
-│   ├── quotes/           # 155+ 条语录（含 50 条张雪峰原版金句）
-│   └── 00_ai_era_correction.md ...
-├── scripts/              # 数据导入/工具脚本
-│   ├── import_baidu_gaokao.py  # ⭐ 主采集（院校 + 分数线，断点续传）
-│   ├── import_yi_fen_yi_duan.py # 一分一段表
-│   ├── import_majors_taxonomy.py # 专业分类
-│   ├── import_xuefeng_data.py   # 张雪峰数据导入
-│   ├── seed_data.py             # 种子数据
-│   ├── validate_data.py         # 数据校验
-│   ├── precompute_embeddings.py # 向量预计算
-│   └── backup_db.sh             # 数据库备份
-├── content_scripts/      # 内容脚本库
-│   ├── 抖音内容脚本库.md     # 55 条短视频脚本（5 种爆款模板）
-│   └── 首批抖音脚本-可直接录制.md
-├── docs/                 # 项目文档
-│   ├── superpowers/       # ADR 架构决策记录（6 份） + 实施计划 + 设计文档
-│   ├── next-phase-plan.md # 总体执行计划
-│   ├── coze-bot-setup.md  # 扣子 Bot 设置
-│   └── ...
-├── system_prompt.md      # v2.11 系统 Prompt（表达引擎 + 省份自适应 + 情绪SOP + 来源硬规则）
-├── knowledge_base.md     # 主知识库（838 行，17 核心模块）
-├── data/gaokao.db        # SQLite 数据库（35 万+ 条数据）
-├── h5/                   # 移动端 H5 聊天页面
-├── legacy/               # 遗留代码（已弃用，安全迁移后保留）
+```text
+.
+├── server/
+│   ├── main.py                 # FastAPI 入口
+│   ├── graph/                  # LangGraph 状态机
+│   │   ├── graph.py
+│   │   ├── state.py
+│   │   └── nodes/
+│   ├── routes/                 # REST / SSE / WebSocket API
+│   ├── services/
+│   │   ├── rag.py
+│   │   ├── kb_retriever.py
+│   │   ├── data_query.py
+│   │   └── voice.py
+│   └── agent/                  # LLM reliability / context
+├── frontend/                   # Vue 3 SPA
+├── db/                         # SQLite / SQLAlchemy
+├── quality/                    # 质量控制模块
+├── skills/                     # 咨询方法论 / 决策技能
+├── knowledge/
+│   ├── groups/                 # G1-G9 RAG Knowledge Groups
+│   └── quotes/                 # Expert Quotes
+├── slots/                      # 用户信息槽位抽取
+├── scrapers/                   # 高考数据采集器
+├── scripts/                    # 导入 / 校验 / Embedding 脚本
+├── tests/                      # 单元 / 集成 / E2E 测试
+├── prompts/                    # Prompt 版本管理
+├── data/gaokao.db              # SQLite 数据库
+├── system_prompt.md
+├── docker-compose.yml
+├── nginx.conf
+└── README.md
 ```
 
 ---
 
-## 开放服务
+## 快速开始
 
-gaobao 是我的代表项目，展示了我在 AI Agent、RAG 系统、数据工程方面的能力。
-
-如果你需要：
-- **AI Agent 定制开发** — 为你的行业打造专属 AI 助手
-- **RAG 系统搭建** — 让 AI 基于你的知识库回答问题
-- **AI 咨询与培训** — 1v1 咨询或企业团队培训
-
-欢迎联系：[微信/邮箱占位符]
-
----
-
-## 贡献
-
-觉得有用？欢迎支持：
-
-- **Star 这个仓库** — 如果你觉得它有价值
-- **分享给需要的人** — 帮助更多家长和考生
-- **贡献知识模块** — 补充更多省份数据、专业解读
-- **提 Issue** — 反馈 bug 或建议新功能
-
-### 已实现功能
-
-- [x] 语音输入/通话（WebSocket + ASR + TTS 全双工）
-- [x] 30 省份录取数据覆盖（含 2022-2025）
-- [x] 30 省份一分一段表（位次法推荐）
-
-### 待实现功能
-
-- [ ] 微信/Telegram Bot 接入
-- [ ] 多人场景（家庭协同查看）
-- [ ] 志愿表自动排序 + 调剂风险评估
-
----
-
-## 开源协议
-
-MIT License — 自由使用、修改、分发。
-
----
-
-## 数据管线
-
-### 快速导入
+### 1. Clone
 
 ```bash
-# 全量导入（3000+校 × 30省 × 3年）
-python scripts/import_baidu_gaokao.py --full --provinces ALL --top-n 3000
-
-# 仅双一流
-python scripts/import_baidu_gaokao.py --layer 1 --provinces ALL
-
-# 断点续传
-python scripts/import_baidu_gaokao.py --full --provinces ALL --resume
-
-# 监控进度
-bash scripts/monitor_import.sh
-
-# 数据验证
-python scripts/validate_data.py
+git clone https://github.com/yandexuanxuan/gaobao-advisor.git
+cd gaobao-advisor
 ```
 
-### 数据来源
+### 2. 配置环境变量
 
-- **T1 本地数据库**: 置信度 90 分
-- **T2 百度高考 API**: 置信度 70 分（gaokao.baidu.com）
-- **T3 百度搜索**: 置信度 40 分（仅供参考）
+```bash
+cp .env.example .env
+```
 
-### 省份覆盖
+至少配置一个 LLM：
 
-30/30 省份（西藏除外），支持：
-- 3+3 综合：北京、天津、上海、山东、海南、浙江
-- 物理类/历史类：15 省（3+1+2 新高考）
-- 理科/文科：9 省（传统文理分科）
+```env
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-chat
+```
+
+如果需要向量 RAG：
+
+```env
+RAG_EMBEDDING_PROVIDER=siliconflow
+SILICONFLOW_API_KEY=your-key
+```
+
+如果不配置 Embedding Provider，系统可降级为关键词检索。
+
+### 3. Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+访问：
+
+```text
+Web:      http://localhost
+API:      http://localhost:8000
+API Docs: http://localhost:8000/docs
+Metrics:  http://localhost:8000/metrics
+```
+
+Docker Compose 当前包含：
+
+```text
+api       FastAPI :8000
+frontend  Vue/nginx :3080
+nginx     Reverse Proxy :80
+```
+
+---
+
+## 本地开发
+
+### Backend
+
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn server.main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+默认前端开发端口由 Vite 提供，API 服务运行在 `localhost:8000`。
+
+---
+
+## 模型切换
+
+项目使用 OpenAI Compatible API，因此不绑定单一模型。
+
+可通过环境变量或配置文件切换：
+
+```env
+LLM_PROVIDER=deepseek
+# LLM_PROVIDER=qwen
+# LLM_PROVIDER=glm
+# LLM_PROVIDER=moonshot
+# LLM_PROVIDER=openai
+# LLM_PROVIDER=ollama
+```
+
+生产环境建议优先选择中文指令遵循能力较好的中大型模型；较小模型在复杂多约束志愿决策场景中容易出现格式错误和约束遗漏。
+
+---
+
+## 测试
+
+项目包含较完整的后端测试体系，覆盖：
+
+- Agent 核心逻辑；
+- LangGraph 工作流；
+- SSE Streaming；
+- RAG 集成；
+- Security / Rate Limit Middleware；
+- Quality Modules；
+- Source Attribution；
+- E2E Conversation Flow。
+
+运行：
+
+```bash
+pytest
+```
+
+当前仓库包含约 **48 个测试文件 / 538 个测试用例**，并使用 `pytest-cov` 进行覆盖率约束。
+
+前端测试：
+
+```bash
+cd frontend
+npm run test
+```
+
+---
+
+## Observability & Security
+
+FastAPI 服务已接入：
+
+```text
+CORS
+SecurityMiddleware
+CSP Middleware
+Rate Limiting
+Prometheus Metrics
+Sentry
+Analytics Event Tracking
+Session Token
+```
+
+生产环境建议务必配置：
+
+```env
+SESSION_SECRET=<strong-random-secret>
+CORS_ORIGINS=https://your-domain.com
+```
+
+---
+
+## 当前局限
+
+这个项目目前仍然是持续迭代中的工程项目，主要还有以下优化方向：
+
+1. **数据时效性**：历史录取数据、招生计划、专业组每年都会变化，需要进一步完善数据版本、更新时间和置信度管理；
+2. **RAG 规模化**：当前是轻量 Hybrid Retrieval，未来知识规模扩大后可升级为 BM25 + Dense Retrieval + RRF + Reranker；
+3. **推荐评测**：工程测试已经较完整，但还需要建立真实高考案例 Golden Set，系统评估 Recall@K、冲稳保准确率、数据引用正确率和人工专家评分；
+4. **Quality Pipeline**：数据交叉验证、Evidence Gate 和生成后质量控制仍有进一步解耦空间；
+5. **志愿表级优化**：当前重点是咨询和候选推荐，完整志愿表排序、专业调剂和组合风险优化仍在规划中。
+
+---
+
+## Roadmap
+
+- [x] FastAPI API Server
+- [x] Vue 3 SPA
+- [x] LangGraph 多轮咨询状态机
+- [x] SSE Streaming
+- [x] Hybrid RAG
+- [x] 一分一段 / 位次法
+- [x] 30 省历史数据
+- [x] SQLite 会话持久化
+- [x] Source Attribution
+- [x] Quality / Feedback Pipeline
+- [x] WebSocket Voice
+- [x] Docker Compose Deployment
+- [ ] BM25 + Dense + RRF + Reranker
+- [ ] Evidence Gate 独立化
+- [ ] Golden Set / RAG & Recommendation Evaluation
+- [ ] 完整志愿表自动排序
+- [ ] 调剂与退档风险模拟
+- [ ] 家庭多人协同决策
+
+---
+
+## 为什么这个项目不是“LLM 套壳”
+
+```text
+普通 ChatBot
+User → Prompt → LLM → Answer
+
+Gaobao Advisor
+User
+ → Security / Intent
+ → Slot Extraction
+ → Profile State
+ → Structured Data Query
+ → Hybrid RAG
+ → Decision Context
+ → LLM
+ → Source Attribution
+ → Quality Check
+ → Feedback / Memory
+ → Answer
+```
+
+LLM 是系统的一部分，而不是整个系统。
+
+项目真正希望验证的是：**如何把 RAG、Agent Workflow、结构化业务数据、可靠性工程和产品交互组合成一个可落地的垂直 AI 应用。**
+
+---
+
+## Disclaimer
+
+本项目用于 AI 工程研究、教育信息整理和志愿规划辅助，不构成任何录取承诺。
+
+高考政策、招生计划、专业组、录取位次等信息可能发生变化，正式填报前请务必以 **教育部、各省教育考试院和目标院校当年官方招生信息** 为准。
+
+---
+
+## License
+
+[MIT License](LICENSE)
