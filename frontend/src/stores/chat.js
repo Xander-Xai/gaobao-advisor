@@ -25,38 +25,48 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = true
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
-    try {
-      const events = await chatAPI.send(currentSessionId.value, text, slots.value)
-      for (const event of events) {
-        if (event.type === 'token') {
-          assistantContent += event.content
-          const last = messages.value[messages.value.length - 1]
-          if (last?.role === 'assistant') {
-            last.content = assistantContent
-          } else {
-            messages.value.push({
-              role: 'assistant',
-              content: assistantContent,
-              qualityGrade: null,
-              rewritten: false,
-            })
-          }
-        } else if (event.type === 'slots') {
-          slots.value = event.data
-        } else if (event.type === 'done') {
-          // Persist the HMAC session token for subsequent profile/voice calls.
-          if (event.session_token) sessionToken.value = event.session_token
-        } else if (event.type === 'quality') {
-          // Quality grade from SSE stream
-          const last = messages.value[messages.value.length - 1]
-          if (last?.role === 'assistant') {
-            last.qualityGrade = event.grade || null
-            last.rewritten = event.rewritten || false
-          }
+
+    const handleEvent = (event) => {
+      if (event.type === 'token') {
+        assistantContent += event.content
+        const last = messages.value[messages.value.length - 1]
+        if (last?.role === 'assistant') {
+          last.content = assistantContent
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: assistantContent,
+            qualityGrade: null,
+            rewritten: false,
+          })
+        }
+      } else if (event.type === 'slots') {
+        slots.value = event.data
+      } else if (event.type === 'done') {
+        if (event.session_token) sessionToken.value = event.session_token
+      } else if (event.type === 'quality') {
+        const last = messages.value[messages.value.length - 1]
+        if (last?.role === 'assistant') {
+          last.qualityGrade = event.grade || null
+          last.rewritten = event.rewritten || false
         }
       }
+    }
+
+    try {
+      await chatAPI.send(currentSessionId.value, text, slots.value, 'gaokao', handleEvent)
     } catch {
-      messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
+      const last = messages.value[messages.value.length - 1]
+      if (last?.role === 'assistant' && assistantContent) {
+        last.content = `${assistantContent}\n\n[连接中断，请重试]`
+      } else {
+        messages.value.push({
+          role: 'assistant',
+          content: '抱歉，服务暂时不可用。',
+          qualityGrade: null,
+          rewritten: false,
+        })
+      }
     } finally {
       isStreaming.value = false
     }
