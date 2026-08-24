@@ -66,3 +66,20 @@ def test_profile_check_accepts_canonical_score_without_score_rank():
         }
     )
     assert "score_rank" not in result["missing_fields"]
+
+
+def test_profile_check_keeps_rank_only_profile_incomplete():
+    result = profile_check_node(
+        {
+            "scene": "gaokao",
+            "slots": {
+                "province": "河北",
+                "score_rank": "位次25000",
+                "rank": 25000,
+                "subject": "物理",
+                "interest": "计算机",
+            },
+            "trace": [],
+        }
+    )
+    assert "score_rank" in result["missing_fields"]
