@@ -49,6 +49,54 @@ legacy/          → 遗留代码（已弃用，安全迁移后保留）
 - **E2E**：核心对话流程至少 5 条 E2E 路径
 - **运行**：`python -m pytest tests/ -v`
 
+## 事实驱动的工程闭环
+
+中等以上复杂度的 Bug、功能、RAG / Agent 优化和性能改动，不以“代码写完”作为完成标准。默认按以下顺序执行：
+
+```text
+事实 / 现象
+→ 定义问题
+→ 拆成可验证子问题
+→ 建立 Baseline
+→ 提出可证伪假设
+→ 最小实现 / 实验
+→ 测试与指标验证
+→ 结果验收
+→ 复盘并沉淀测试、文档或工具
+```
+
+必须区分：
+
+- **事实**：日志、测试、Trace、评测集、数据库记录、真实运行结果；
+- **未知**：当前没有证据支持的部分，明确写成 `UNKNOWN / NOT_MEASURED`；
+- **假设**：能够被测试或数据推翻的解释；
+- **决策**：基于当前证据选择的最小行动。
+
+最低约束：
+
+- `Code Complete != Problem Solved`：实现完成不等于问题解决；
+- Bug 修复优先保留最小复现、根因和回归测试；
+- RAG 优化至少区分数据/Query/Recall/Rerank/Context/Generation，并使用固定评测样本做同口径比较；
+- Agent 优化至少区分 routing/tool/state/loop/fallback，不能用单次 Demo 代替稳定性证据；
+- 性能优化先测 Baseline，再优化瓶颈；环境或数据口径不同则不得直接宣称提升百分比；
+- CI PASS 只能证明自动化检查通过，不能代替真实用户路径、业务规则和生产运行验证；
+- 学习新框架或方法至少留下一个可运行 Demo、实验、Benchmark、测试、决策记录或 SOP，不以“看完资料”为完成。
+
+复杂任务的 Issue / PR 建议至少回答：
+
+```text
+Problem / Fact
+Baseline
+Hypothesis
+Smallest Test
+Change
+Verification
+Result
+Risk / Rollback
+Remaining UNKNOWN
+Reusable Asset
+```
+
 ## 安全红线
 
 - ❌ 禁止硬编码密钥（使用环境变量）
