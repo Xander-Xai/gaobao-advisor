@@ -89,7 +89,10 @@ markers = [
 ]
 
 [tool.ruff]
-extend-exclude = [".claude"]
+# `*.md` is excluded because ruff >= 0.17 formats Python code blocks inside
+# Markdown. That formatting is not shipped code and only produced churn in the
+# docs/ plans, so CI is scoped to the Python sources the project actually runs.
+extend-exclude = [".claude", "*.md"]
 line-length = 120
 target-version = "py310"
 

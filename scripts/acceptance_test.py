@@ -489,7 +489,18 @@ def check_security(db, report: AcceptanceReport):
         dirs[:] = [
             d
             for d in dirs
-            if d not in (".git", "__pycache__", "node_modules", "venv", ".venv", ".worktree", "worktrees")
+            if not d.startswith(".venv")
+            and d
+            not in (
+                ".git",
+                "__pycache__",
+                "node_modules",
+                ".worktree",
+                "worktrees",
+                ".pytest_cache",
+                ".ruff_cache",
+                "htmlcov",
+            )
         ]
         for fname in files:
             if not fname.endswith((".py", ".js", ".ts", ".env", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini")):

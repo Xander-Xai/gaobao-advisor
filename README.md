@@ -207,18 +207,23 @@ RAG 查询结果会按照 `query + slots` 缓存，减少重复 Embedding 与检
 
 相比只做知识问答，本项目另外维护独立的结构化数据层。
 
-当前数据包括：
+> **数据不会随 clone 自动就绪。** `data/*.db` 已被 `.gitignore` 忽略，新克隆得到的是一个空库，应用可以启动但任何数据查询都会返回空。
+> 仓库内的真实数据快照放在 `backups/gaokao_db_*.sql.gz`（注意：文件后缀是 `.sql.gz`，内容实际是 gzip 压缩的 **SQLite 二进制库**，不是 SQL 文本）。恢复方式见下文「数据快照恢复」。
 
-| 数据 | 当前规模 / 范围 |
+当前数据（取自 `backups/gaokao_db_20260617_025354.sql.gz`，2026-06-17 快照）：
+
+| 数据 | 快照实测规模 |
 |---|---|
-| 全国院校 | 3,016+ 所 |
-| 历史录取数据 | 35 万+ 条 |
+| 全国院校 | 3,020 所 |
+| 历史录取数据 | 400,194 条（2022–2025） |
+| 招生计划 | 14,665 条 |
+| 专业 | 215 个 |
+| 一分一段表 | 66,420 条 |
+| 学科排名 | 210 条 |
 | 省份覆盖 | 30 个省份 |
-| 年份 | 2022–2025 |
-| 一分一段表 | 30 省份 |
-| 专业 / 就业知识 | 多学科门类 |
-| RAG 知识模块 | 20+ |
 | 专家语录 | 155+ |
+
+> 该快照的 `schools` 表缺少当前 ORM 需要的 `special_type` 与 `data_source_note` 两列，需要先补齐（见「数据快照恢复」），否则 ORM 查询会抛 `no such column`。
 
 数据查询节点会根据用户槽位执行：
 
@@ -247,6 +252,22 @@ python scripts/validate_data.py
 ```
 
 采集器支持 checkpoint / resume，便于大规模数据任务中断恢复。
+
+### 数据快照恢复
+
+```bash
+# 1. 恢复（文件其实是 gzip 的 SQLite 二进制库，不是 SQL 文本）
+gunzip -c backups/gaokao_db_20260617_025354.sql.gz > data/gaokao.db
+
+# 2. 补齐快照相对当前 ORM 缺失的两列（均为 nullable，不影响既有数据）
+sqlite3 data/gaokao.db \
+  "ALTER TABLE schools ADD COLUMN special_type VARCHAR(20);
+   ALTER TABLE schools ADD COLUMN data_source_note VARCHAR(200);"
+
+# 3. 校验
+python scripts/validate_data.py
+python scripts/acceptance_test.py
+```
 
 > 高考录取政策和招生计划每年都会变化。历史数据只能作为决策依据之一，真实填报应以当年各省考试院、院校招生章程和正式招生计划为准。
 
@@ -445,7 +466,7 @@ http://localhost:8000/docs
 ### 1. Clone
 
 ```bash
-git clone https://github.com/yandexuanxuan/gaobao-advisor.git
+git clone https://github.com/Xander-Xai/gaobao-advisor.git
 cd gaobao-advisor
 ```
 
@@ -494,6 +515,8 @@ api       FastAPI :8000
 frontend  Vue/nginx :3080
 nginx     Reverse Proxy :80
 ```
+
+> **部署状态说明**：以上为编排定义。经核对，master 上的 `.github/workflows/ci.yml` 目前**无法全绿**——`container-smoke` job 依赖一套尚未进入 master 的 demo 模式披露能力（详见「尚未通过的检查」）。镜像构建本身本次未能在本环境完成验证。请勿将 CI 徽章当作部署可用性的证明。
 
 ---
 
@@ -558,9 +581,49 @@ LLM_PROVIDER=deepseek
 pytest
 ```
 
-当前仓库包含约 **48 个测试文件 / 538 个测试用例**，并使用 `pytest-cov` 进行覆盖率约束。
+### 实测状态（2026-10-10，master @ `04477d0`）
 
-前端测试：
+| 检查项 | 命令 | 结果 |
+|---|---|---|
+| Python 测试 | `pytest tests/` | ✅ **809 passed, 1 skipped** |
+| 覆盖率 | 同上 | ✅ **76.4%**（阈值 70%） |
+| Lint | `ruff check .` | ✅ 通过 |
+| Format | `ruff format --check .` | ✅ 通过（218 个 Python 文件） |
+| Python 依赖审计 | `pip-audit --strict -r requirements.lock` | ✅ **No known vulnerabilities found** |
+| 前端测试 | `npm test -- --run` | ✅ **46 passed**（8 个测试文件） |
+| 前端构建 | `npm run build` | ✅ 通过 |
+| 前端依赖审计 | `npm audit --audit-level=moderate` | ✅ **0 vulnerabilities** |
+
+### 尚未通过的检查
+
+以下为**已知未通过**，不是已验证通过：
+
+| 检查项 | 状态 | 说明 |
+|---|---|---|
+| `release-gates`（CI job） | ❌ 失败 | `ci.yml` 调用 `scripts/check_docs.py`、`check_licenses.py`、`audit_open_source.sh`，这三个脚本在 master 上不存在；它们依赖的 `SECURITY.md` / `PRIVACY.md` / `SUPPORT.md` / `DATA_LICENSE.md` / `DATA_SOURCES.md` / `THIRD_PARTY_NOTICES.md` 等合规文档在 master 上也不存在 |
+| `container-smoke`（CI job） | ❌ 失败 | 该 job 断言 `health` 返回 `mode == "demo"` 与 `optional_services`，并要求聊天回复包含「演示模式 / 合成 / 非官方」字样。但 master 的 `/api/v1/health` 只返回 `{status, version, database}`，也不存在 demo 模式。这套 demo 披露能力只存在于未合并的分支上 |
+| 数据验收 `scripts/acceptance_test.py` | ⚠️ **63.0%**（17 通过 / 6 失败 / 4 警告） | 使用 2026-06-17 快照实测，明细见下 |
+| 镜像构建 | ⚠️ 未在本环境验证 | 本次整改未能完成 `docker build`（构建容器到 PyPI 的下载持续读超时，属环境网络限制）。已验证「按 lock 安装依赖后 `import server.main` 成功」——这是镜像此前真实断裂的原因 |
+
+### 数据验收未通过项（实测，非历史文档）
+
+`scripts/acceptance_test.py` 在 2026-06-17 快照上的真实结果：
+
+- ❌ 2025 年数据充足率不足 80% 的省份：宁夏(4%)、青海(0%)、陕西(13%)、内蒙古(67%)、云南(68%)、山西(72%)
+- ❌ 西藏数据量 49 条（目标 ≥ 2,000）
+- ❌ 专业级分数线覆盖率 5.2%（目标 ≥ 30%）
+- ❌ 一分一段表缺失 4 个「省份×年份」组合
+- ❌ 院校排名覆盖率：985/211 为 89%（目标 100%），总体 29.9%
+- ❌ 重复数据：`admission_scores` 存在 143,390 条完全重复记录（约占 36%）
+- ⚠️ 位次缺失率 2.30%
+- ⚠️ 学科排名 210 条、仅覆盖 37 所院校（目标 ≥ 1,000）
+- ⚠️ 科类名称未标准化：艺术类（历史）3 条、艺术类（物理）1 条
+- ⚠️ 122 所院校无录取分数（4.0%，目标 ≤ 2%）
+
+> `docs/acceptance/acceptance_final.md` 是 **2026-06-17 的历史报告**，其结论不代表当前状态，请以上表实测结果为准。
+> 另外注意：在**空库**上运行时，该脚本会把「0 条重复数据」「0% 位次缺失率」等显示为 ✅ 绿色——这些是空集上的假通过，不可作为质量结论。
+
+### 前端测试
 
 ```bash
 cd frontend
@@ -597,11 +660,13 @@ CORS_ORIGINS=https://your-domain.com
 
 这个项目目前仍然是持续迭代中的工程项目，主要还有以下优化方向：
 
-1. **数据时效性**：历史录取数据、招生计划、专业组每年都会变化，需要进一步完善数据版本、更新时间和置信度管理；
-2. **RAG 规模化**：当前是轻量 Hybrid Retrieval，未来知识规模扩大后可升级为 BM25 + Dense Retrieval + RRF + Reranker；
-3. **推荐评测**：工程测试已经较完整，但还需要建立真实高考案例 Golden Set，系统评估 Recall@K、冲稳保准确率、数据引用正确率和人工专家评分；
-4. **Quality Pipeline**：数据交叉验证、Evidence Gate 和生成后质量控制仍有进一步解耦空间；
-5. **志愿表级优化**：当前重点是咨询和候选推荐，完整志愿表排序、专业调剂和组合风险优化仍在规划中。
+1. **数据时效性与完整性**：见上文「数据验收未通过项」——重复数据、2025 年部分省份数据不足、专业级覆盖率偏低是当前最需要处理的问题；
+2. **数据交付方式**：真实数据只以压缩快照形式存放，且需要手工恢复与补列，目前没有自动化引导；
+3. **RAG 规模化**：当前是轻量 Hybrid Retrieval，未来知识规模扩大后可升级为 BM25 + Dense Retrieval + RRF + Reranker；
+4. **推荐评测**：工程测试已经较完整，但还需要建立真实高考案例 Golden Set，系统评估 Recall@K、冲稳保准确率、数据引用正确率和人工专家评分；
+5. **Quality Pipeline**：数据交叉验证、Evidence Gate 和生成后质量控制仍有进一步解耦空间；
+6. **志愿表级优化**：当前重点是咨询和候选推荐，完整志愿表排序、专业调剂和组合风险优化仍在规划中；
+7. **CI 门禁一致性**：`ci.yml` 中有两个 job（`release-gates`、`container-smoke`）所依赖的脚本与能力尚未进入 master，需要先决定是合并对应分支，还是让工作流对齐 master 的现状。
 
 ---
 

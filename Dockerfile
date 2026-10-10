@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # 复制锁定依赖并安装（确保构建可重复性）
+# retries/timeout：PyPI 在 CI 网络下偶发读超时，默认 5 次/15s 不足以完成 ~115 个包的解析
 COPY requirements.lock .
-RUN pip install --no-cache-dir -r requirements.lock
+RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.lock
 
 # 复制项目代码（排除 .git, data, .env 等通过 .dockerignore）
 COPY . .

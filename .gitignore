@@ -36,6 +36,9 @@ data/*.db.backup.*
 data/import_checkpoint.json
 gaokao_cache.db
 
+# 运行时生成的报告（用户会话产物 + 测试产物，不应进版本库）
+data/reports/
+
 # 开发备份
 backup/
 
