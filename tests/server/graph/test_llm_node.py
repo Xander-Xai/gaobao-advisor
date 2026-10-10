@@ -29,7 +29,10 @@ def test_llm_node_returns_generated_reply():
     ]
     mock_client.chat.completions.create.return_value = mock_response
 
-    with patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client):
+    with (
+        patch("server.graph.nodes.llm_node._config", {"provider": "openai"}),
+        patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client),
+    ):
         result = llm_node(state)
 
     assert "reply" in result
@@ -50,7 +53,10 @@ def test_llm_node_falls_back_on_error():
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = Exception("API timeout")
 
-    with patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client):
+    with (
+        patch("server.graph.nodes.llm_node._config", {"provider": "openai"}),
+        patch("server.graph.nodes.llm_node._get_llm_client", return_value=mock_client),
+    ):
         result = llm_node(state)
 
     assert "reply" in result

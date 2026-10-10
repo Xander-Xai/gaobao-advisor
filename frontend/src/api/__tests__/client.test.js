@@ -40,7 +40,7 @@ describe('envelope shape', () => {
 
   it('returns {data:null, error:{...}} on HTTP 4xx', async () => {
     global.fetch = mockFetchResponse({ ok: false, status: 404, body: { detail: '报告不存在' } })
-    const { data, error } = await reportAPI.fetch('nope')
+    const { data, error } = await reportAPI.fetch('nope', { sessionId: 's1', token: 'tok-abc' })
     expect(data).toBeNull()
     expect(error.status).toBe(404)
     expect(error.message).toBe('报告不存在')
@@ -146,6 +146,23 @@ describe('reportAPI', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/v1/report/generate')
     expect(JSON.parse(init.body)).toEqual({ session_id: 's1', student_name: '小明' })
+  })
+
+  it('fetch includes session_id and token query params', async () => {
+    const fetchMock = mockFetchResponse({ body: { id: 'r1' } })
+    global.fetch = fetchMock
+    await reportAPI.fetch('r1', { sessionId: 's1', token: 'tok-abc' })
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toContain('/api/v1/report/r1')
+    expect(url).toContain('session_id=s1')
+    expect(url).toContain('token=tok-abc')
+  })
+
+  it('export URLs include report auth query params', () => {
+    expect(reportAPI.htmlURL('r1', { sessionId: 's1', token: 'tok-abc' }))
+      .toBe('/api/v1/report/r1/html?session_id=s1&token=tok-abc')
+    expect(reportAPI.coverURL('r1', { sessionId: 's1', token: 'tok-abc' }))
+      .toBe('/api/v1/report/r1/cover.svg?session_id=s1&token=tok-abc')
   })
 })
 

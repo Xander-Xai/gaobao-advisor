@@ -1,30 +1,46 @@
+from server.services import llm_router as router_module
 from server.services.llm_router import LLMRouter, TaskType
 
 
-def test_router_fast_tasks_go_to_agnes():
+def test_router_fast_tasks_use_configured_fast_providers(monkeypatch):
+    monkeypatch.setattr(router_module, "_get_fast_providers", lambda: ["alpha", "beta"])
+    monkeypatch.setattr(router_module, "_get_smart_provider", lambda: "gamma")
+
     router = LLMRouter()
     provider = router.route(TaskType.FAQ)
-    assert provider.startswith("agnes")
+    assert provider == "alpha"
 
 
-def test_router_smart_tasks_go_to_glm():
+def test_router_smart_tasks_use_configured_smart_provider(monkeypatch):
+    monkeypatch.setattr(router_module, "_get_fast_providers", lambda: ["alpha", "beta"])
+    monkeypatch.setattr(router_module, "_get_smart_provider", lambda: "gamma")
+
     router = LLMRouter()
     provider = router.route(TaskType.RECOMMEND)
-    assert provider == "glm-4"
+    assert provider == "gamma"
 
 
-def test_router_round_robin_agnes():
+def test_router_round_robin_over_fast_providers(monkeypatch):
+    monkeypatch.setattr(router_module, "_get_fast_providers", lambda: ["alpha", "beta"])
+    monkeypatch.setattr(router_module, "_get_smart_provider", lambda: "gamma")
+
     router = LLMRouter()
     p1 = router.route(TaskType.FAQ)
     p2 = router.route(TaskType.FAQ)
-    assert p1 != p2
     p3 = router.route(TaskType.FAQ)
-    assert p3 == p1
+
+    assert p1 == "alpha"
+    assert p2 == "beta"
+    assert p3 == "alpha"
 
 
-def test_fallback_chain_building():
+def test_fallback_chain_building(monkeypatch):
+    monkeypatch.setattr(router_module, "_get_fast_providers", lambda: ["alpha", "beta"])
+    monkeypatch.setattr(router_module, "_get_smart_provider", lambda: "gamma")
+
     router = LLMRouter()
-    chain = router.build_fallback_chain("agnes-flash-1")
-    assert chain == ["agnes-flash-1", "agnes-flash-2", "glm-4"]
-    chain = router.build_fallback_chain("glm-4")
-    assert chain == ["glm-4", "agnes-flash-1", "agnes-flash-2"]
+    chain = router.build_fallback_chain("alpha")
+    assert chain == ["alpha", "beta", "gamma"]
+
+    chain = router.build_fallback_chain("gamma")
+    assert chain == ["gamma", "alpha", "beta"]

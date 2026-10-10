@@ -1,0 +1,58 @@
+# config/tuning.yaml — 策略参数与阈值配置
+# 修改此文件可调整推荐策略、模型参数、检索权重等
+
+strategies:
+  chong:
+    label: "冲刺"
+    score_range: [0, 30]
+    count: 2
+  wen:
+    label: "稳妥"
+    score_range: [-60, 0]
+    count: 5
+  bao:
+    label: "保底"
+    score_range: [-20, 10]
+    count: 3
+
+thresholds:
+  low_score: 450
+  high_risk_majors: ["金融", "法学", "新闻", "工商管理", "土木", "建筑学"]
+  cross_validation:
+    score_tolerance: 5
+    rank_tolerance_ratio: 0.10
+
+rag:
+  vector_weight: 0.6
+  keyword_weight: 0.4
+  group_threshold: 0.3
+  max_groups: 2
+  max_quotes: 3
+  cache:
+    exact_ttl: 86400
+    semantic_ttl: 3600
+    max_memory_entries: 1000
+
+rate_limit:
+  per_ip_per_second: 20
+  burst_capacity: 40
+
+llm:
+  max_history_rounds: 20
+  max_retries: 2
+  retryable_status_codes: [429, 500, 502, 503]
+  retry_delay: 1.0
+  temperature: 0.7
+  max_tokens: 2000
+  fallback_reply: "抱歉，我现在暂时无法给出完整分析。请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
+
+voice:
+  temperature: 0.7
+  max_tokens: 500
+
+data_query:
+  default_subject_type: "物理"
+  default_strategy: "稳"
+
+metrics:
+  duration_buckets: [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]

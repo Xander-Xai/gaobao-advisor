@@ -5,6 +5,8 @@ from __future__ import annotations
 import html as html_lib
 from pathlib import Path
 
+from config import get_config
+from config.loader import load_brand
 from server.report.cover import CoverGenerator
 from server.report.models import Report
 
@@ -15,6 +17,11 @@ class ReportExporter:
     @staticmethod
     def to_html(report: Report) -> str:
         """Generate a full HTML page with SVG cover and structured content."""
+        config = get_config()
+        brand_cfg = config["brand"]
+        report_cfg = brand_cfg.get("report", {})
+        brand_copyright = load_brand().get("brand", {}).get("copyright", "© 高考志愿AI顾问 · 助力每一个梦想")
+        report_title = report_cfg.get("title", "高考志愿填报分析报告")
         cover_svg = CoverGenerator.generate_svg(report)
 
         student_line = ""
@@ -26,7 +33,7 @@ class ReportExporter:
         if report.interest:
             student_line += f" · {html_lib.escape(report.interest)}"
 
-        confidence_pct = f"{report.confidence * 100:.0f}%"
+        confidence_pct = f"{max(0.0, min(1.0, report.confidence)) * 100:.0f}%"
 
         facts_items = "".join(f"<li>{html_lib.escape(f)}</li>" for f in report.facts)
         suggestions_items = "".join(f"<li>{html_lib.escape(s)}</li>" for s in report.suggestions)
@@ -39,7 +46,7 @@ class ReportExporter:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>高考志愿填报分析报告</title>
+<title>{html_lib.escape(report_title)}</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{ font-family: "KaiTi", "STKaiti", "Microsoft YaHei", serif; background: #FFF8F0; color: #333; }}
@@ -80,7 +87,7 @@ class ReportExporter:
     <ul>{actions_items}</ul>
   </div>
   <div class="confidence">置信度：{confidence_pct}</div>
-  <div class="footer">© 高考志愿AI顾问 · 助力每一个梦想</div>
+  <div class="footer">{html_lib.escape(brand_copyright)}</div>
 </div>
 </body>
 </html>"""

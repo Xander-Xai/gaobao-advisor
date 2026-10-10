@@ -1,7 +1,6 @@
 """Shared FastAPI dependencies."""
 
-import os
-
+from config.loader import load_llm_config
 from db.database import SessionLocal
 from server.soul_query import SoulQueryEngine
 
@@ -17,10 +16,12 @@ def get_db():
 
 def get_llm_config():
     """Return LLM configuration from environment."""
+    cfg = load_llm_config()
     return {
-        "api_base": os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1"),
-        "api_key": os.getenv("OPENAI_API_KEY", ""),
-        "model": os.getenv("LLM_MODEL", "gpt-4o"),
+        "provider": cfg.get("provider"),
+        "api_base": cfg.get("base_url"),
+        "api_key": cfg.get("api_key"),
+        "model": cfg.get("model"),
     }
 
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from server.soul_query import OPTIONAL_QUESTIONS, REQUIRED_QUESTIONS, QueryState, SoulQueryEngine
-from server.user_profile import load_profile
+from server.user_profile import UserProfile, load_profile
 
 # Static question bank (fallback when soul query is not available)
 QUESTION_BANK: dict[str, dict[str, str]] = {
@@ -56,6 +56,23 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
     if session_id:
         try:
             profile = load_profile(session_id)
+            # Merge freshly extracted slots from the current turn into the
+            # DB-loaded profile.  Slots are only persisted at the end of the
+            # pipeline (memory_node), so without this merge the SoulQueryEngine
+            # would ask about fields the user just provided (e.g. "请问您是哪个
+            # 省的考生？" right after the user said "我是山东考生").
+            current_slots = state.get("slots", {})
+            if current_slots:
+                # Use from_slots to parse both flat and nested slot formats.
+                turn_profile = UserProfile.from_slots(current_slots)
+                if turn_profile.province is not None and profile.province is None:
+                    profile.province = turn_profile.province
+                if turn_profile.score is not None and profile.score is None:
+                    profile.score = turn_profile.score
+                if turn_profile.subject is not None and profile.subject is None:
+                    profile.subject = turn_profile.subject
+                if turn_profile.interest is not None and profile.interest is None:
+                    profile.interest = turn_profile.interest
             if profile and not profile.is_required_complete():
                 engine = SoulQueryEngine()
                 query_state = _load_query_state(state)

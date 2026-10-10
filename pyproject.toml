@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gaobao-advisor"
-version = "2.1.0"
+version = "3.1.0"
 description = "高考志愿 AI 顾问 — 基于 RAG + LangGraph 的智能志愿填报助手"
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,6 +26,7 @@ dependencies = [
     "openai>=1.0.0,<3.0.0",
     "langgraph>=0.1.0",
     "langchain-core>=0.1.0",
+    "langsmith>=0.8.18,<0.9.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "sqlalchemy>=2.0.0,<3.0.0",
@@ -43,12 +44,16 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.4.0",
+    "mcp>=1.0.0,<2.0.0",
+]
+mcp = [
+    "mcp>=1.0.0,<2.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/gaobao-ai/gaobao-advisor"
-Repository = "https://github.com/gaobao-ai/gaobao-advisor"
-Issues = "https://github.com/gaobao-ai/gaobao-advisor/issues"
+Homepage = "https://github.com/yandexuanxuan/gaobao-advisor"
+Repository = "https://github.com/yandexuanxuan/gaobao-advisor"
+Issues = "https://github.com/yandexuanxuan/gaobao-advisor/issues"
 
 [tool.setuptools.packages.find]
 include = [
@@ -59,6 +64,7 @@ include = [
     "scrapers*",
     "analytics*",
     "scripts*",
+    "mcp_server*",
     "prompts*",
     "tests",
 ]
@@ -86,10 +92,14 @@ filterwarnings = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests requiring external services",
+    "smoke: core business smoke tests for the end-to-end advisor path",
 ]
 
 [tool.ruff]
-extend-exclude = [".claude"]
+# `*.md` is excluded because ruff >= 0.17 formats Python code blocks inside
+# Markdown. That formatting is not shipped code and only produced churn in the
+# docs/ plans, so CI is scoped to the Python sources the project actually runs.
+extend-exclude = [".claude", "*.md"]
 line-length = 120
 target-version = "py310"
 

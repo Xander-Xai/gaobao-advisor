@@ -6,12 +6,18 @@ import json
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from server.services.kb_retriever import _ZX_TRIGGERS, KbRetriever, KeywordOnlyEmbedding
 
 _QUOTES_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "quotes")
 _GROUPS_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "groups")
+pytestmark = pytest.mark.skipif(
+    not os.path.exists(os.path.join(_QUOTES_DIR, "zhangxuefeng_originals.json")),
+    reason="restricted third-party quotation corpus is intentionally absent from the public distribution",
+)
 
 
 def _make_retriever() -> KbRetriever:

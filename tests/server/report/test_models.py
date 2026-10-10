@@ -39,6 +39,18 @@ def test_report_from_slots():
     assert report.session_id == "session-456"
 
 
+def test_report_from_slots_accepts_score_rank():
+    slots = {
+        "province": {"value": "山东", "filled": True},
+        "score_rank": {"value": "600分", "filled": True},
+        "subject": {"value": "物理", "filled": True},
+        "interest": {"value": "计算机", "filled": True},
+    }
+    report = Report.from_slots("session-456", slots)
+    assert report.score == 600
+    assert "600分" in report.summary
+
+
 def test_report_to_dict():
     report = Report(
         id="test-123",

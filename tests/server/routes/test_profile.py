@@ -5,46 +5,46 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from server.auth import require_bearer_auth
 from server.routes.profile import (
     ProfileUpdateRequest,
-    _require_auth,
 )
 
 
 class TestRequireAuth:
-    """Tests for _require_auth helper."""
+    """Tests for require_bearer_auth helper."""
 
     def test_valid_bearer_token(self):
         """Valid Bearer token should pass authentication."""
-        with patch("server.routes.profile.verify_session_token", return_value=True):
+        with patch("server.auth.verify_session_token", return_value=True):
             # Should not raise
-            _require_auth("session123", "Bearer valid-token")
+            require_bearer_auth("session123", "Bearer valid-token")
 
     def test_missing_authorization_header(self):
         """Missing Authorization header should raise 401."""
         with pytest.raises(HTTPException) as exc_info:
-            _require_auth("session123", None)
+            require_bearer_auth("session123", None)
         assert exc_info.value.status_code == 401
         assert "Missing session token" in exc_info.value.detail
 
     def test_invalid_bearer_prefix(self):
         """Authorization without Bearer prefix should raise 401."""
         with pytest.raises(HTTPException) as exc_info:
-            _require_auth("session123", "Basic some-token")
+            require_bearer_auth("session123", "Basic some-token")
         assert exc_info.value.status_code == 401
 
     def test_invalid_token(self):
         """Invalid token should raise 401."""
-        with patch("server.routes.profile.verify_session_token", return_value=False):
+        with patch("server.auth.verify_session_token", return_value=False):
             with pytest.raises(HTTPException) as exc_info:
-                _require_auth("session123", "Bearer invalid-token")
+                require_bearer_auth("session123", "Bearer invalid-token")
             assert exc_info.value.status_code == 401
             assert "Invalid or expired" in exc_info.value.detail
 
     def test_token_strip_whitespace(self):
         """Token with extra whitespace should be stripped."""
-        with patch("server.routes.profile.verify_session_token", return_value=True) as mock_verify:
-            _require_auth("session123", "Bearer  valid-token  ")
+        with patch("server.auth.verify_session_token", return_value=True) as mock_verify:
+            require_bearer_auth("session123", "Bearer  valid-token  ")
             mock_verify.assert_called_once_with("session123", "valid-token")
 
 
@@ -92,7 +92,7 @@ class TestGetProfile:
         mock_profile.missing_required_fields.return_value = ["score", "subject"]
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
         ):
             result = await get_profile("session123", "Bearer valid-token")
@@ -113,7 +113,7 @@ class TestGetProfile:
         mock_profile.missing_required_fields.return_value = []
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
         ):
             result = await get_profile("session123", "Bearer valid-token")
@@ -138,7 +138,7 @@ class TestUpdateProfileField:
         req = ProfileUpdateRequest(field="province", value="上海")
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
             patch("server.routes.profile.save_profile") as mock_save,
         ):
@@ -161,7 +161,7 @@ class TestUpdateProfileField:
         req = ProfileUpdateRequest(field="score", value="650")
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
             patch("server.routes.profile.save_profile"),
         ):
@@ -178,7 +178,7 @@ class TestUpdateProfileField:
         req = ProfileUpdateRequest(field="score", value="99")  # Too low
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -196,7 +196,7 @@ class TestUpdateProfileField:
         req = ProfileUpdateRequest(field="score", value="abc")
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -213,7 +213,7 @@ class TestUpdateProfileField:
         req = ProfileUpdateRequest(field="invalid_field", value="test")
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -240,7 +240,7 @@ class TestGetNextQuestion:
         mock_query_state.round_count = 3
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
             patch("server.routes.profile._load_query_state", return_value=mock_query_state),
@@ -266,7 +266,7 @@ class TestGetNextQuestion:
         mock_query_state.round_count = 5
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
             patch("server.routes.profile.load_profile", return_value=mock_profile),
             patch("server.routes.profile._load_query_state", return_value=mock_query_state),
@@ -292,7 +292,7 @@ class TestSkipField:
         req = SkipFieldRequest(field="family")
 
         with (
-            patch("server.routes.profile._require_auth"),
+            patch("server.routes.profile.require_bearer_auth"),
             patch("server.routes.profile.get_soul_query_engine", return_value=mock_engine),
             patch("server.routes.profile._load_query_state", return_value=mock_query_state),
             patch("server.routes.profile._save_query_state"),

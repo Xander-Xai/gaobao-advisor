@@ -17,17 +17,17 @@
 ## 目录结构
 
 ```
-server/          → FastAPI 后端（routes/graph/services/middleware）
-server/graph/    → LangGraph 工作流（state + 15 nodes + graph.py）
+server/          → FastAPI 后端（routes/graph/services/middleware，auth helpers centralized in server/auth.py）
+server/graph/    → LangGraph 工作流（state + 17 nodes + graph.py）
 db/              → SQLAlchemy ORM 层（models/crud/database） — 13 张表
 quality/         → 质量控制模块（emotion/risk/validator/decision/pattern/knowledge/model）
 slots/           → 槽位提取（extractor/patterns）
 skills/          → Gaokao 方法论技能框架（6 份方法论文档 + service）
 config/          → 配置加载（loader + YAML + constants）
-tests/           → 所有测试文件（48 个文件，538 个测试）
-frontend/        → Vue 3 SPA（Pinia + Tailwind CSS）
-prompts/         → 系统提示词版本管理（v1.0-v2.14，14 个模板）
-knowledge/       → RAG 知识库（G1-G9 知识组 + 155+ 条语录）
+tests/           → 所有测试文件（817 个已收集测试；当前 816 passed / 1 skipped）
+frontend/        → Vue 3 SPA（Pinia + Tailwind CSS, composables/ + views/）
+prompts/         → 系统提示词版本管理（v1.0-v2.14+，15 个模板）
+knowledge/       → RAG 知识库（G1-G9 知识组 + 555+ 条语录）
 scripts/         → 数据导入/工具脚本
 legacy/          → 遗留代码（已弃用，安全迁移后保留）
 ```
@@ -45,7 +45,7 @@ legacy/          → 遗留代码（已弃用，安全迁移后保留）
 
 - **覆盖率**：≥ 70%（`--cov-fail-under=70`）
 - **测试模式**：AAA（Arrange-Act-Assert）
-- **LLM Mock**：所有涉及 LLM 调用的测试必须 mock
+- **LLM Mock**：所有涉及 LLM/Voice/外部网络调用的测试必须 mock 或验证快速降级
 - **E2E**：核心对话流程至少 5 条 E2E 路径
 - **运行**：`python -m pytest tests/ -v`
 
@@ -56,7 +56,9 @@ legacy/          → 遗留代码（已弃用，安全迁移后保留）
 - ✅ 所有用户输入经过 `sanitize_input()` 处理
 - ✅ 所有 DB 查询使用 SQLAlchemy ORM（参数化）
 - ✅ Profile 端点必须验证 session token
+- ✅ Report 端点必须校验 session_id 与 token 的归属关系，禁止仅凭 report_id 读取
 - ✅ SSRF 防御覆盖所有 URL 检查点
+- ✅ Auth helpers centralized in server/auth.py（require_bearer_auth for Bearer token, require_token_auth for direct token）
 
 ## Git 规范
 

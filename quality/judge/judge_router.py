@@ -8,7 +8,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
+from urllib.parse import urlparse
 
 from openai import AsyncOpenAI
 
@@ -26,6 +28,15 @@ RETRY_DELAY_SECONDS = 1.0
 # ── JSON 解析回退 ───────────────────────────────────────────────────
 _DEFAULT_SCORE = 50.0
 _DEFAULT_REASON = "评分解析失败"
+
+
+def _allows_placeholder_key(cfg: dict[str, Any]) -> bool:
+    """Allow dummy API keys only for explicit local OpenAI-compatible services."""
+    if os.getenv("QUALITY_JUDGE_ALLOW_PLACEHOLDER_KEY", "").lower() not in {"1", "true", "yes"}:
+        return False
+    provider = str(cfg.get("provider", "")).lower()
+    host = (urlparse(str(cfg.get("base_url", ""))).hostname or "").lower()
+    return provider == "ollama" or host in {"localhost", "127.0.0.1", "::1"}
 
 
 def _parse_llm_json(text: str) -> dict[str, Any]:
@@ -91,14 +102,25 @@ class JudgeRouter:
         """获取或创建异步 OpenAI 客户端。"""
         if self._client is None:
             cfg = load_llm_config()
-            api_key = cfg.get("api_key", "") or "sk-placeholder"
+            api_key = str(cfg.get("api_key", "")).strip()
+            if not api_key and not _allows_placeholder_key(cfg):
+                raise RuntimeError("LLM_API_KEY is required for remote judge providers")
             self._client = AsyncOpenAI(
-                api_key=api_key,
+                api_key=api_key or "ollama",
                 base_url=cfg.get("base_url", "https://api.agnes.ai/v1"),
                 timeout=EVALUATE_TIMEOUT_SECONDS,
                 max_retries=MAX_RETRIES,
             )
         return self._client
+
+    async def aclose(self) -> None:
+        """Close the underlying async client after an evaluation run."""
+        if self._client is None:
+            return
+        try:
+            await self._client.close()
+        finally:
+            self._client = None
 
     async def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """调用 LLM 并返回回复文本。"""

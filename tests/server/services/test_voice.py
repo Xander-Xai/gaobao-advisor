@@ -1,6 +1,6 @@
 """Tests for the voice service — prompts, styles, and rendering."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -97,7 +97,10 @@ class TestVoiceService:
         service = VoiceService()
         assert service.chat_api_key == "test-key"
         original = "Some planning text."
-        result = await service.render_voice_reply(original)
+
+        with patch("openai.AsyncOpenAI", side_effect=RuntimeError("network")):
+            result = await service.render_voice_reply(original)
+
         assert result == original
 
     @pytest.mark.asyncio
@@ -115,9 +118,10 @@ class TestVoiceService:
         mock_response.choices = [mock_choice]
 
         mock_openai_instance = MagicMock()
-        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai_instance.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_openai_instance.close = AsyncMock()
 
-        with patch("openai.OpenAI", return_value=mock_openai_instance):
+        with patch("openai.AsyncOpenAI", return_value=mock_openai_instance):
             result = await service.render_voice_reply("Some text.")
 
         assert result == "Voiced output."

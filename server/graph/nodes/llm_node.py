@@ -22,27 +22,32 @@ from typing import Any
 
 from openai import OpenAI
 
-from config.loader import load_llm_config
+from config.loader import load_llm_config, load_tuning
 from server.agent.llm_reliability import (
     build_llm_context,
     estimate_messages_tokens,
 )
 
-MODEL = "gpt-4o"  # Default model if config fails
 logger = logging.getLogger(__name__)
 
 
 # ── Retry constants (sync variant) ─────────────────────────────────
-MAX_RETRIES = 2
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
-BASE_DELAY = 1.0
-MAX_HISTORY_ROUNDS = 20
 
 # ── Client (lazy singleton) ────────────────────────────────────────
 _client: OpenAI | None = None
 _client_lock = threading.Lock()
 _config: dict | None = None
-_FALLBACK_REPLY = "抱歉，我现在暂时无法给出完整分析。请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
+
+
+def _get_tuning() -> dict:
+    return load_tuning().get("llm", {})
+
+
+def _get_fallback_reply() -> str:
+    return _get_tuning().get(
+        "fallback_reply", "抱歉，我现在暂时无法给出完整分析。请稍后再试，或者告诉我你的省份和分数，我帮你做个初步判断。"
+    )
 
 
 def _get_config() -> dict:
@@ -52,6 +57,15 @@ def _get_config() -> dict:
     return _config
 
 
+def _demo_reply() -> str:
+    """Return a deterministic response for the no-key community demo."""
+    return (
+        "当前运行在社区演示模式。这里展示的是合成数据和受控示例，"
+        "不能用于真实志愿填报。请配置可信数据源和模型后再进行分析，"
+        "并始终到省级教育考试院和高校官方招生页面复核。"
+    )
+
+
 def _get_llm_client() -> OpenAI:
     global _client
     cfg = _get_config()
@@ -59,15 +73,28 @@ def _get_llm_client() -> OpenAI:
         with _client_lock:
             if _client is None:
                 api_key = cfg["api_key"]
-                if not api_key:
+                base_url = cfg["base_url"]
+                if not api_key and not _is_local_base_url(base_url):
                     raise RuntimeError("LLM_API_KEY must be set (via config/llm_providers.yaml or env)")
                 _client = OpenAI(
-                    api_key=api_key,
-                    base_url=cfg["base_url"],
+                    api_key=api_key or "not-needed",
+                    base_url=base_url,
                     timeout=cfg.get("timeout", 120.0),
                     max_retries=2,
                 )
     return _client
+
+
+def _is_local_base_url(base_url: str) -> bool:
+    return any(
+        marker in base_url
+        for marker in (
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "ollama",
+        )
+    )
 
 
 def _load_system_prompt() -> str:
@@ -82,7 +109,7 @@ def _load_system_prompt() -> str:
 # ── Sync retry (for thread-pool / synchronous graph) ──────────────
 
 
-def _sync_retry(coro_factory, max_retries=MAX_RETRIES, base_delay=BASE_DELAY):
+def _sync_retry(coro_factory, max_retries=2, base_delay=1.0):
     """Sync retry wrapper using time.sleep (for use in thread pool)."""
     last_exc = None
     for attempt in range(max_retries + 1):
@@ -123,6 +150,10 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
     trace = list(state.get("trace", []))
     session_id = state.get("session_id", "")
 
+    if cfg.get("provider") == "demo":
+        trace.append({"node": "llm_reason", "event": "demo_reply_generated"})
+        return {"reply": _demo_reply(), "trace": trace, "degraded": False}
+
     try:
         client = _get_llm_client()
         system_prompt = _load_system_prompt()
@@ -158,21 +189,24 @@ def llm_node(state: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+        _tuning = _get_tuning()
         response = _sync_retry(
             lambda: client.chat.completions.create(
                 model=cfg["model"],
                 messages=messages,
                 temperature=cfg.get("temperature", 0.7),
                 max_tokens=cfg.get("max_tokens") or 2000,
-            )
+            ),
+            max_retries=_tuning.get("max_retries", 2),
+            base_delay=_tuning.get("retry_delay", 1.0),
         )
         content = response.choices[0].message.content
         reply = (content or "").strip()
         if not reply:
-            reply = _FALLBACK_REPLY
+            reply = _get_fallback_reply()
     except Exception as exc:
         logger.warning("LLM call failed after retries: %s", exc)
-        reply = _FALLBACK_REPLY
+        reply = _get_fallback_reply()
         trace.append(
             {
                 "node": "llm_reason",
@@ -219,7 +253,8 @@ def _maybe_trim(messages: list[dict]) -> list[dict]:
         else:
             rest.append(m)
 
-    max_to_keep = MAX_HISTORY_ROUNDS * 2
+    _tuning = _get_tuning()
+    max_to_keep = _tuning.get("max_history_rounds", 20) * 2
     if len(rest) > max_to_keep:
         dropped = len(rest) - max_to_keep
         rest = rest[-max_to_keep:]
@@ -243,6 +278,12 @@ def llm_node_stream(state: dict[str, Any]) -> Generator[tuple[str, bool], None, 
     """
     cfg = _get_config()
 
+    if cfg.get("provider") == "demo":
+        reply = _demo_reply()
+        for start in range(0, len(reply), 20):
+            yield (reply[start : start + 20], False)
+        return
+
     try:
         client = _get_llm_client()
         system_prompt = _load_system_prompt()
@@ -257,6 +298,7 @@ def llm_node_stream(state: dict[str, Any]) -> Generator[tuple[str, bool], None, 
         messages.append({"role": "user", "content": user_message})
         messages = _maybe_trim(messages)
 
+        _tuning = _get_tuning()
         stream = _sync_retry(
             lambda: client.chat.completions.create(
                 model=cfg["model"],
@@ -264,12 +306,14 @@ def llm_node_stream(state: dict[str, Any]) -> Generator[tuple[str, bool], None, 
                 temperature=cfg.get("temperature", 0.7),
                 max_tokens=cfg.get("max_tokens") or 2000,
                 stream=True,
-            )
+            ),
+            max_retries=_tuning.get("max_retries", 2),
+            base_delay=_tuning.get("retry_delay", 1.0),
         )
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield (chunk.choices[0].delta.content, False)
         return  # Normal completion
     except Exception:
-        for char in _FALLBACK_REPLY:
+        for char in _get_fallback_reply():
             yield (char, True)  # Degraded: stream fallback reply with degraded flag

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
+
+from db.crud import load_conversation_slots, save_slots
+from db.database import get_session
 from server.user_profile import UserProfile
 
 
@@ -103,6 +107,20 @@ class TestUserProfile:
         p = UserProfile.from_slots(slots)
         assert p.score == 580
 
+    def test_from_slots_accepts_flat_graph_slots(self):
+        """Graph memory stores slots as flat values; profile loading must support them."""
+        slots = {
+            "province": "湖北",
+            "score_rank": "580分",
+            "subject": "物理",
+            "interest": "计算机",
+        }
+        p = UserProfile.from_slots(slots)
+        assert p.province == "湖北"
+        assert p.score == 580
+        assert p.subject == "物理"
+        assert p.interest == "计算机"
+
     def test_score_validation(self):
         """Score must be within valid range."""
         # This is validated at API level, not model level
@@ -129,3 +147,36 @@ class TestUserProfile:
         assert p2.family == p.family
         assert p2.goal == p.goal
         assert p2.region == p.region
+
+
+def test_save_slots_merges_partial_updates():
+    """Profile fields and soul-query state should not overwrite each other."""
+    session_id = f"slot-merge-{uuid.uuid4().hex[:12]}"
+    db = get_session()
+    try:
+        save_slots(
+            db,
+            session_id,
+            {
+                "province": "湖北",
+                "score_rank": "580分",
+            },
+        )
+        save_slots(
+            db,
+            session_id,
+            {
+                "_query_state": {
+                    "round_count": 1,
+                    "asked_fields": ["province"],
+                    "skipped_fields": [],
+                }
+            },
+        )
+        slots = load_conversation_slots(db, session_id)
+    finally:
+        db.close()
+
+    assert slots["province"] == "湖北"
+    assert slots["score_rank"] == "580分"
+    assert slots["_query_state"]["round_count"] == 1

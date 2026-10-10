@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 5 — 语音模态框 · Gaobao Advisor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E85450;
+    --red-dark: #CC403E;
+    --red-light: #3a1e1e;
+    --gold: #D4A843;
+    --gold-dark: #B8922E;
+    --paper: #1a1817;
+    --surface: #252220;
+    --elevated: #302c28;
+    --ink: #e8e4da;
+    --secondary: #a8a092;
+    --muted: #6b655b;
+    --border: #3a3530;
+    --success: #4CAF50;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-modal: 0 8px 30px rgba(0,0,0,0.35);
+    --motion-fast: 150ms;
+    --motion-normal: 250ms;
+    --motion-slow: 400ms;
+    --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+    --font-display: "Noto Serif SC", "Source Han Serif SC", STSong, SimSun, Georgia, serif;
+    --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1817;
+  }
+
+  .dark-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--secondary);
+    font-family: var(--font-body);
+    box-shadow: var(--shadow-card);
+  }
+
+  .app-backdrop {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== VOICE MODAL ===== */
+  .voice-modal {
+    width: 360px;
+    background: linear-gradient(160deg, #1a1817 0%, #252220 50%, #302c28 100%);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 16px 60px rgba(0,0,0,0.5);
+    padding: 32px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .voice-modal::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: -40%;
+    width: 180%;
+    height: 180%;
+    background: radial-gradient(circle at 30% 30%, rgba(232,84,80,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Header */
+  .voice-header {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .voice-header .status {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .voice-header .advisor-name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Ripple */
+  .ripple-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 28px 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ripple-ring {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border: 2px solid var(--red);
+    border-radius: 50%;
+    opacity: 0;
+    animation: ripple-expand 2s ease-out infinite;
+  }
+
+  .ripple-ring:nth-child(2) { animation-delay: 0.6s; }
+  .ripple-ring:nth-child(3) { animation-delay: 1.2s; }
+
+  @keyframes ripple-expand {
+    0%   { transform: scale(0.8); opacity: 0.3; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  .ripple-center {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 0 30px rgba(232,84,80,0.3);
+    position: relative;
+    z-index: 2;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(232,84,80,0.2); }
+    50%      { box-shadow: 0 0 40px rgba(232,84,80,0.4); }
+  }
+
+  /* Subtitles */
+  .subtitle-area {
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .subtitle-user, .subtitle-ai {
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+  }
+
+  .subtitle-user {
+    background: rgba(232,84,80,0.1);
+    color: var(--red);
+    text-align: right;
+  }
+
+  .subtitle-ai {
+    background: rgba(255,255,255,0.04);
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .subtitle-placeholder {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 20px;
+  }
+
+  /* Controls */
+  .voice-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .vc-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all var(--motion-fast);
+  }
+
+  .vc-btn.secondary {
+    background: rgba(255,255,255,0.08);
+    color: var(--secondary);
+  }
+
+  .vc-btn.secondary:hover {
+    background: rgba(255,255,255,0.14);
+    color: var(--ink);
+  }
+
+  .vc-btn.primary {
+    background: var(--red);
+    color: white;
+    box-shadow: 0 4px 16px rgba(232,84,80,0.3);
+  }
+
+  .vc-btn.primary:hover {
+    background: var(--red-dark);
+    box-shadow: 0 4px 20px rgba(232,84,80,0.4);
+  }
+
+  .vc-btn.primary.listening {
+    animation: btn-breathe 1.5s ease-in-out infinite;
+  }
+
+  @keyframes btn-breathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+  }
+
+  .vc-label {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Close */
+  .voice-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    border: none;
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all var(--motion-fast);
+    z-index: 2;
+  }
+
+  .voice-close:hover {
+    background: rgba(255,255,255,0.12);
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+  <button class="dark-toggle" onclick="document.querySelector('.app-backdrop').style.display = document.querySelector('.app-backdrop').style.display === 'none' ? 'flex' : 'none'">
+    <span id="togBtn">👁</span> 切换背景
+  </button>
+
+  <div class="app-backdrop">
+    <div class="voice-modal">
+
+      <button class="voice-close">✕</button>
+
+      <div class="voice-header">
+        <div class="status">🔴 通话中</div>
+        <div class="advisor-name">志愿顾问</div>
+      </div>
+
+      <!-- Ripple -->
+      <div class="ripple-container">
+        <div class="ripple-ring"></div>
+        <div class="ripple-ring"></div>
+        <div class="ripple-ring"></div>
+        <div class="ripple-center">🎙</div>
+      </div>
+
+      <!-- Subtitles -->
+      <div class="subtitle-area">
+        <div class="subtitle-user">我想学计算机专业，624 分在山东能上什么学校？</div>
+        <div class="subtitle-ai">根据你的分数，中国石油大学（华东）的计算机专业非常匹配，录取概率约 72%...</div>
+        <div class="subtitle-placeholder" style="display: none;">点击下方按钮开始语音对话</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="voice-controls">
+        <button class="vc-btn secondary">🔇</button>
+        <button class="vc-btn primary listening">🎤</button>
+        <button class="vc-btn secondary">✕</button>
+      </div>
+
+      <div class="vc-label">点击麦克风开始说话</div>
+
+    </div>
+  </div>
+
+</body>
+</html>

@@ -2,7 +2,16 @@
 P2-1 知识库按需加载模块测试
 """
 
+from pathlib import Path
+
+import pytest
+
 from quality.knowledge_loader import load_contextual_knowledge
+
+pytestmark = pytest.mark.skipif(
+    not (Path(__file__).parent.parent / "knowledge").exists(),
+    reason="restricted knowledge corpus is intentionally absent from the public distribution",
+)
 
 
 class TestKnowledgeLoader:

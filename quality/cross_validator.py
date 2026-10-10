@@ -4,8 +4,11 @@ cross_validator — 录取数据交叉校验
 对比多个数据源的分数线/排名，输出置信度与差异提示。
 """
 
-SCORE_TOLERANCE = 5
-RANK_TOLERANCE_RATIO = 0.10
+from config.loader import load_tuning
+
+
+def _get_cv_config():
+    return load_tuning().get("thresholds", {}).get("cross_validation", {})
 
 
 def cross_validate_admission(sources: list[dict]) -> dict | None:
@@ -47,7 +50,11 @@ def cross_validate_admission(sources: list[dict]) -> dict | None:
     else:
         rank_diff_ratio = 0
 
-    if max_diff_score <= SCORE_TOLERANCE and rank_diff_ratio <= RANK_TOLERANCE_RATIO:
+    cv_cfg = _get_cv_config()
+    score_tolerance = cv_cfg.get("score_tolerance", 5)
+    rank_tolerance_ratio = cv_cfg.get("rank_tolerance_ratio", 0.10)
+
+    if max_diff_score <= score_tolerance and rank_diff_ratio <= rank_tolerance_ratio:
         return {
             "best": best,
             "confidence": "高",

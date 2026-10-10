@@ -93,9 +93,11 @@ def create_school(school_name: str, province: str, db_session) -> int:
     new_school = School(
         name=school_name,
         province=province,
-        level="",  # 未知等级
-        type="",
+        level=school_name[:10],  # 用名称前缀作为初始排序键
+        school_type="",
+        city="",
         website="",
+        data_source_note="xuefeng-agent 来源（等级未知）",
     )
     db_session.add(new_school)
     db_session.flush()

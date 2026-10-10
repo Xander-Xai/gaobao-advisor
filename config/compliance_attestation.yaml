@@ -1,0 +1,53 @@
+# Release evidence attestation.
+#
+# This file is the single machine-readable record of whether a human with the
+# authority to do so has reviewed and approved the data-rights, privacy and
+# redistribution positions that a public release depends on.
+#
+# CI reads it. While any item below is `blocked` or `draft`, the
+# `release-evidence` job fails on purpose and the project is reported as
+# PUBLIC_RELEASE_BLOCKED. Do not flip a value to `approved` to make CI green:
+# the value is a statement about a real review that a person performed.
+#
+# Required values per review: `approved`, `rejected`, `not-applicable` or `blocked`.
+# `approved` additionally requires reviewer and reviewed_at to be set.
+
+version: 1
+
+reviewer: null
+reviewed_at: null
+
+items:
+  # Right to use and redistribute the admission/school/major data that the
+  # project imports from third parties. See DATA_LICENSE.md and DATA_SOURCES.md.
+  data_rights: blocked
+
+  # Confirmation that the operator-facing privacy notice is accurate for the
+  # intended deployment. See PRIVACY.md.
+  privacy_disclosure: blocked
+
+  # Evidence that every public artifact (screenshots, sample databases, demo
+  # datasets, quoted text) may be redistributed.
+  public_redistribution: blocked
+
+  # Evidence that third-party dependency and content licenses were reviewed.
+  # See THIRD_PARTY_NOTICES.md and TRADEMARKS.md.
+  third_party_notices: blocked
+
+reasons:
+  data_rights: >-
+    The imported admission, school, major, rank and enrollment records are
+    collected from third-party sources. No written permission covering
+    redistribution has been recorded. The backups under backups/ that are
+    tracked on master contain a full SQLite copy of this data and must be
+    removed from history before any public release.
+  privacy_disclosure: >-
+    PRIVACY.md is an operator-facing draft. It has not been reviewed against the
+    laws of any specific jurisdiction and does not yet state a retention period.
+  public_redistribution: >-
+    demo-preview.gif, frontend design prototypes and several visual assets are
+    classified as `exclude` in config/open_source_assets.tsv because their
+    provenance has not been confirmed.
+  third_party_notices: >-
+    THIRD_PARTY_NOTICES.md is generated from the dependency manifests and has
+    not been reviewed by a human for accuracy or completeness.

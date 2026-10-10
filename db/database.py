@@ -2,16 +2,20 @@
 SQLite 数据库连接 — 零依赖外部服务，开箱即用
 """
 
+import logging
 import os
 import stat
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(HERE)
+from config.loader import load_runtime_settings
 
-DB_PATH = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
+logger = logging.getLogger(__name__)
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RUNTIME = load_runtime_settings()
+DB_PATH = RUNTIME["db_path"]
 
 # #15: DATABASE_URL 白名单校验（防止注入指向外部数据库）
 _RAW_DB_URL = os.getenv("DATABASE_URL", "")
@@ -40,7 +44,8 @@ engine = create_engine(
 def _set_wal_mode(dbapi_conn, connection_record):
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA busy_timeout=5000")
+    busy_timeout = int(os.getenv("GAOBAO__DB__BUSY_TIMEOUT", "5000"))
+    cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
     cursor.close()
 
 
@@ -64,7 +69,7 @@ def _lock_db_permissions(db_path: str):
             try:
                 os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
             except OSError as _e:
-                pass
+                logger.warning("Could not lock permissions on %s: %s", path, _e)
 
 
 def is_db_connected() -> bool:

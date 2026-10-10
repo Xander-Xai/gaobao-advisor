@@ -1,11 +1,21 @@
 """Graph node for LLM-as-Judge quality evaluation."""
 
+import hashlib
 import json
 import logging
 
 from quality.judge import QualityJudge
 
 logger = logging.getLogger(__name__)
+
+
+def _stable_message_id(reply: str) -> str:
+    """Generate a deterministic message_id from reply content.
+
+    Uses hashlib.md5 (stable across runs) instead of Python's hash()
+    which changes per process due to PYTHONHASHSEED randomization.
+    """
+    return hashlib.md5(reply.encode("utf-8")).hexdigest()[:16]
 
 
 def quality_judge_node(state: dict) -> dict:
@@ -46,7 +56,7 @@ def quality_judge_node(state: dict) -> dict:
         with SessionLocal() as session:
             qs = QualityScore(
                 conversation_id=state.get("session_id", ""),
-                message_id=str(hash(reply) % (10**9)),
+                message_id=_stable_message_id(reply),
                 factual_score=result.scores.get("factual"),
                 relevance_score=result.scores.get("relevance"),
                 helpfulness_score=result.scores.get("helpfulness"),

@@ -1,5 +1,7 @@
 """Tests for StructuredPlanningCard schema."""
 
+from datetime import datetime
+
 from server.domain.schemas import StructuredPlanningCard
 from server.graph.nodes.structure import structure_output_node
 
@@ -102,6 +104,106 @@ def test_structure_output_gaokao():
     assert card["scene"] == "gaokao"
     assert len(card["facts"]) > 0
     assert len(card["suggestions"]) > 0
+
+
+def test_structure_output_uses_score_rank_slot():
+    """Canonical extractor slot is score_rank; card should not ask for score again."""
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "河北", "score_rank": "600分", "subject": "物理类", "interest": "计算机"},
+        "data_query_results": {},
+        "reasoning": "",
+        "trace": [],
+    }
+    result = structure_output_node(state)
+    card = result["structured_result"]
+    assert "分数：600分" in card["facts"]
+    assert not any("补充分数" in action for action in card["next_actions"])
+
+
+def test_recommendation_includes_source_year_scope_and_official_check():
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "河北", "score_rank": "600分", "subject": "物理类"},
+        "data_query_results": {
+            "match_schools": [
+                {
+                    "school_name": "示例大学",
+                    "min_score": 595,
+                    "year": datetime.now().year - 1,
+                    "data_source": "河北省教育考试院投档数据",
+                }
+            ]
+        },
+    }
+
+    card = structure_output_node(state)["structured_result"]
+    recommendation = card["suggestions"][0]
+
+    assert str(datetime.now().year - 1) in recommendation
+    assert "来源" in recommendation
+    assert "考试院" in recommendation
+    assert any("辅助决策" in risk for risk in card["risks"])
+
+
+def test_unverified_recommendation_is_not_presented_as_admission_evidence():
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "河北", "score_rank": "600分"},
+        "data_query_results": {"match_schools": [{"school_name": "无来源大学", "min_score": 595}]},
+    }
+
+    card = structure_output_node(state)["structured_result"]
+
+    assert "无法验证" in card["suggestions"][0]
+    assert "不作为录取依据" in card["suggestions"][0]
+    assert card["confidence"] <= 0.2
+
+
+def test_synthetic_recommendation_is_never_presented_as_real_data():
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "星海省", "score_rank": "580分"},
+        "data_query_results": {
+            "match_schools": [
+                {
+                    "school_name": "星海理工学院",
+                    "min_score": 580,
+                    "year": 2099,
+                    "synthetic": True,
+                    "data_source": "SYNTHETIC DEMO DATA",
+                }
+            ]
+        },
+    }
+
+    card = structure_output_node(state)["structured_result"]
+
+    assert "合成演示" in card["suggestions"][0]
+    assert "不可用于真实志愿决策" in card["suggestions"][0]
+    assert card["confidence"] == 0.0
+
+
+def test_old_recommendation_is_labeled_as_historical():
+    old_year = datetime.now().year - 4
+    state = {
+        "scene": "gaokao",
+        "slots": {"province": "河北", "score_rank": "600分"},
+        "data_query_results": {
+            "match_schools": [
+                {
+                    "school_name": "历史示例大学",
+                    "min_score": 580,
+                    "year": old_year,
+                    "data_source": "河北省教育考试院投档数据",
+                }
+            ]
+        },
+    }
+
+    recommendation = structure_output_node(state)["structured_result"]["suggestions"][0]
+
+    assert "历史数据" in recommendation
 
 
 def test_structure_output_incomplete():

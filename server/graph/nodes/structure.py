@@ -2,16 +2,37 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
+from config.loader import load_tuning
 from server.domain.schemas import StructuredPlanningCard
 
-# Threshold for low-score risk warning (450分 ≈ 专科/高职 boundary)
-_LOW_SCORE_THRESHOLD = 450
+# Thresholds loaded from tuning.yaml
 _DEFAULT_SLOT_COUNT = 7
-_HIGH_RISK_MAJORS = {"金融", "法学", "新闻", "工商管理", "土木", "建筑学"}
 # Slot keys required for next actions
-MISSING_SLOT_KEYS = ["province", "score", "subject", "interest", "goal"]
+MISSING_SLOT_KEYS = ["province", "score_rank", "subject", "interest", "goal"]
+
+
+def _get_thresholds() -> dict:
+    """Load dynamic thresholds from tuning.yaml."""
+    return load_tuning().get("thresholds", {})
+
+
+def _slot_value(slots: dict, *keys: str) -> Any:
+    """Read a slot value from flat or nested slot representations."""
+    for key in keys:
+        val = slots.get(key)
+        if isinstance(val, dict):
+            val = val.get("value", "")
+        if val:
+            return val
+    return ""
+
+
+def _score_value(slots: dict) -> Any:
+    return _slot_value(slots, "score_rank", "score")
+
 
 _TITLE_MAP = {
     "gaokao": "高考志愿规划建议",
@@ -43,6 +64,9 @@ def structure_output_node(state: dict[str, Any]) -> dict[str, Any]:
         filled_count = len([v for v in slots.values() if v])
         total_slots = max(len(slots) if slots else _DEFAULT_SLOT_COUNT, 1)
         confidence = round(filled_count / total_slots, 2)
+        match_schools = data.get("match_schools", [])
+        if match_schools:
+            confidence = min(confidence, min(_provenance_confidence_cap(item) for item in match_schools))
 
         card = StructuredPlanningCard(
             title=_TITLE_MAP.get(scene, "教育规划建议"),
@@ -74,7 +98,7 @@ def _extract_facts(slots: dict, data: dict, reasoning: str) -> list[str]:
 
     slot_labels = {
         "province": "省份",
-        "score": "分数",
+        "score_rank": "分数",
         "subject": "选科",
         "interest": "专业意向",
         "region": "地域偏好",
@@ -82,7 +106,7 @@ def _extract_facts(slots: dict, data: dict, reasoning: str) -> list[str]:
         "goal": "核心诉求",
     }
     for key, label in slot_labels.items():
-        val = slots.get(key, "")
+        val = _score_value(slots) if key == "score_rank" else _slot_value(slots, key)
         if val:
             facts.append(f"{label}：{val}")
 
@@ -121,7 +145,7 @@ def _extract_suggestions(scene: str, data: dict, reasoning: str) -> list[str]:
             if name:
                 tag = f"（{level}）" if level else ""
                 score_str = f"，参考线{score}分" if score else ""
-                suggestions.append(f"推荐：{name}{tag}{score_str}")
+                suggestions.append(f"候选：{name}{tag}{score_str}{_provenance_label(s)}")
 
     if not suggestions:
         suggestions.append("建议补充更多信息以获得精准推荐")
@@ -129,28 +153,74 @@ def _extract_suggestions(scene: str, data: dict, reasoning: str) -> list[str]:
     return suggestions
 
 
+def _is_synthetic(record: dict[str, Any]) -> bool:
+    source_text = " ".join(
+        str(record.get(key, "")) for key in ("data_source", "source", "source_label", "data_source_note")
+    ).lower()
+    return bool(record.get("synthetic")) or "synthetic demo" in source_text or "合成演示" in source_text
+
+
+def _provenance_label(record: dict[str, Any]) -> str:
+    if _is_synthetic(record) or record.get("provenance_status") == "synthetic":
+        return "【合成演示数据，不可用于真实志愿决策】"
+
+    year = record.get("year")
+    source = record.get("data_source") or record.get("source")
+    if not year or not source or "无法验证" in str(source):
+        return "【来源或年份无法验证，不作为录取依据；请查省考试院和高校官网】"
+
+    try:
+        historical = int(year) < datetime.now().year - 2
+    except (TypeError, ValueError):
+        historical = True
+    age_label = "；历史数据" if historical else ""
+    return f"（来源：{source}；数据年份：{year}{age_label}；请以省考试院和高校官网最新信息为准）"
+
+
+def _provenance_confidence_cap(record: dict[str, Any]) -> float:
+    if _is_synthetic(record) or record.get("provenance_status") == "synthetic":
+        return 0.0
+    year = record.get("year")
+    source = record.get("data_source") or record.get("source")
+    if not year or not source or "无法验证" in str(source):
+        return 0.2
+    try:
+        if int(year) < datetime.now().year - 2:
+            return 0.4
+    except (TypeError, ValueError):
+        return 0.2
+    return 0.8
+
+
 def _extract_risks(scene: str, data: dict, slots: dict) -> list[str]:
     """Extract risk warnings."""
     risks: list[str] = []
 
     if scene == "gaokao":
-        score = slots.get("score", "")
+        thresholds = _get_thresholds()
+        low_score = thresholds.get("low_score", 450)
+        high_risk = set(thresholds.get("high_risk_majors", []))
+
+        score = _score_value(slots)
         if score:
             try:
                 score_num = int(str(score).replace("分", ""))
-                if score_num < _LOW_SCORE_THRESHOLD:
+                if score_num < low_score:
                     risks.append("分数较低，建议重点关注专科/高职优质专业")
             except (ValueError, TypeError):
                 pass
 
-        interest = slots.get("interest", "")
-        for r in _HIGH_RISK_MAJORS:
+        interest = _slot_value(slots, "interest")
+        for r in high_risk:
             if r in interest:
                 risks.append(f"「{interest}」属于需谨慎选择的专业方向，建议关注就业数据")
                 break
 
     if not risks:
         risks.append("数据有限，建议以官方最新信息为准")
+
+    if scene == "gaokao":
+        risks.append("AI 输出仅用于辅助决策，不能替代省考试院和高校的官方招生信息")
 
     return risks
 
@@ -159,9 +229,17 @@ def _extract_next_actions(scene: str, slots: dict, data: dict) -> list[str]:
     """Extract concrete next steps."""
     actions: list[str] = []
 
-    missing = [k for k in MISSING_SLOT_KEYS if not slots.get(k)]
+    missing = [
+        k for k in MISSING_SLOT_KEYS if not (_score_value(slots) if k == "score_rank" else _slot_value(slots, k))
+    ]
     if missing:
-        labels = {"province": "省份", "score": "分数", "subject": "选科", "interest": "专业意向", "goal": "核心诉求"}
+        labels = {
+            "province": "省份",
+            "score_rank": "分数",
+            "subject": "选科",
+            "interest": "专业意向",
+            "goal": "核心诉求",
+        }
         action_text = "、".join(labels.get(m, m) for m in missing[:3])
         actions.append(f"补充{action_text}信息")
 
@@ -175,9 +253,9 @@ def _extract_next_actions(scene: str, slots: dict, data: dict) -> list[str]:
 def _build_summary(scene: str, slots: dict, data: dict) -> str:
     """Build a one-line summary of the current analysis."""
     parts: list[str] = []
-    province = slots.get("province", "")
-    score = slots.get("score", "")
-    interest = slots.get("interest", "")
+    province = _slot_value(slots, "province")
+    score = _score_value(slots)
+    interest = _slot_value(slots, "interest")
 
     if province:
         parts.append(province)

@@ -33,9 +33,11 @@ def validate() -> None:
     print("\n总体统计:")
     print(f"  院校总数: {total_schools}")
     print(f"  录取分数记录: {total_scores}")
-    print(
-        f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({schools_with_scores / total_schools * 100:.1f}%)"
-    )
+    if total_schools:
+        coverage = schools_with_scores / total_schools * 100
+        print(f"  有分数数据的院校: {schools_with_scores}/{total_schools} ({coverage:.1f}%)")
+    else:
+        print("  有分数数据的院校: 0/0 (n/a — 数据库中没有任何院校记录，无法计算覆盖率)")
 
     # 2. 省份覆盖
     print("\n省份覆盖:")

@@ -1,0 +1,17 @@
+# config/brand.yaml — 品牌信息集中配置
+# Fork 后修改此文件即可完成品牌替换
+
+brand:
+  name: "高考志愿AI顾问"
+  short_name: "志愿顾问"
+  slogan: "助力每一个梦想"
+  copyright: "© 高考志愿AI顾问"
+
+report:
+  title: "高考志愿填报分析报告"
+  year: 2026
+  cover_title: "金榜题名"
+  cover:
+    primary_color: "#1e40af"
+    secondary_color: "#3b82f6"
+    accent_color: "#f59e0b"

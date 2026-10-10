@@ -6,5 +6,32 @@ __pycache__
 data/
 .env
 .streamlit/secrets.toml
-demo-preview.gif
 *.db
+
+# Open-source release: keep local and generated artifacts out of images
+.env.*
+!.env.example
+.venv/
+.claude/
+.worktrees/
+node_modules/
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+**/*.db*
+backups/
+logs/
+data/reports/
+frontend/test-results/
+test-results/
+playwright-report/
+htmlcov/
+.coverage*
+frontend/node_modules/
+frontend/dist/
+
+# The future synthetic demo dataset is the only data allowed in images.
+!data/sample/
+!data/sample/**

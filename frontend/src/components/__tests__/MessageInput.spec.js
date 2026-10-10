@@ -19,9 +19,11 @@ describe('MessageInput', () => {
     const textarea = wrapper.find('textarea')
     await textarea.setValue('测试消息')
 
-    const button = wrapper.findAll('button').find(b => b.text().includes('发送'))
-    if (button) {
-      await button.trigger('click')
+    // Find the send button (the last button which has .btn-send class)
+    const buttons = wrapper.findAll('button')
+    const sendBtn = buttons.find(b => b.classes().includes('btn-send'))
+    if (sendBtn) {
+      await sendBtn.trigger('click')
       // The component calls chat.sendMessage internally, not emit
       expect(wrapper.emitted()).toBeDefined()
     }
@@ -39,9 +41,10 @@ describe('MessageInput', () => {
 
   it('disables send button when streaming', () => {
     const wrapper = mount(MessageInput)
-    // Component uses chat.isStreaming for disabled state
-    const button = wrapper.findAll('button').find(b => b.text().includes('发送'))
-    expect(button).toBeDefined()
+    // Find the send button by its btn-send class
+    const buttons = wrapper.findAll('button')
+    const sendBtn = buttons.find(b => b.classes().includes('btn-send'))
+    expect(sendBtn).toBeDefined()
   })
 
   it('clears input after sending', async () => {
@@ -49,9 +52,10 @@ describe('MessageInput', () => {
     const textarea = wrapper.find('textarea')
     await textarea.setValue('测试消息')
 
-    const button = wrapper.findAll('button').find(b => b.text().includes('发送'))
-    if (button) {
-      await button.trigger('click')
+    const buttons = wrapper.findAll('button')
+    const sendBtn = buttons.find(b => b.classes().includes('btn-send'))
+    if (sendBtn) {
+      await sendBtn.trigger('click')
     }
 
     // After send, input should be cleared (handled by component logic)

@@ -1,0 +1,116 @@
+{
+  "metadata": {
+    "name": "gaobao-advisor synthetic community demo",
+    "synthetic": true,
+    "license": "CC0-1.0",
+    "warning": "全部内容为合成演示数据，不代表任何真实学校、考生或录取结果，不得用于真实志愿决策。"
+  },
+  "schools": [
+    {
+      "name": "北辰示例科技大学（合成）",
+      "province": "示例省",
+      "city": "北辰示例市",
+      "level": "示例本科",
+      "school_type": "理工",
+      "synthetic": true
+    },
+    {
+      "name": "海岳示例师范学院（合成）",
+      "province": "示例省",
+      "city": "海岳示例市",
+      "level": "示例本科",
+      "school_type": "师范",
+      "synthetic": true
+    },
+    {
+      "name": "云帆示例职业大学（合成）",
+      "province": "示例省",
+      "city": "云帆示例市",
+      "level": "示例职业本科",
+      "school_type": "综合",
+      "synthetic": true
+    }
+  ],
+  "majors": [
+    {
+      "name": "示例计算机工程（合成）",
+      "category": "工学",
+      "sub_category": "演示专业类",
+      "synthetic": true
+    },
+    {
+      "name": "示例教育技术（合成）",
+      "category": "教育学",
+      "sub_category": "演示专业类",
+      "synthetic": true
+    },
+    {
+      "name": "示例智能制造（合成）",
+      "category": "工学",
+      "sub_category": "演示专业类",
+      "synthetic": true
+    }
+  ],
+  "admission_scores": [
+    {
+      "school": "北辰示例科技大学（合成）",
+      "major": "示例计算机工程（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 580,
+      "min_rank": 12000
+    },
+    {
+      "school": "北辰示例科技大学（合成）",
+      "major": "示例智能制造（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 565,
+      "min_rank": 18000
+    },
+    {
+      "school": "海岳示例师范学院（合成）",
+      "major": "示例教育技术（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 540,
+      "min_rank": 26000
+    },
+    {
+      "school": "海岳示例师范学院（合成）",
+      "major": "示例计算机工程（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 535,
+      "min_rank": 28000
+    },
+    {
+      "school": "云帆示例职业大学（合成）",
+      "major": "示例智能制造（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 490,
+      "min_rank": 48000
+    },
+    {
+      "school": "云帆示例职业大学（合成）",
+      "major": "示例教育技术（合成）",
+      "province": "示例省",
+      "year": 2099,
+      "batch": "演示批次",
+      "subject_type": "演示选科",
+      "min_score": 485,
+      "min_rank": 51000
+    }
+  ]
+}

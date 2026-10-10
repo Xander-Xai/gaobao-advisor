@@ -12,8 +12,6 @@ import sys  # noqa: E402
 if sys_path_dir not in sys.path:
     sys.path.insert(0, sys_path_dir)
 
-DB_PATH = os.path.join(PROJECT_ROOT, "data", "gaokao.db")
-
 
 @pytest.fixture
 def in_memory_db():
@@ -284,23 +282,62 @@ class TestPopulateFromAdmissionScores:
             os.unlink(tmp_path)
 
 
+@pytest.fixture
+def rank_table_db(tmp_path):
+    """A throwaway file database holding the rows reverse_engineer_rank_table reads.
+
+    The function takes a ``db_path`` and otherwise falls back to the working
+    ``data/gaokao.db``. Tests must pass an explicit path so they exercise the
+    function instead of whatever database the developer happens to have.
+    """
+    db_file = tmp_path / "rank_table.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute(
+        """
+        CREATE TABLE admission_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            province TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            subject_type TEXT NOT NULL,
+            min_score INTEGER,
+            min_rank INTEGER
+        )
+        """
+    )
+    conn.executemany(
+        "INSERT INTO admission_scores (province, year, subject_type, min_score, min_rank) VALUES (?, ?, ?, ?, ?)",
+        [
+            ("广东", 2024, "物理类", 690, 50),
+            ("广东", 2024, "物理类", 688, 60),
+            ("广东", 2024, "物理类", 650, 800),
+            ("广东", 2024, "物理类", 650, 700),
+            ("河南", 2023, "物理类", 610, 12000),
+            ("河南", 2023, "物理类", None, 13000),
+        ],
+    )
+    conn.commit()
+    conn.close()
+    return str(db_file)
+
+
 class TestReverseEngineerRankTable:
     """Tests for the existing reverse_engineer_rank_table() function."""
 
-    def test_returns_correct_structure(self):
+    def test_returns_correct_structure(self, rank_table_db):
         """Should return dict keyed by (province, year, subject_type)."""
         from scripts.import_yi_fen_yi_duan import reverse_engineer_rank_table
 
-        rank_table = reverse_engineer_rank_table()
+        rank_table = reverse_engineer_rank_table(db_path=rank_table_db)
         assert isinstance(rank_table, dict)
+        assert rank_table
         for key in rank_table:
             assert len(key) == 3, f"Key should be (province, year, subject_type), got {key}"
 
-    def test_no_duplicates_in_score_map(self):
+    def test_no_duplicates_in_score_map(self, rank_table_db):
         """Each score in the mapping should appear exactly once."""
         from scripts.import_yi_fen_yi_duan import reverse_engineer_rank_table
 
-        rank_table = reverse_engineer_rank_table()
+        rank_table = reverse_engineer_rank_table(db_path=rank_table_db)
         for _key, score_map in rank_table.items():
             # score_map values should all be positive integers
             for score, rank in score_map.items():

@@ -18,7 +18,12 @@ def profile_check_node(state: dict[str, Any]) -> dict[str, Any]:
     config = SCENE_CONFIGS.get(scene, SCENE_CONFIGS["general"])
     required = config["required_slots"]
 
-    missing = [field for field in required if not slots.get(field)]
+    def _has_required(field: str) -> bool:
+        if field == "score_rank":
+            return bool(slots.get("score_rank") or slots.get("score"))
+        return bool(slots.get(field))
+
+    missing = [field for field in required if not _has_required(field)]
 
     # Build profile snapshot from filled slots
     profile = {k: v for k, v in slots.items() if v}

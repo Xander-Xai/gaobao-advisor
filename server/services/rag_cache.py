@@ -38,7 +38,22 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from config.loader import load_tuning
+from server.privacy import safe_exception_name
+
 logger = logging.getLogger(__name__)
+
+# Lazy-load: cache config will be loaded on first use, not at import time
+_CACHE_CONFIG: dict | None = None
+
+
+def _get_cache_config() -> dict:
+    """Return the RAG cache configuration, lazy-loaded from tuning.yaml."""
+    global _CACHE_CONFIG
+    if _CACHE_CONFIG is None:
+        _CACHE_CONFIG = load_tuning().get("rag", {}).get("cache", {})
+    return _CACHE_CONFIG
+
 
 # Check if Redis is available
 try:
@@ -84,10 +99,13 @@ class RagCache:
             exact_ttl: TTL for exact match cache entries (seconds)
             semantic_ttl: TTL for semantic match cache entries (seconds)
         """
-        self.exact_ttl = exact_ttl
-        self.semantic_ttl = semantic_ttl
+        cfg = _get_cache_config()
+        self._max_memory_entries = (
+            max_memory_entries if max_memory_entries != 1000 else cfg.get("max_memory_entries", 1000)
+        )
+        self.exact_ttl = exact_ttl if exact_ttl != 86400 else cfg.get("exact_ttl", exact_ttl)
+        self.semantic_ttl = semantic_ttl if semantic_ttl != 3600 else cfg.get("semantic_ttl", semantic_ttl)
         self._memory_cache: dict[str, tuple[Any, float]] = {}
-        self._max_memory_entries = max_memory_entries
 
         # Initialize Redis client if available
         self._redis: redis.Redis | None = None
@@ -96,9 +114,9 @@ class RagCache:
             try:
                 self._redis = redis.from_url(redis_url, decode_responses=True)
                 self._redis.ping()
-                logger.info("Connected to Redis at %s", redis_url)
+                logger.info("Connected to configured Redis endpoint")
             except Exception as e:
-                logger.warning("Failed to connect to Redis (%s) — using in-memory cache", e)
+                logger.warning("Failed to connect to Redis (%s) — using in-memory cache", safe_exception_name(e))
                 self._redis = None
 
     def _compute_query_hash(self, user_msg: str, slots: dict) -> str:
@@ -139,16 +157,16 @@ class RagCache:
             try:
                 cached = self._redis.get(f"rag:{query_hash}")
                 if cached:
-                    logger.debug("Cache hit (Redis): %s", user_msg[:50])
+                    logger.debug("Cache hit (Redis): ref-%s", query_hash[:12])
                     return json.loads(cached)
             except Exception as e:
-                logger.warning("Redis get failed: %s", e)
+                logger.warning("Redis get failed: %s", safe_exception_name(e))
 
         # Fallback to memory cache
         if query_hash in self._memory_cache:
             result, expiry = self._memory_cache[query_hash]
             if time.time() < expiry:
-                logger.debug("Cache hit (memory): %s", user_msg[:50])
+                logger.debug("Cache hit (memory): ref-%s", query_hash[:12])
                 return result
             else:
                 # Expired, remove
@@ -180,9 +198,9 @@ class RagCache:
         if self._redis:
             try:
                 self._redis.setex(f"rag:{query_hash}", ttl, result_json)
-                logger.debug("Cached to Redis: %s (TTL=%ds)", user_msg[:50], ttl)
+                logger.debug("Cached to Redis: ref-%s (TTL=%ds)", query_hash[:12], ttl)
             except Exception as e:
-                logger.warning("Redis set failed: %s", e)
+                logger.warning("Redis set failed: %s", safe_exception_name(e))
 
         # Also store in memory cache (LRU eviction)
         self._memory_cache[query_hash] = (result, expiry)

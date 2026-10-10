@@ -21,11 +21,15 @@ logs/
 data/.session_secret
 
 # Python
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
 .ruff_cache/
+
+# JavaScript package-manager output
+node_modules/
 
 # 运行时数据库（自动生成）
 data/*.db
@@ -38,11 +42,7 @@ gaokao_cache.db
 
 # 开发备份
 backup/
-
-# 视频制作临时文件
-xuefeng-promo-video/
-demo-thumb.gif
-demo-video.mp4
+data/dedupe-logs/
 
 # 系统文件
 .DS_Store
@@ -61,3 +61,41 @@ knowledge/quotes/quote_meta.json
 knowledge/quotes/group_embeddings.npy
 knowledge/quotes/group_meta.json
 .worktrees/
+
+# Open-source release: generated runtime artifacts
+data/reports/
+frontend/test-results/
+test-results/
+playwright-report/
+blob-report/
+htmlcov/
+.coverage.*
+
+# Open-source release: local data and backup artifacts
+backups/
+data/*.db.corrupted
+data/*.sqlite
+data/*.sqlite3
+
+# Open-source release: local monitoring state
+grafana-data/
+prometheus-data/
+monitoring/data/
+
+# Open-source release: private/restricted source material retained locally
+knowledge/
+prompts/
+content_scripts/
+memory/
+skills/gaokao/*.md
+data/checkpoint_plans.json
+frontend/public/favicon.svg
+frontend/public/icons.svg
+frontend/src/assets/
+demo-preview.gif
+frontend/src/design/prototypes/*-preview.png
+docs/bug-report-*.md
+
+# 离线 wheel 缓存（保留占位文件，忽略包体）
+wheels/*
+!wheels/README.md

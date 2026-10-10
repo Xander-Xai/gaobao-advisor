@@ -38,6 +38,16 @@ def test_generator_extracts_student_info():
     assert report.interest == "法学"
 
 
+def test_generator_extracts_score_rank_slot():
+    report = ReportGenerator.from_card(
+        card=None,
+        session_id="test",
+        slots={"province": "河南", "score_rank": "580分", "subject": "历史", "interest": "法学"},
+    )
+    assert report.score == 580
+    assert report.province == "河南"
+
+
 def test_generator_with_student_name():
     card = StructuredPlanningCard(title="测试", summary="测试", scene="gaokao")
     report = ReportGenerator.from_card(

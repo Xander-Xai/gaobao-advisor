@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from enum import Enum
 
+from config.loader import load_llm_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,8 +24,19 @@ class TaskType(str, Enum):
 
 FAST_TASKS = {TaskType.FAQ, TaskType.DATA_QUERY, TaskType.RAG, TaskType.SUMMARY, TaskType.REPORT_FORMAT}
 SMART_TASKS = {TaskType.RECOMMEND, TaskType.STRATEGY, TaskType.QUALITY_CHECK, TaskType.STRUCTURED_OUTPUT}
-AGNES_PROVIDERS = ["agnes-flash-1", "agnes-flash-2"]
-SMART_PROVIDER = "glm-4"
+
+
+def _get_fast_providers() -> list[str]:
+    """Read fast provider list from llm_providers.yaml roles."""
+    config = load_llm_config()
+    return list(config.get("roles", {}).get("fast", ["agnes-flash-1", "agnes-flash-2"]))
+
+
+def _get_smart_provider() -> str:
+    """Read smart provider from llm_providers.yaml roles."""
+    config = load_llm_config()
+    smart = config.get("roles", {}).get("smart", [])
+    return smart[0] if smart else "glm-4"
 
 
 class LLMRouter:
@@ -32,22 +45,27 @@ class LLMRouter:
 
     def route(self, task_type: TaskType | str) -> str:
         task = TaskType(task_type) if isinstance(task_type, str) else task_type
-        if task in FAST_TASKS:
-            provider = AGNES_PROVIDERS[self._agnes_index % len(AGNES_PROVIDERS)]
+        fast_providers = _get_fast_providers()
+        if task in FAST_TASKS and fast_providers:
+            provider = fast_providers[self._agnes_index % len(fast_providers)]
             self._agnes_index += 1
             return provider
         elif task in SMART_TASKS:
-            return SMART_PROVIDER
+            return _get_smart_provider()
         else:
-            provider = AGNES_PROVIDERS[self._agnes_index % len(AGNES_PROVIDERS)]
-            self._agnes_index += 1
-            return provider
+            if fast_providers:
+                provider = fast_providers[self._agnes_index % len(fast_providers)]
+                self._agnes_index += 1
+                return provider
+            return _get_smart_provider()
 
     def build_fallback_chain(self, primary: str) -> list[str]:
-        if primary.startswith("agnes"):
-            other = "agnes-flash-2" if primary == "agnes-flash-1" else "agnes-flash-1"
-            return [primary, other, SMART_PROVIDER]
-        elif primary == SMART_PROVIDER:
-            return [SMART_PROVIDER, "agnes-flash-1", "agnes-flash-2"]
+        fast_providers = _get_fast_providers()
+        smart = _get_smart_provider()
+        if primary in fast_providers:
+            others = [p for p in fast_providers if p != primary]
+            return [primary] + others + [smart]
+        elif primary == smart:
+            return [smart] + fast_providers
         else:
-            return [primary, "agnes-flash-1", "agnes-flash-2", SMART_PROVIDER]
+            return [primary] + fast_providers + [smart]

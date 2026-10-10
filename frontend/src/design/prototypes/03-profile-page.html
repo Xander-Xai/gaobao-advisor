@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 3 — 用户画像页 · Gaobao Advisor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #D4312E;
+    --red-dark: #B8282A;
+    --red-light: #FDF1F0;
+    --gold: #C6922A;
+    --gold-light: #FBF1E0;
+    --gold-dark: #A37822;
+    --paper: #f5f0e8;
+    --surface: #faf7f0;
+    --elevated: #ffffff;
+    --ink: #1a1817;
+    --secondary: #55504a;
+    --muted: #8a847b;
+    --disabled: #c0b8ad;
+    --border: #e0d8ca;
+    --border-light: #ece5d8;
+    --success: #2A9D3E;
+    --success-light: #e8f5e9;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-modal: 0 8px 30px rgba(0,0,0,0.12);
+    --motion-fast: 150ms;
+    --motion-normal: 250ms;
+    --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+    --font-display: "Noto Serif SC", "Source Han Serif SC", STSong, SimSun, Georgia, serif;
+    --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--paper);
+    min-height: 100vh;
+    padding: 80px 24px;
+  }
+
+  .dark-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--secondary);
+    font-family: var(--font-body);
+    box-shadow: var(--shadow-card);
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* ===== HEADER ===== */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .page-header .title-section h1 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .page-header .title-section .session-id {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .completeness-section {
+    text-align: right;
+  }
+
+  .completeness-section .label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .progress-bar {
+    width: 140px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 71%;
+    border-radius: var(--radius-full);
+    background: linear-gradient(90deg, var(--gold) 0%, var(--red) 100%);
+    transition: width 0.4s ease;
+  }
+
+  .completeness-pct {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .completeness-pct span { color: var(--red); }
+
+  /* ===== SOUL QUESTION ===== */
+  .soul-question-card {
+    background: var(--surface);
+    border: 1px solid var(--gold);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(198,146,42,0.08);
+  }
+
+  .soul-question-card .tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    margin-bottom: 6px;
+  }
+
+  .soul-question-card .question {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  /* ===== FIELD GRID ===== */
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .field-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    transition: box-shadow var(--motion-fast);
+  }
+
+  .field-card:hover {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .field-card .field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .field-card .field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--secondary);
+  }
+
+  .field-card .field-label .required {
+    color: var(--red);
+    margin-left: 2px;
+  }
+
+  .field-card .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .field-card .badge.filled {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .field-card .badge.empty {
+    background: var(--border);
+    color: var(--muted);
+  }
+
+  .field-card .field-value {
+    font-size: 14px;
+    min-height: 1.5em;
+    margin-bottom: 8px;
+  }
+
+  .field-card .field-value.has-value { color: var(--ink); font-weight: 500; }
+  .field-card .field-value.no-value { color: var(--disabled); }
+
+  .field-card .field-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .field-card .field-actions button {
+    font-size: 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 2px 0;
+    font-family: var(--font-body);
+    transition: color var(--motion-fast);
+  }
+
+  .field-card .field-actions .edit-btn {
+    color: var(--red);
+  }
+
+  .field-card .field-actions .edit-btn:hover {
+    color: var(--red-dark);
+  }
+
+  .field-card .field-actions .skip-btn {
+    color: var(--muted);
+  }
+
+  .field-card .field-actions .skip-btn:hover {
+    color: var(--secondary);
+  }
+
+  /* Edit mode */
+  .field-card .edit-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .field-card .edit-row input {
+    flex: 1;
+    background: var(--elevated);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font: 400 14px var(--font-body);
+    color: var(--ink);
+    outline: none;
+  }
+
+  .field-card .edit-row input:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(212,49,46,0.12);
+  }
+
+  .field-card .edit-row .save-btn {
+    padding: 8px 14px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font: 600 13px var(--font-body);
+    cursor: pointer;
+  }
+
+  .field-card .edit-row .cancel-btn {
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font: 500 13px var(--font-body);
+    cursor: pointer;
+  }
+
+  /* ===== FOOTER ===== */
+  .page-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 20px;
+    background: var(--surface);
+    color: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font: 500 14px var(--font-body);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--motion-fast);
+  }
+
+  .back-link:hover {
+    border-color: var(--muted);
+    color: var(--ink);
+  }
+
+  .btn-next-question {
+    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--red) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font: 600 14px var(--font-body);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity var(--motion-fast);
+  }
+
+  .btn-next-question:hover { opacity: 0.9; }
+
+  /* ===== DARK MODE ===== */
+  body.dark {
+    --red: #E85450;
+    --red-dark: #CC403E;
+    --red-light: #3a1e1e;
+    --gold: #D4A843;
+    --gold-light: #2a2416;
+    --gold-dark: #B8922E;
+    --paper: #1a1817;
+    --surface: #252220;
+    --elevated: #302c28;
+    --ink: #e8e4da;
+    --secondary: #a8a092;
+    --muted: #6b655b;
+    --border: #3a3530;
+    --border-light: #2e2a26;
+    --success: #4CAF50;
+    --success-light: #1a2e1a;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-raised: 0 4px 12px rgba(0,0,0,0.25);
+  }
+
+  /* Full width field */
+  .field-card.full-width {
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+  <button class="dark-toggle" onclick="document.body.classList.toggle('dark')">
+    <span>🌙</span> 切换深色
+  </button>
+
+  <div class="container">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="title-section">
+        <h1>📋 用户画像</h1>
+        <p class="session-id">session: abc-def-123-456</p>
+      </div>
+      <div class="completeness-section">
+        <div class="label">完整度</div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 71%;"></div>
+        </div>
+        <div class="completeness-pct"><span>71</span>%</div>
+      </div>
+    </div>
+
+    <!-- Soul Question -->
+    <div class="soul-question-card">
+      <div class="tag">🧿 灵魂提问 #3</div>
+      <div class="question">
+        你未来更倾向于在一线城市发展，还是回到家乡省份？这对院校地区的选择会有很大影响。
+      </div>
+    </div>
+
+    <!-- Field Grid -->
+    <div class="field-grid">
+
+      <!-- Province -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">省份 <span class="required">*</span></span>
+          <span class="badge filled">✓ 已填</span>
+        </div>
+        <div class="field-value has-value">山东</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+        </div>
+      </div>
+
+      <!-- Score -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">分数 <span class="required">*</span></span>
+          <span class="badge filled">✓ 已填</span>
+        </div>
+        <div class="field-value has-value">624 分</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+        </div>
+      </div>
+
+      <!-- Subject -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">选科 <span class="required">*</span></span>
+          <span class="badge filled">✓ 已填</span>
+        </div>
+        <div class="field-value has-value">物理 + 化学</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+        </div>
+      </div>
+
+      <!-- Interest -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">意向专业 <span class="required">*</span></span>
+          <span class="badge filled">✓ 已填</span>
+        </div>
+        <div class="field-value has-value">计算机</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+        </div>
+      </div>
+
+      <!-- Region (empty, editable) -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">地域偏好</span>
+          <span class="badge empty">未填</span>
+        </div>
+        <div class="field-value no-value">—</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+          <button class="skip-btn">跳过</button>
+        </div>
+      </div>
+
+      <!-- Family (empty, editable in edit mode) -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">家庭背景</span>
+          <span class="badge empty">未填</span>
+        </div>
+        <div class="edit-row">
+          <input type="text" placeholder="工薪 / 公务员 / 自由职业" value="工薪家庭">
+          <button class="save-btn">保存</button>
+          <button class="cancel-btn">取消</button>
+        </div>
+      </div>
+
+      <!-- Goal -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">升学目标</span>
+          <span class="badge filled">✓ 已填</span>
+        </div>
+        <div class="field-value has-value">就业 + 考研</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+          <button class="skip-btn">跳过</button>
+        </div>
+      </div>
+
+      <!-- Empty state: nothing yet -->
+      <div class="field-card">
+        <div class="field-header">
+          <span class="field-label">特长竞赛</span>
+          <span class="badge empty">未填</span>
+        </div>
+        <div class="field-value no-value">—</div>
+        <div class="field-actions">
+          <button class="edit-btn">编辑</button>
+          <button class="skip-btn">跳过</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="page-footer">
+      <button class="back-link">← 返回对话</button>
+      <button class="btn-next-question">🔄 下一题</button>
+    </div>
+
+  </div>
+
+</body>
+</html>

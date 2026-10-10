@@ -27,6 +27,16 @@ class TestScoreAnnotation:
         assert "数据来源待补全" not in result
         assert result == reply
 
+    def test_vague_data_claim_is_not_treated_as_a_source(self) -> None:
+        reply = "数据显示，该校录取线为 580 分。"
+        result = validate_source_attribution(reply)
+        assert "数据来源待补全" in result
+
+    def test_source_without_year_is_marked_incomplete(self) -> None:
+        reply = "该校录取线为 580 分（来源：省教育考试院）。"
+        result = validate_source_attribution(reply)
+        assert "来源年份待补全" in result
+
     def test_rank_with_source_unchanged(self) -> None:
         """位次 + 来源不应被标。"""
         reply = "你的全省位次为 2 万名（来源：湖北省一分一段表 2024）"

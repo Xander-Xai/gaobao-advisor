@@ -1,0 +1,17 @@
+title = "gaobao-advisor secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exact documentation and test placeholders"
+regexTarget = "match"
+regexes = [
+  '''your-api-key-here''',
+  '''your-siliconflow-api-key-here''',
+  '''your_api_key_here''',
+  '''test-key-123''',
+  '''https://hooks\.slack\.com/services/YOUR/WEBHOOK/URL''',
+  '''https://hooks\.slack\.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX''',
+  '''Bearer YOUR_TOKEN''',
+]

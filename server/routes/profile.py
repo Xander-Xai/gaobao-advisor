@@ -9,21 +9,12 @@ Endpoints:
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from server.auth import verify_session_token
+from server.auth import require_bearer_auth
 from server.deps import get_soul_query_engine
 from server.soul_query import QueryState
 from server.user_profile import load_profile, save_profile
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
-
-
-def _require_auth(session_id: str, authorization: str | None = None) -> None:
-    """Validate session ownership via Bearer token. Raises 401 on failure."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing session token")
-    token = authorization.removeprefix("Bearer ").strip()
-    if not verify_session_token(session_id, token):
-        raise HTTPException(status_code=401, detail="Invalid or expired session token")
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -52,7 +43,7 @@ class SkipFieldRequest(BaseModel):
 @router.get("/profile/{session_id}", response_model=ProfileResponse)
 async def get_profile(session_id: str, authorization: str | None = Header(None)):
     """Get current user profile and completeness status."""
-    _require_auth(session_id, authorization)
+    require_bearer_auth(session_id, authorization)
     profile = load_profile(session_id)
     return ProfileResponse(
         session_id=session_id,
@@ -65,7 +56,7 @@ async def get_profile(session_id: str, authorization: str | None = Header(None))
 @router.put("/profile/{session_id}", response_model=ProfileResponse)
 async def update_profile_field(session_id: str, req: ProfileUpdateRequest, authorization: str | None = Header(None)):
     """Update a single profile field."""
-    _require_auth(session_id, authorization)
+    require_bearer_auth(session_id, authorization)
     profile = load_profile(session_id)
     valid_fields = {"province", "score", "subject", "interest", "region", "family", "goal"}
     if req.field not in valid_fields:
@@ -95,7 +86,7 @@ async def update_profile_field(session_id: str, req: ProfileUpdateRequest, autho
 @router.get("/profile/{session_id}/next-question", response_model=NextQuestionResponse)
 async def get_next_question(session_id: str, authorization: str | None = Header(None)):
     """Get the next soul query question for this session."""
-    _require_auth(session_id, authorization)
+    require_bearer_auth(session_id, authorization)
     engine = get_soul_query_engine()
     profile = load_profile(session_id)
     query_state = _load_query_state(session_id)
@@ -114,7 +105,7 @@ async def get_next_question(session_id: str, authorization: str | None = Header(
 @router.post("/profile/{session_id}/skip")
 async def skip_field(session_id: str, req: SkipFieldRequest, authorization: str | None = Header(None)):
     """Skip an optional field (uses default value)."""
-    _require_auth(session_id, authorization)
+    require_bearer_auth(session_id, authorization)
     engine = get_soul_query_engine()
     query_state = _load_query_state(session_id)
     engine.handle_skip(query_state, req.field)

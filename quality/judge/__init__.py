@@ -25,6 +25,8 @@ from typing import Any
 from quality.judge.hallucination import HallucinationDetector
 from quality.judge.judge_router import JudgeRouter
 from quality.judge.scorecard import (
+    DIMENSION_WEIGHTS,
+    DimensionScore,
     JudgeResult,
     compute_aggregate,
 )
@@ -46,6 +48,36 @@ class QualityJudge:
         """
         self._router = JudgeRouter(model_name=model_name)
         self._hallucination_detector = HallucinationDetector()
+
+    def _fallback_result(
+        self,
+        query: str,
+        reply: str,
+        context: dict[str, Any] | None,
+        reason: str,
+        start_time: float | None = None,
+    ) -> JudgeResult:
+        """Build a non-blocking fallback result when async judging is unavailable."""
+        start_time = start_time or time.monotonic()
+        context = context or {}
+        knowledge_chunks = context.get("knowledge_chunks")
+        dimensions = [
+            DimensionScore(dimension=dim, score=50.0, reason=reason, unscored=True) for dim in DIMENSION_WEIGHTS
+        ]
+        scores = {d.dimension: d.score for d in dimensions}
+        hallucination_flags = self._hallucination_detector.detect(
+            reply=reply,
+            query=query,
+            knowledge_chunks=knowledge_chunks,
+        )
+        return JudgeResult(
+            scores=scores,
+            aggregate_score=compute_aggregate(scores),
+            dimensions=dimensions,
+            hallucination_flags=hallucination_flags,
+            judge_model=self._router.model_name,
+            latency_ms=int((time.monotonic() - start_time) * 1000),
+        )
 
     async def evaluate(
         self,
@@ -76,13 +108,16 @@ class QualityJudge:
         knowledge_chunks = context.get("knowledge_chunks")
         conversation_history = context.get("conversation_history")
 
-        # 1. 并行评估所有维度
-        dimensions = await self._router.evaluate_all(
-            query=query,
-            reply=reply,
-            knowledge_chunks=knowledge_chunks,
-            conversation_history=conversation_history,
-        )
+        try:
+            # 1. 并行评估所有维度
+            dimensions = await self._router.evaluate_all(
+                query=query,
+                reply=reply,
+                knowledge_chunks=knowledge_chunks,
+                conversation_history=conversation_history,
+            )
+        finally:
+            await self._router.aclose()
 
         # 2. 幻觉检测
         hallucination_flags = self._hallucination_detector.detect(
@@ -123,14 +158,12 @@ class QualityJudge:
             loop = None
 
         if loop and loop.is_running():
-            # 已有运行中的事件循环，使用 nest_asyncio 或新线程
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    self.evaluate(query, reply, context),
-                )
-                return future.result(timeout=30)
+            logger.warning("QualityJudge.evaluate_sync called inside a running event loop; using fallback scores")
+            return self._fallback_result(
+                query=query,
+                reply=reply,
+                context=context,
+                reason="评估器处于运行中的事件循环，已降级为默认评分",
+            )
         else:
             return asyncio.run(self.evaluate(query, reply, context))

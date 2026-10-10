@@ -5,6 +5,8 @@ import logging
 import re
 from urllib.parse import urlparse
 
+logger = logging.getLogger(__name__)
+
 INPUT_MAX_LENGTH = 3000
 
 # --- Prompt Injection Detection ---
@@ -41,23 +43,61 @@ _CN_INJECTION_PATTERNS = [
     re.compile(r"假装.{0,5}(你)?(没有|不受).{0,5}(限制|约束)"),
     re.compile(r"(真实身份|real identity|system prompt|系统提示)"),
     re.compile(r"[Pp]lease\s+[Ii]gnore"),
+    # Additional patterns for broader coverage
+    re.compile(r"(?:system\s*[:：]|assistant\s*[:：]|user\s*[:：])", re.IGNORECASE),
+    re.compile(r"(?:忘记|遗忘|不要管).{0,10}(?:设置|身份|规则|约束)"),
+    re.compile(r"你叫.{0,10}(?:什么|名字)"),
+]
+
+# Credential and secret exfiltration. A candidate asking for advice never needs
+# the service's own key material, so these requests are blocked outright.
+_SECRET_EXFILTRATION_PATTERNS = [
+    re.compile(
+        r"(?i)(?:reveal|show|tell|print|output|leak|give|share|expose|dump|list)\s+(?:me\s+)?"
+        r"(?:your|the)\s+(?:api[\s_-]?key|access[\s_-]?token|secret|password|credential|"
+        r"environment\s+variables?|\.env)",
+    ),
+    re.compile(
+        r"(?:告诉我|说出|输出|显示|泄露|给我|发给我|展示)\s*(?:你的|您的)?\s*"
+        r"(?:api[\s_-]?key|apikey|密钥|令牌|密码|凭证|环境变量|系统提示词|配置文件)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(?i)(?:cat|read|dump|print)\s+(?:the\s+)?\.env"),
 ]
 
 _INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
 
+# Zero-width and control characters that can break regex-based detection
+_ZERO_WIDTH_CHARS = re.compile(
+    "[​‌‍‎‏‪‫‬‭‮⁠⁡⁢⁣⁤⁦⁧⁨⁩﻿￾͏؜ᅟᅠ᠎               　ꦡ-ꦥ]",
+)
+
+
+def strip_zero_width(text: str) -> str:
+    """Remove zero-width and invisible Unicode characters that could bypass regex detection."""
+    return _ZERO_WIDTH_CHARS.sub("", text)
+
 
 def detect_injection(text: str) -> bool:
     """Return True if input contains prompt injection patterns."""
+    if not text:
+        return False
+    # Strip zero-width characters first to prevent bypass
+    cleaned = strip_zero_width(text)
     # Length check first — use the canonical threshold
-    if len(text) > INPUT_MAX_LENGTH:
+    if len(cleaned) > INPUT_MAX_LENGTH:
         return True
     # English patterns
     for pattern in _INJECTION_RE:
-        if pattern.search(text):
+        if pattern.search(cleaned):
             return True
     # Chinese-specific patterns
     for pattern in _CN_INJECTION_PATTERNS:
-        if pattern.search(text):
+        if pattern.search(cleaned):
+            return True
+    # Credential / secret exfiltration
+    for pattern in _SECRET_EXFILTRATION_PATTERNS:
+        if pattern.search(cleaned):
             return True
     return False
 
@@ -155,26 +195,40 @@ from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    """FastAPI middleware for injection detection on chat endpoints."""
+    """FastAPI middleware for injection detection on chat endpoints.
+
+    Detects and blocks prompt injection at the middleware layer (early exit)
+    without mutating the request body. Downstream Pydantic validation and
+    route handlers see the original body unaffected.
+
+    Note: This is defense-in-depth. The primary injection defense should also
+    be applied in the graph nodes (rag_node, llm_node) where user content
+    is wrapped in <user_input> tags.
+    """
+
+    # Exact paths that accept user message input (not just session_id/options)
+    _PROTECTED_PATHS = frozenset(
+        {
+            "/api/v1/chat",
+            "/api/v1/chat/feedback",
+            "/api/v1/chat/highlight",
+            "/api/v1/onboarding",
+            "/api/v1/report/generate",
+        }
+    )
 
     async def dispatch(self, request: Request, call_next):
-        if request.method == "POST" and "/chat" in request.url.path:
+        if request.method in {"POST", "PUT"} and request.url.path in self._PROTECTED_PATHS:
             try:
                 body = await request.json()
-                message = body.get("message", "")
-                if detect_injection(message):
-                    from starlette.responses import JSONResponse
+                # Check all string fields in the body for injection
+                for field_name, value in body.items():
+                    if isinstance(value, str) and detect_injection(value):
+                        from starlette.responses import JSONResponse
 
-                    return JSONResponse(status_code=400, content={"detail": "输入内容包含不允许的指令"})
-                # Sanitize: strip HTML tags and enforce length limit
-                sanitized = sanitize_input(message)
-                body["message"] = sanitized
-                # Re-encode the modified body so downstream handlers see sanitized input
-                import json as _json
-
-                raw_body = _json.dumps(body).encode("utf-8")
-                request._body = raw_body
+                        logger.warning("Injection detected in field '%s' on %s", field_name, request.url.path)
+                        return JSONResponse(status_code=400, content={"detail": "输入内容包含不允许的指令"})
             except Exception as exc:
-                logging.debug("Security middleware body processing failed: %s", exc, exc_info=True)
+                logger.debug("Security middleware body processing failed: %s", exc)
         response = await call_next(request)
         return response

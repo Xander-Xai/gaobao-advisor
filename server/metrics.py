@@ -25,6 +25,20 @@ from fastapi import FastAPI, Request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from starlette.responses import Response
 
+from config.loader import load_tuning
+
+
+def _get_metric_buckets() -> list[float]:
+    return (
+        load_tuning()
+        .get("metrics", {})
+        .get(
+            "duration_buckets",
+            [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+        )
+    )
+
+
 # ── Metrics Definitions ────────────────────────────────────
 
 # HTTP request metrics
@@ -34,7 +48,7 @@ HTTP_REQUEST_DURATION = Histogram(
     "http_request_duration_seconds",
     "HTTP request duration in seconds",
     ["method", "endpoint"],
-    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+    buckets=_get_metric_buckets(),
 )
 
 # LLM API metrics

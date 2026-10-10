@@ -47,27 +47,36 @@ class Report:
         Slot format: {"province": {"value": "山东", "filled": True}, ...}
         """
 
-        def _get_slot(key: str) -> str:
-            val = slots.get(key, {})
+        def _get_slot(*keys: str) -> str:
+            val: Any = ""
+            for key in keys:
+                val = slots.get(key, {})
+                if isinstance(val, dict):
+                    val = val.get("value", "")
+                if val:
+                    break
             if isinstance(val, dict):
                 return str(val.get("value", ""))
             return str(val) if val else ""
 
-        def _get_int(key: str) -> int:
-            val = _get_slot(key)
+        def _get_int(*keys: str) -> int:
+            val = _get_slot(*keys)
             try:
                 return int(str(val).replace("分", ""))
             except (ValueError, TypeError):
                 return 0
 
+        # Clean score value for summary (strip trailing "分" to avoid "600分分")
+        _clean_score = _get_slot("score", "score_rank").replace("分", "").strip()
+
         return cls(
             session_id=session_id,
             student_name=_get_slot("name") or None,
             province=_get_slot("province"),
-            score=_get_int("score"),
+            score=_get_int("score", "score_rank"),
             subject=_get_slot("subject"),
             interest=_get_slot("interest"),
-            summary=f"{_get_slot('province')}，{_get_slot('score')}分，意向{_get_slot('interest')}，规划分析中。",
+            summary=f"{_get_slot('province')}，{_clean_score}分，意向{_get_slot('interest')}，规划分析中。",
             scene="gaokao",
         )
 
@@ -79,7 +88,8 @@ class Report:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Report:
-        """Deserialize from dict."""
+        """Deserialize from dict (does not mutate the input)."""
+        data = dict(data)  # Copy to avoid mutating caller's dict
         if "created_at" in data and isinstance(data["created_at"], str):
             data["created_at"] = datetime.fromisoformat(data["created_at"])
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})

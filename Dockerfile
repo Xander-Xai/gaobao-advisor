@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # 基于 Python 3.11 slim
 FROM python:3.11-slim
 
@@ -10,8 +11,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # 复制锁定依赖并安装（确保构建可重复性）
+# 依赖来源只有一个可信索引：官方 PyPI。wheels/ 是可选的本地离线包目录，
+# 在没有外网或网络抖动时由 `pip download` 预先填充；目录为空时 pip 自动回退到索引。
 COPY requirements.lock .
-RUN pip install --no-cache-dir -r requirements.lock
+COPY wheels /wheels/
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    if ls /wheels/*.whl >/dev/null 2>&1; then \
+        echo "installing from local wheelhouse (offline)"; \
+        pip install --no-index --find-links /wheels -r requirements.lock; \
+    else \
+        echo "installing from $PIP_INDEX_URL"; \
+        pip install --index-url "$PIP_INDEX_URL" --retries 10 --timeout 120 -r requirements.lock; \
+    fi
 
 # 复制项目代码（排除 .git, data, .env 等通过 .dockerignore）
 COPY . .

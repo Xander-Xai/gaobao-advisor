@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 from quality.judge.hallucination import HallucinationDetector
-from quality.judge.scorecard import JudgeResult, compute_aggregate
+from quality.judge.scorecard import DIMENSION_WEIGHTS, DimensionScore, JudgeResult, compute_aggregate
 
 
 class TestQualityJudgeIntegration:
     """QualityJudge 集成测试 — 验证评估器能产出完整结果。"""
 
-    def test_judge_evaluate_returns_result(self) -> None:
+    def test_judge_evaluate_returns_result(self, monkeypatch) -> None:
         """Verify judge can produce a result object.
 
-        Note: evaluate_sync may fail if LLM is unavailable,
-        but the result object should still be created with fallback scores.
+        The external LLM call is patched so this remains a deterministic
+        integration test for the judge aggregation path.
         """
         from quality.judge import QualityJudge
+        from quality.judge.judge_router import JudgeRouter
+
+        async def fake_evaluate_all(self, **kwargs):  # noqa: ANN001, ARG001
+            return [DimensionScore(dimension=dim, score=75.0, reason="offline test") for dim in DIMENSION_WEIGHTS]
+
+        monkeypatch.setattr(JudgeRouter, "evaluate_all", fake_evaluate_all)
 
         judge = QualityJudge()
         result = judge.evaluate_sync(
@@ -27,9 +33,15 @@ class TestQualityJudgeIntegration:
         assert len(result.scores) == 4
         assert result.aggregate_score > 0
 
-    def test_judge_empty_reply(self) -> None:
+    def test_judge_empty_reply(self, monkeypatch) -> None:
         """空回复应得到低分或 fail 等级。"""
         from quality.judge import QualityJudge
+        from quality.judge.judge_router import JudgeRouter
+
+        async def fake_evaluate_all(self, **kwargs):  # noqa: ANN001, ARG001
+            return [DimensionScore(dimension=dim, score=20.0, reason="empty reply") for dim in DIMENSION_WEIGHTS]
+
+        monkeypatch.setattr(JudgeRouter, "evaluate_all", fake_evaluate_all)
 
         judge = QualityJudge()
         result = judge.evaluate_sync(query="你好", reply="", context={})
