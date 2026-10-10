@@ -48,9 +48,12 @@ Quote these only after re-running the corresponding command. Numbers drift.
 | "The dataset is complete / authoritative" | Measured as incomplete: 112 schools with no data, 251,238 rows with no major, one placeholder province bucket. |
 | "Zero duplicates" | 3,429 byte-identical rows remain in the working database; the conflicting 559 groups are unresolved by design. |
 | "99%+ uptime" / "serves N users" | No production telemetry exists. |
-| "Docker image verified in CI" | The image was built and smoke-tested locally via an offline wheelhouse; the networked CI path was not run here. |
 | "Fully migrated off Streamlit" | `streamlit` remains in `requirements.txt`; the legacy UI is not started by any compose service. |
 | "The public repo contains no private data" | The Git history on `master` still contains the database archives. This is listed as blocker B1. |
+
+The container build **is** verified in CI (`No-key Container Smoke Test` passes
+on GitHub Actions), so it is safe to say the image builds and boots. Do not
+claim production uptime or scale from that.
 
 ## Longer-form bullets (for a project section)
 

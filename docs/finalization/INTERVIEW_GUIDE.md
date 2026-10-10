@@ -157,6 +157,6 @@ Evidence: `tests/test_middleware_security.py`,
   `PUBLIC_RELEASE_BLOCKED`.
 - Do not claim the dataset is complete or authoritative. It is measured and
   incomplete, and the report says so.
-- Do not claim the container build was verified on the CI runner. It was
-  verified locally, partly through an offline wheelhouse.
+- Do not claim production uptime or scale. The container build and boot are
+  CI-verified, but nothing here measures load.
 - Do not quote a data metric without re-running the command that produced it.

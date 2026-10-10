@@ -1,7 +1,8 @@
 # Final CI matrix
 
 Recorded on 2026-10-10 against branch `fix/pre-demo-ci-remediation-v2`
-(descendant of PR #5) at the commit described at the bottom of this file.
+(descendant of PR #5). The GitHub Actions run is linked under "CI run on GitHub
+Actions"; the local commands and their output are listed per job below.
 
 Every row below was executed on the machine that produced this document. Rows
 that were not executed are marked `NOT VERIFIED` and are not claimed as passing.
@@ -56,21 +57,49 @@ green by engineering work; it requires a recorded human compliance review in
 `config/compliance_attestation.yaml`. A red `release-evidence` job means
 `PUBLIC_RELEASE_BLOCKED`, not a broken build.
 
-## Container evidence
+## CI run on GitHub Actions
 
-The container image was built and exercised, then removed.
+Local evidence is strong but not the same runner. The branch
+`fix/pre-demo-ci-remediation` was pushed as a fast-forward of PR #5 and CI ran
+on GitHub-hosted runners.
+
+Run: <https://github.com/Xander-Xai/gaobao-advisor/actions/runs/38046336342>
+
+| Job | Conclusion |
+|---|---|
+| Secret Scan (Git History) | success |
+| Lint | success |
+| Test (Python 3.10) | success |
+| Test (Python 3.11) | success |
+| Frontend Quality Gate | success |
+| Security Audit | success |
+| Data Quality Contract | success |
+| No-key Container Smoke Test | success |
+| Release Readiness (mechanical) | success |
+| **Release Evidence (blocked until reviewed)** | **failure (by design)** |
+
+The overall run is red solely because of `release-evidence`. That is the
+expected and intended state: it means `PUBLIC_RELEASE_BLOCKED`, not a broken
+build. Nine of ten jobs pass, which is the evidence for `ENGINEERING_READY` and
+`DEMO_READY`.
+
+### Container evidence
+
+The container image was built and exercised twice: once locally and once by the
+`No-key Container Smoke Test` job on GitHub Actions, which succeeded using the
+networked PyPI path. The image is not left running after either run.
 
 | Step | Result |
 |---|---|
-| `docker build -t gaobao-api:ci-test .` | PASS, using a host-built wheelhouse (`pip download -r requirements.lock`) |
+| `docker build -t gaobao-api:ci-test .` | PASS locally (host wheelhouse) and PASS in CI (official PyPI index) |
 | `GET /api/v1/health` | `{"status":"ok","mode":"demo","llm_provider":"demo","optional_services":{"rag":"disabled","voice":"disabled"}}` |
 | SSE `POST /api/v1/chat` disclosure | reply contains `演示模式`, `合成`, `非官方` |
 | Data-grounded query inside the container | events `slots → emotion → structured → token… → quality → done` |
 
-### Honest limitation on the container build
+### Honest note on the local container build
 
-The Docker build in this environment could not reach `files.pythonhosted.org`
-reliably, so the image was built from a wheelhouse downloaded by the host:
+This sandbox could not reach `files.pythonhosted.org` reliably, so the local
+image was built from a wheelhouse downloaded by the host:
 
 ```bash
 pip download -r requirements.lock -d wheels/ --only-binary=:all:
@@ -78,16 +107,11 @@ docker build -t gaobao-api:ci-test .
 ```
 
 The Dockerfile selects that path automatically when `wheels/*.whl` exist and
-falls back to the official PyPI index otherwise. The index fallback (the path CI
-uses) was verified only at the branch-selection level, not by a full networked
-build. On a GitHub-hosted runner with normal PyPI connectivity the index path is
-expected to succeed; it is the same `pip install` invocation that produces the
-local environment.
+falls back to the official PyPI index otherwise. Both paths are now verified:
+the index path by the successful CI job above, the wheelhouse path locally.
 
 ## Things this matrix does not prove
 
-- That CI itself passes on GitHub Actions. Local execution is strong evidence but
-  not the same runner. The first CI run on the pushed branch is the authority.
 - That the data may be published. `DATA_QUALITY_READY` says the data was
   measured; `PUBLIC_RELEASE_READY` additionally requires cleared rights.
 - That `release-evidence` can pass. It cannot until a human records a review.
