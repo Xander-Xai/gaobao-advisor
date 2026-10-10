@@ -196,3 +196,23 @@ python scripts/data_quality_report.py --database data/gaokao.db --json report.js
 python scripts/dedupe_admission_scores.py --database data/gaokao.db
 python scripts/restore_db.py --archive <archive> --sha256 <digest>
 ```
+
+## 9. The test suite no longer writes to the working database
+
+While measuring this database it was noticed that an ordinary `pytest` run
+appended conversation rows to `data/gaokao.db` (73 → 82 rows) because
+`db.database` resolves its path from `GAOBAO__DB_PATH` at import time and
+defaults to the working database.
+
+`conftest.py` now redirects `GAOBAO__DB_PATH`, `GAOBAO__ANALYTICS_DB_PATH` and
+`GAOBAO__REPORTS_DIR` to a throwaway directory before the application is
+imported, so a test run cannot mutate development or real data. Verified:
+`conversations` remained at 82 across a full run.
+
+To test against the configured database deliberately, set
+`GAOBAO_TEST_USE_LIVE_DB=1`.
+
+The rows those earlier runs added were not removed — that would be another
+unrequested mutation of the working database. The measured metrics in this
+document were taken after that point and are unaffected, because the added rows
+are conversation records, not `admission_scores`.
