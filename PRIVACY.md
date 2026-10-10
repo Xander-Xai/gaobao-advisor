@@ -1,5 +1,12 @@
 # Privacy notice for self-hosted deployments
 
+> **Status: draft pending review.** This document describes the repository
+> defaults and is written for the operator of a deployment. It has not been
+> reviewed against the law of any specific jurisdiction and it does not record a
+> retention period. Treat it as a starting point for a review you perform, not
+> as an approved privacy notice. See
+> `docs/finalization/SECURITY_AND_LICENSE_BLOCKERS.md` for the open items.
+
 gaobao-advisor is self-hosted software. The person or organization operating a
 deployment controls its configuration and is responsible for providing an
 appropriate user-facing privacy notice and complying with applicable rules.

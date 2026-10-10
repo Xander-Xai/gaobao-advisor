@@ -7,9 +7,12 @@ import argparse
 import json
 import re
 import sys
-import tomllib
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.toml_version import read_project_version  # noqa: E402
 
 PUBLIC_DOCS = (
     Path("README.md"),
@@ -35,11 +38,7 @@ PLACEHOLDERS = (
 
 
 def _project_version(root: Path) -> str | None:
-    pyproject = root / "pyproject.toml"
-    if not pyproject.exists():
-        return None
-    with pyproject.open("rb") as stream:
-        return tomllib.load(stream).get("project", {}).get("version")
+    return read_project_version(root)
 
 
 def _link_target(root: Path, document: Path, raw_target: str) -> Path | None:

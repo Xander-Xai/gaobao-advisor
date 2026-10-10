@@ -40,11 +40,9 @@ data/*.db.backup.*
 data/import_checkpoint.json
 gaokao_cache.db
 
-# 运行时生成的报告（用户会话产物 + 测试产物，不应进版本库）
-data/reports/
-
 # 开发备份
 backup/
+data/dedupe-logs/
 
 # 系统文件
 .DS_Store
@@ -97,3 +95,7 @@ frontend/src/assets/
 demo-preview.gif
 frontend/src/design/prototypes/*-preview.png
 docs/bug-report-*.md
+
+# 离线 wheel 缓存（保留占位文件，忽略包体）
+wheels/*
+!wheels/README.md

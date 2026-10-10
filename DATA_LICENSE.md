@@ -1,5 +1,12 @@
 # Data licensing
 
+> **Status: draft pending review.** This document records the project's current
+> position on data rights. It is not a license grant for any third-party
+> dataset, and it has not been reviewed by a rights holder or a lawyer. See
+> `docs/finalization/SECURITY_AND_LICENSE_BLOCKERS.md` for the open items and
+> the fact-finding checklist that must be completed before any public
+> redistribution of imported data.
+
 The MIT license in `LICENSE` applies only to source code and documentation that
 the gaobao-advisor contributors have the right to license. It does not grant a
 license to third-party datasets, imported records, quotations, images, model

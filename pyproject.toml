@@ -92,6 +92,7 @@ filterwarnings = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests requiring external services",
+    "smoke: core business smoke tests for the end-to-end advisor path",
 ]
 
 [tool.ruff]

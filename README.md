@@ -118,6 +118,12 @@ scripts/      初始化、导入与发布门禁脚本
 
 ## 文档与社区政策
 
+- [交付状态与最终验收](docs/finalization/FINAL_CI_MATRIX.md)
+  - [数据恢复与质量](docs/finalization/DATA_RECOVERY_AND_QUALITY.md)
+  - [演示模式契约](docs/finalization/DEMO_MODE_CONTRACT.md)
+  - [安全与许可阻塞项](docs/finalization/SECURITY_AND_LICENSE_BLOCKERS.md)
+  - [部署指南](docs/finalization/DEPLOYMENT_GUIDE.md)
+  - [面试指南](docs/finalization/INTERVIEW_GUIDE.md) · [简历可用陈述](docs/finalization/RESUME_CLAIMS.md)
 - [开源部署与定制](docs/open-source-guide.md)
 - [FAQ 与故障排除](docs/faq-troubleshooting.md)
 - [API 契约](docs/API-CONTRACT.md)

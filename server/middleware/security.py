@@ -49,6 +49,22 @@ _CN_INJECTION_PATTERNS = [
     re.compile(r"你叫.{0,10}(?:什么|名字)"),
 ]
 
+# Credential and secret exfiltration. A candidate asking for advice never needs
+# the service's own key material, so these requests are blocked outright.
+_SECRET_EXFILTRATION_PATTERNS = [
+    re.compile(
+        r"(?i)(?:reveal|show|tell|print|output|leak|give|share|expose|dump|list)\s+(?:me\s+)?"
+        r"(?:your|the)\s+(?:api[\s_-]?key|access[\s_-]?token|secret|password|credential|"
+        r"environment\s+variables?|\.env)",
+    ),
+    re.compile(
+        r"(?:告诉我|说出|输出|显示|泄露|给我|发给我|展示)\s*(?:你的|您的)?\s*"
+        r"(?:api[\s_-]?key|apikey|密钥|令牌|密码|凭证|环境变量|系统提示词|配置文件)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(?i)(?:cat|read|dump|print)\s+(?:the\s+)?\.env"),
+]
+
 _INJECTION_RE = [re.compile(p) for p in _INJECTION_PATTERNS]
 
 # Zero-width and control characters that can break regex-based detection
@@ -77,6 +93,10 @@ def detect_injection(text: str) -> bool:
             return True
     # Chinese-specific patterns
     for pattern in _CN_INJECTION_PATTERNS:
+        if pattern.search(cleaned):
+            return True
+    # Credential / secret exfiltration
+    for pattern in _SECRET_EXFILTRATION_PATTERNS:
         if pattern.search(cleaned):
             return True
     return False
