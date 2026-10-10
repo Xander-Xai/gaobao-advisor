@@ -27,8 +27,8 @@ local database only, **PUBLIC_RELEASE_BLOCKED**.
 |---|---|---|---|
 | Lint | `ruff check .` | PASS | `All checks passed!` |
 | Format | `ruff format --check .` | PASS | `237 files already formatted` |
-| Test (3.11) | `python -m pytest tests/ -q` | PASS | `910 passed, 38 skipped`, coverage `78.28%` (threshold 70%) |
-| Test (3.10) | `python -m pytest tests/ -q` under CPython 3.10.12 | PASS | `910 passed, 38 skipped`, coverage `78.37%` |
+| Test (3.11) | `python -m pytest tests/ -q` | PASS | `910 passed, 38 skipped`, coverage `77.95%` (threshold 70%) |
+| Test (3.10) | `python -m pytest tests/ -q` under CPython 3.10.12 | PASS | `910 passed, 38 skipped`, coverage `78.05%` |
 | Security Audit | `pip-audit --strict --requirement requirements.lock` | PASS | `No known vulnerabilities found` |
 | Lock consistency | `python scripts/check_lock_consistency.py` | PASS | `requirements.lock satisfies all 19 manifest requirement(s)` |
 | Frontend install | `npm ci` | PASS | `added 219 packages ... found 0 vulnerabilities` |
@@ -63,7 +63,7 @@ Local evidence is strong but not the same runner. The branch
 `fix/pre-demo-ci-remediation` was pushed as a fast-forward of PR #5 and CI ran
 on GitHub-hosted runners.
 
-Run: <https://github.com/Xander-Xai/gaobao-advisor/actions/runs/38046336342>
+Run: <https://github.com/Xander-Xai/gaobao-advisor/actions/runs/38047310000>
 
 | Job | Conclusion |
 |---|---|

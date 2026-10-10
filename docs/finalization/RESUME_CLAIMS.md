@@ -28,7 +28,7 @@ resume or in an interview until the underlying condition changes.
 
 ## Numbers you may quote (measured 2026-10-10)
 
-- `910 passed, 38 skipped`, coverage `78.28%` (3.11) / `78.37%` (3.10).
+- `910 passed, 38 skipped`, coverage `77.95%` (3.11) / `78.05%` (3.10), and CI-verified.
 - `frontend`: 48 tests passing, 0 npm vulnerabilities, production build succeeds.
 - `pip-audit --strict`: no known vulnerabilities.
 - Data: 3,020 schools, 215 majors, 380,671 admission rows, 96.3% school coverage,
