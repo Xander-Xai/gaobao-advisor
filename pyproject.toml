@@ -89,7 +89,11 @@ markers = [
 ]
 
 [tool.ruff]
-extend-exclude = [".claude"]
+# `*.md` is excluded because Ruff >= 0.16 also formats Python code blocks found
+# inside Markdown. Those blocks are documentation snippets, not shipped code, and
+# formatting them only churns the historical docs/ plans. Python sources are
+# still checked and formatted by `ruff check .` / `ruff format --check .`.
+extend-exclude = [".claude", "*.md"]
 line-length = 120
 target-version = "py310"
 
