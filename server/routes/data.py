@@ -69,7 +69,7 @@ async def get_scores(
     from sqlalchemy import and_
 
     from db.database import SessionLocal
-    from db.models import AdmissionScore, School
+    from db.models import AdmissionScore, Major, School
 
     session = SessionLocal()
     try:
@@ -89,7 +89,9 @@ async def get_scores(
         if year:
             query = query.filter(AdmissionScore.year == year)
         if major:
-            query = query.filter(AdmissionScore.major == major)
+            # `major` is the related Major *name*; AdmissionScore.major is an ORM
+            # relationship, so it must never be compared against a plain string.
+            query = query.join(Major, AdmissionScore.major_id == Major.id).filter(Major.name == major)
 
         # Apply cursor
         if cursor:
