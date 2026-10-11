@@ -31,6 +31,20 @@ class UserProfile:
     - goal: 核心诉求 (考研/就业/考公/出国)
     """
 
+    # Slot keys this class owns in `Conversation.slots_json`. Everything else in
+    # that column (notably `_query_state`) belongs to other writers and must be
+    # preserved by `save_profile`.
+    _PROFILE_SLOT_KEYS = {
+        "province",
+        "score",
+        "score_rank",
+        "subject",
+        "interest",
+        "region",
+        "family",
+        "goal",
+    }
+
     REQUIRED_FIELDS = {"province", "score", "subject", "interest"}
 
     def __init__(self) -> None:
@@ -178,15 +192,23 @@ def load_profile(session_id: str) -> UserProfile:
 
 
 def save_profile(session_id: str, profile: UserProfile) -> None:
-    """Save profile by extracting filled fields."""
-    from db.crud import get_or_create_conversation, save_slots
+    """Save profile by extracting filled fields.
+
+    `save_slots` assigns `Conversation.slots_json` wholesale, so the profile
+    fields must be written on top of whatever else lives in that column —
+    notably `_query_state`, which is not part of the profile but shares the
+    same storage. Profile-derived keys are rebuilt from scratch so that a
+    cleared field is still removed.
+    """
+    from db.crud import get_or_create_conversation, load_conversation_slots, save_slots
     from db.database import get_session
 
     db = get_session()
     try:
         get_or_create_conversation(db, session_id)
-        # Extract slots from profile fields
-        slots = {}
+        existing = load_conversation_slots(db, session_id) or {}
+        # Keep every key this function does not own.
+        slots = {key: value for key, value in existing.items() if key not in UserProfile._PROFILE_SLOT_KEYS}
         if profile.province:
             slots["province"] = {"value": profile.province, "filled": True}
         if profile.score is not None:
