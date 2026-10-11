@@ -36,7 +36,15 @@ def memory_node(state: dict[str, Any]) -> dict[str, Any]:
     via build_memory_messages() at the start of the next graph invocation.
     """
     session_id = state.get("session_id", "")
-    slots = state.get("slots", {})
+    slots = dict(state.get("slots", {}) or {})
+    # `_query_state` is a top-level graph key, but it is persisted inside
+    # `slots_json` (see routes/profile.py::_load_query_state). Without this merge
+    # it is dropped on every turn, so the questioning round counter and the
+    # already-asked field list reset each time the user answers.
+    query_state = state.get("_query_state")
+    if query_state:
+        slots["_query_state"] = query_state
+
     input_text = state.get("input_text", "")
     reply = state.get("reply", "")
 
