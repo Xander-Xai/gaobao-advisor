@@ -7,9 +7,37 @@
 import json
 import logging
 import os
+import sys
 from datetime import datetime
 
 from legacy.utils import safe_int as _safe_int
+
+# ── Public demo: outbound third-party fetching is disabled ──────────────
+# The upstream project could fall back to scraping a third-party admissions
+# site when the local database returned nothing. That is (a) an outbound call
+# the demo never intends to make, and (b) silent when it fails, which is the
+# same degradation class this repository rejects elsewhere. When disabled the
+# queries return the empty result they already had, with an explicit log line.
+ENABLE_OUTBOUND_FETCH = os.getenv("ENABLE_OUTBOUND_FETCH", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
+_OUTBOUND_DISABLED_LOGGED = False
+
+
+def _outbound_fetch_enabled() -> bool:
+    global _OUTBOUND_DISABLED_LOGGED
+    if not ENABLE_OUTBOUND_FETCH and not _OUTBOUND_DISABLED_LOGGED:
+        _OUTBOUND_DISABLED_LOGGED = True
+        print(
+            "[legacy.gaokao_data] outbound third-party fetch is disabled "
+            "(ENABLE_OUTBOUND_FETCH=false); returning local results only.",
+            file=sys.stderr,
+        )
+    return ENABLE_OUTBOUND_FETCH
+
 
 log = logging.getLogger(__name__)
 
@@ -150,7 +178,7 @@ def query_enrollment_plan(school_name, province=None, year=None):
             db.close()
 
     # ── 数据库没有 → 百度高考 API ──
-    if not results and province:
+    if not results and province and _outbound_fetch_enabled():
         try:
             from scrapers.baidu_gaokao import fetch_enrollment_plan
 
@@ -236,7 +264,7 @@ def query_admission(school, province, year=None, major=None):
             db.close()
 
     # 数据库没有 → 百度高考 API（结构化 JSON）
-    if not results:
+    if not results and _outbound_fetch_enabled():
         try:
             from scrapers.baidu_gaokao import fetch_school_score
 
@@ -284,7 +312,7 @@ def query_admission(school, province, year=None, major=None):
             log.warning("百度高考 API 查询失败: %s", e)
 
     # 仍然没有 → 老式百度搜索（仅供参考）
-    if not results:
+    if not results and _outbound_fetch_enabled():
         try:
             from scrapers.baidu import search_admission_snippets
 

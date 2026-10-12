@@ -1,4 +1,17 @@
-"""Tests for skills/service.py."""
+"""Tests for skills/service.py — PUBLIC DEMO EDITION.
+
+Change log vs. the private original:
+
+* The persona-mimicry assets (``expression_engine.md``, ``expression_samples.md``)
+  and the named-individual methodology assets are **not redistributed** here.
+  Tests that asserted their presence were replaced with assertions that the
+  demo does not depend on them.
+* ``test_missing_skills_dir_fallback`` was **inverted**. The original asserted
+  that a missing skills directory loads nothing and still returns a strategy —
+  i.e. it enshrined a fail-open path in which ``safety_rules.md`` is silently
+  dropped and an answer is produced with no safety constraints. The public demo
+  fails closed instead, and this suite now pins that behaviour.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from skills.service import SkillService
+from skills.service import REQUIRED_SKILL_FILES, SkillAssetUnavailableError, SkillService
 
 
 @pytest.fixture
@@ -19,14 +32,10 @@ class TestLoadAssets:
     """Tests for load_assets functionality."""
 
     def test_load_assets(self, service: SkillService) -> None:
-        """Loading populates all skill texts, >100 chars each."""
+        """Loading populates the safety rules with substantial content."""
         service.load_assets()
 
-        # All skill files should be loaded with substantial content
-        assert len(service._mental_models) > 100, "mental_models should be >100 chars"
-        assert len(service._heuristics_text) > 100, "heuristics should be >100 chars"
-        assert len(service._anti_patterns) > 100, "anti_patterns should be >100 chars"
-        assert len(service._expression_engine) > 100, "expression_engine should be >100 chars"
+        # Safety rules are the mandatory asset and must always be substantial.
         assert len(service._safety_rules) > 100, "safety_rules should be >100 chars"
 
     def test_load_assets_idempotent(self, service: SkillService) -> None:
@@ -34,41 +43,42 @@ class TestLoadAssets:
         service.load_assets()
 
         # Modify the content after first load
-        service._mental_models = "modified content"
+        service._safety_rules = "modified content"
 
         # Second load should not reload
         service.load_assets()
-        assert service._mental_models == "modified content"
+        assert service._safety_rules == "modified content"
         assert service._loaded is True
+
+    def test_expression_engine_not_shipped(self, service: SkillService) -> None:
+        """The persona-mimicry style engine is not part of the public demo."""
+        gaokao_dir = Path(__file__).parent.parent / "skills" / "gaokao"
+        assert not (gaokao_dir / "expression_engine.md").exists()
+        assert not (gaokao_dir / "expression_samples.md").exists()
 
 
 class TestBuildContext:
     """Tests for build_context functionality."""
 
     def test_build_context_gaokao(self, service: SkillService) -> None:
-        """Context contains key skill content for gaokao scene."""
+        """Context always contains the mandatory safety rules."""
         context = service.build_context("gaokao")
-
-        # Check for key phrases from the skill files
-        assert "社会筛子论" in context, "Should contain 社会筛子论"
-        assert "就业倒推法" in context, "Should contain 就业倒推法"
-        assert "阶层现实主义" in context, "Should contain 阶层现实主义"
-        assert "灵魂追问" in context, "Should contain 灵魂追问"
-        assert "反问开场" in context, "Should contain 反问开场"
+        assert context.strip(), "context must never be empty"
+        assert "safety rules" in context.lower() or "安全" in context
 
     def test_build_context_general_fallback(self, service: SkillService) -> None:
         """Unknown scene returns non-crash (graceful fallback)."""
-        # Should not raise exception for unknown scenes
         context = service.build_context("unknown_scene")
-        # Should return empty or mental_models only
         assert isinstance(context, str)
+        # Even for an unknown scene, the safety rules must still be present.
+        assert context.strip(), "safety rules must be injected for every scene"
 
     def test_build_context_contains_safety(self, service: SkillService) -> None:
         """Context has safety-related content."""
         context = service.build_context("gaokao")
 
-        # Safety rules should be included
-        assert "身份锁定" in context or "安全" in context, "Context should contain safety-related content"
+        for expected in ("No fabricated facts", "Prompt injection", "synthetic"):
+            assert expected in context, f"Context should contain {expected!r}"
 
 
 class TestBuildStrategy:
@@ -83,10 +93,9 @@ class TestBuildStrategy:
         assert len(strategy.output_style) > 0, "Should have output_style"
         assert len(strategy.answer_rules) > 0, "Should have answer_rules"
 
-        # Check specific content
-        assert any("灵魂追问" in h for h in strategy.heuristics)
-        assert any("直接" in s for s in strategy.output_style)
-        assert any("数据库" in r for r in strategy.answer_rules)
+        # The demo must not instruct the model to mimic a specific person.
+        joined = " ".join(strategy.output_style)
+        assert "模仿特定人物" not in joined or "不使用" in joined
 
     def test_build_strategy_unknown_scene(self, service: SkillService) -> None:
         """Unknown scene returns empty strategy (no crash)."""
@@ -105,10 +114,7 @@ class TestBuildQuestionReply:
         """Reply mentions missing fields."""
         reply = service.build_question_reply("gaokao", ["province", "score"])
 
-        # Should mention at least one missing field
         assert "省份" in reply or "分数" in reply
-        # Should have a lead phrase
-        assert "你别急" in reply or "先别" in reply
 
     def test_build_question_reply_empty_fields(self, service: SkillService) -> None:
         """Reply handles empty missing_fields gracefully."""
@@ -121,32 +127,50 @@ class TestBuildQuestionReply:
         """Reply uses correct lead for kaoyan scene."""
         reply = service.build_question_reply("kaoyan", ["score"])
 
-        assert "考研" in reply or "先别" in reply
+        assert isinstance(reply, str)
+        assert len(reply) > 0
 
 
-class TestMissingSkillsDir:
-    """Tests for missing skills directory fallback."""
+class TestFailClosed:
+    """Negative-control tests: the service must refuse to run unguarded.
 
-    def test_missing_skills_dir_fallback(self, tmp_path: Path) -> None:
-        """Nonexistent skills dir doesn't crash."""
+    These replace the original ``test_missing_skills_dir_fallback``, which
+    asserted the opposite (fail-open) behaviour.
+    """
+
+    def test_missing_skills_dir_raises(self, tmp_path: Path) -> None:
+        """A missing skills directory disables answer generation."""
         service = SkillService(skills_dir=tmp_path / "nonexistent")
 
-        # Should not raise exception
-        service.load_assets()
+        with pytest.raises(SkillAssetUnavailableError):
+            service.load_assets()
 
-        # All texts should be empty (files don't exist)
-        assert service._mental_models == ""
-        assert service._heuristics_text == ""
-        assert service._anti_patterns == ""
-        assert service._expression_engine == ""
-        assert service._safety_rules == ""
+        with pytest.raises(SkillAssetUnavailableError):
+            service.build_context("gaokao")
 
-        # build_context should return empty string (no loaded files)
-        context = service.build_context("gaokao")
-        assert context == ""
+    def test_missing_safety_rules_raises(self, tmp_path: Path) -> None:
+        """Missing safety_rules.md disables answer generation."""
+        skills_dir = tmp_path / "skills"
+        gaokao_dir = skills_dir / "gaokao"
+        gaokao_dir.mkdir(parents=True)
+        # Deliberately omit safety_rules.md.
+        (gaokao_dir / "heuristics.md").write_text("some heuristics", encoding="utf-8")
 
-        # build_strategy still returns hardcoded gaokao strategy (by design)
-        # even when files are missing, strategy is module-level constant
-        strategy = service.build_strategy("gaokao")
-        assert strategy.scene == "gaokao"
-        assert len(strategy.heuristics) == 8  # Hardcoded constants
+        service = SkillService(skills_dir=skills_dir)
+        with pytest.raises(SkillAssetUnavailableError, match="safety_rules"):
+            service.build_context("gaokao")
+
+    def test_empty_safety_rules_raises(self, tmp_path: Path) -> None:
+        """An empty safety_rules.md also disables answer generation."""
+        skills_dir = tmp_path / "skills"
+        gaokao_dir = skills_dir / "gaokao"
+        gaokao_dir.mkdir(parents=True)
+        (gaokao_dir / "safety_rules.md").write_text("   \n", encoding="utf-8")
+
+        service = SkillService(skills_dir=skills_dir)
+        with pytest.raises(SkillAssetUnavailableError, match="empty"):
+            service.build_context("gaokao")
+
+    def test_required_files_are_declared(self) -> None:
+        """The mandatory asset list is not empty."""
+        assert REQUIRED_SKILL_FILES == ("safety_rules.md",)
