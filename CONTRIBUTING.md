@@ -1,0 +1,35 @@
+# Contributing
+
+Contributions are welcome for engineering quality, safety and
+reproducibility. Contributions that reintroduce restricted content are not.
+
+## Hard constraints
+
+1. **No real data.** Everything shipped must be synthetic or demonstrably
+   redistributable. `tests/test_public_demo_acceptance.py` enforces this against
+   git-tracked files and must stay green.
+2. **No unlicensed third-party content.** Do not add quotation corpora,
+   knowledge bases, prompt libraries or personas you cannot show permission for.
+   The upstream private project's corpus and a named individual's methodology /
+   quotation assets were removed for this reason and must not be restored.
+3. **Disabled means disabled.** If a subsystem is unavailable, expose that
+   state rather than returning an empty-but-successful result.
+   See `server/services/rag.py` and `tests/test_g9_retrieval.py`.
+4. **Fail closed on safety assets.** Removing `skills/gaokao/safety_rules.md`
+   must disable answer generation, not silently drop the rules.
+5. **No outbound scraping by default.** `legacy/gaokao_data.py` must not call a
+   third-party site unless `ENABLE_OUTBOUND_FETCH` is explicitly enabled.
+
+## Development
+
+```bash
+pip install -e ".[dev]"            # or: pip install -r requirements.txt -r requirements-dev.txt
+python -m scripts.seed_demo_data --db data/demo.db --reset
+pytest tests -q --no-header
+ruff check . && ruff format --check .
+
+cd frontend && npm ci && npx vitest run && npx vite build
+```
+
+CI runs on Python 3.10 and 3.11, plus a frontend gate, a secret scan, a
+no-key container smoke test and a redistribution gate.
