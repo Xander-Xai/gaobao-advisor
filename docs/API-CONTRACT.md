@@ -58,35 +58,39 @@ python scripts/export_openapi.py
 
 ## 🔑 认证方式
 
-### Session Token 认证
+### Session Token 认证（2026-10-12 安全变更）
 
-大部分端点需要 HMAC-SHA256 session token 认证。
+首次匿名 `POST /api/v1/chat` 可提供一个客户端临时占位 `session_id`，但**服务端不会信任或沿用它**，而是生成新的不可预测会话标识。
+响应是 SSE 流，最后的 `done` 事件同时包含服务端签发的 **`session_id` 和 `session_token`**：
 
-**获取 Token**：
-```bash
-curl -X POST http://localhost:8000/api/v1/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "test_001",
-    "scene": "gaokao",
-    "message": "我是山东考生，考了 580 分"
-  }'
-```
-
-响应中包含 `session_token`：
 ```json
-{
-  "type": "done",
-  "session_token": "abc123..."
-}
+{"type": "done", "session_id": "session-<SERVER_GENERATED_ID>", "session_token": "<SIGNED_CAPABILITY_TOKEN>"}
 ```
 
-**使用 Token**：
+客户端必须保存 `done.session_id` 和与之匹配的 `done.session_token`。后续聊天、档案读取与更新均使用**服务端返回的 ID**，并携带 `Authorization: Bearer <SIGNED_CAPABILITY_TOKEN>`。不能继续使用第一次提交的占位 ID，也不能把一个会话的 token 用于另一会话。
+
 ```bash
-curl -X GET http://localhost:8000/api/v1/profile/test_001 \
-  -H "Authorization: Bearer abc123..."
+# 首次匿名请求。test_001 仅是临时占位 ID；不要据此构造后续请求。
+curl -N -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test_001","scene":"gaokao","message":"你好"}'
+
+# 从 SSE done 事件中人工读取服务端签发的两项值：
+SERVER_SESSION_ID="<done.session_id>"
+SESSION_TOKEN="<done.session_token>"
+
+# 后续聊天必须证明当前会话的访问权
+curl -N -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${SESSION_TOKEN}" \
+  -d "{\"session_id\":\"${SERVER_SESSION_ID}\",\"message\":\"继续\"}"
+
+# 档案读取使用相同的会话 ID 与 token
+curl "http://localhost:8000/api/v1/profile/${SERVER_SESSION_ID}" \
+  -H "Authorization: Bearer ${SESSION_TOKEN}"
 ```
 
+缺失 Bearer 头的聊天请求永远创建**新的**服务端会话；错误或跨会话 Bearer 返回 HTTP 401（不会执行原会话图）。当前方案是临时会话能力令牌，不等于完整账号登录/撤销机制。
 ---
 
 ## 📝 端点详解
@@ -161,7 +165,7 @@ data: {"type": "token", "content": "据"}
 data: {"type": "token", "content": "2024"}
 data: {"type": "token", "content": "年"}
 
-data: {"type": "done", "session_token": "abc123..."}
+data: {"type": "done", "session_id": "session-<SERVER_GENERATED_ID>", "session_token": "<SIGNED_CAPABILITY_TOKEN>"}
 ```
 
 **事件类型**：
@@ -169,7 +173,7 @@ data: {"type": "done", "session_token": "abc123..."}
 - `emotion`: 情绪状态
 - `structured`: 结构化结果（卡片/建议）
 - `token`: 流式文本片段
-- `done`: 完成信号（含 session_token）
+- `done`: 完成信号（同时含服务端签发的 session_id 与匹配的 session_token；必须成对保存）
 
 ---
 
@@ -306,7 +310,11 @@ for event in sseclient.SSEClient(response):
     if data["type"] == "token":
         print(data["content"], end="", flush=True)
     elif data["type"] == "done":
-        print("\nToken:", data["session_token"])
+        session_id = data["session_id"]  # 服务端签发；不可复用 test_001
+        session_token = data["session_token"]
+        print("\nServer session:", session_id)
+        # 下一次 requests.post(..., json={"session_id": session_id, ...},
+        # headers={"Authorization": f"Bearer {session_token}"})
 ```
 
 ### JavaScript (fetch)
@@ -345,6 +353,11 @@ while (true) {
       if (data.type === 'token') {
         process.stdout.write(data.content);
       }
+      if (data.type === 'done') {
+        // Persist these together; the initial test_001 is not the session ID.
+        globalThis.sessionId = data.session_id;
+        globalThis.sessionToken = data.session_token;
+      }
     }
   }
 }
@@ -365,9 +378,12 @@ curl -X POST http://localhost:8000/api/v1/chat \
     "message": "我是山东考生，考了 580 分"
   }'
 
+# 从 done SSE 保存服务端签发的 ID 与 token（不能沿用 test_001）
+SERVER_SESSION_ID="<done.session_id>"
+SESSION_TOKEN="<done.session_token>"
 # 带认证的档案查询
-curl http://localhost:8000/api/v1/profile/test_001 \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl "http://localhost:8000/api/v1/profile/${SERVER_SESSION_ID}" \
+  -H "Authorization: Bearer ${SESSION_TOKEN}"
 ```
 
 ---
@@ -423,5 +439,5 @@ swagger-cli validate openapi.yaml
 
 ---
 
-**最后更新**: 2026-06-16  
+**最后更新**: 2026-10-12（聊天会话身份与令牌契约更新；其余历史示例以运行时 OpenAPI 为准）  
 **维护者**: AI Assistant
