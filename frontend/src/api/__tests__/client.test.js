@@ -8,6 +8,7 @@ import {
   feedbackAPI,
   highlightAPI,
   onboardingAPI,
+  chatAPI,
 } from '../client'
 
 /**
@@ -178,5 +179,36 @@ describe('onboardingAPI', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/v1/onboarding')
     expect(JSON.parse(init.body)).toEqual({ step: 1, data: { province: '山东' } })
+  })
+})
+
+describe('chat session ownership', () => {
+  function mockSSE() {
+    const line = new TextEncoder().encode(
+      'data: {"type":"done","session_id":"session-server-owned","session_token":"signed"}\n\n'
+    )
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => ({
+          read: vi.fn().mockResolvedValueOnce({ done: false, value: line }).mockResolvedValueOnce({ done: true }),
+        }),
+      },
+    })
+  }
+
+  it('first anonymous chat sends no bearer; reads server-owned session credentials', async () => {
+    global.fetch = mockSSE()
+    const events = await chatAPI.send('session-untrusted-client', '你好')
+    expect(global.fetch.mock.calls[0][1].headers.Authorization).toBeUndefined()
+    expect(events.at(-1).session_id).toBe('session-server-owned')
+    expect(events.at(-1).session_token).toBe('signed')
+  })
+
+  it('continuation sends matching Bearer proof', async () => {
+    global.fetch = mockSSE()
+    await chatAPI.send('session-server-owned', '继续', {}, 'gaokao', 'signed')
+    expect(global.fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer signed')
   })
 })
