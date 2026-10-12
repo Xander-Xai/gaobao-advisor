@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { chatAPI } from '../api/client'
 
 export const useChatStore = defineStore('chat', () => {
@@ -11,6 +11,8 @@ export const useChatStore = defineStore('chat', () => {
   // HMAC session token returned by the backend in the SSE `done` event.
   // Required to call /api/v1/profile/* and the /ws/call voice endpoint.
   const sessionToken = ref(null)
+  const sessionTokens = ref({}) // Private, in-memory credentials by server-owned session ID.
+  watch(currentSessionId, id => { sessionToken.value = id ? (sessionTokens.value[id] || null) : null })
 
   function createSession(scene = 'gaokao') {
     const id = `session-${Date.now()}`
@@ -28,7 +30,7 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
     try {
-      const events = await chatAPI.send(currentSessionId.value, text, slots.value, 'gaokao', sessionToken.value)
+      const events = await chatAPI.send(currentSessionId.value, text, slots.value, 'gaokao', sessionTokens.value[currentSessionId.value] || null)
       for (const event of events) {
         if (event.type === 'token') {
           assistantContent += event.content
@@ -54,7 +56,10 @@ export const useChatStore = defineStore('chat', () => {
             if (entry) entry.id = event.session_id
             currentSessionId.value = event.session_id
           }
-          if (event.session_token) sessionToken.value = event.session_token
+          if (event.session_token && currentSessionId.value) {
+            sessionTokens.value[currentSessionId.value] = event.session_token
+            sessionToken.value = event.session_token
+          }
         } else if (event.type === 'quality') {
           // Quality grade from SSE stream
           const last = messages.value[messages.value.length - 1]
