@@ -25,13 +25,31 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function sendMessage(text) {
+    if (isStreaming.value) return // Only one in-flight stream owns this global message view.
     if (!currentSessionId.value) createSession()
+    const initiatingId = currentSessionId.value
+    const credential = sessionTokens.value[initiatingId] || null
     isStreaming.value = true
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
     try {
-      const events = await chatAPI.send(currentSessionId.value, text, slots.value, 'gaokao', sessionTokens.value[currentSessionId.value] || null)
+      const events = await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential)
       for (const event of events) {
+        if (event.type === 'done') {
+          // A different session may have been selected while fetch was in-flight.
+          // Only update the session which *initiated* the request.
+          const issuedId = event.session_id || initiatingId
+          const entry = sessions.value.find(s => s.id === initiatingId)
+          if (entry) entry.id = issuedId
+          if (event.session_token) sessionTokens.value[issuedId] = event.session_token
+          if (currentSessionId.value === initiatingId) {
+            currentSessionId.value = issuedId
+            sessionToken.value = event.session_token || null
+          }
+          continue
+        }
+        // Never write one session's reply or slots into a newly selected session.
+        if (currentSessionId.value !== initiatingId) continue
         if (event.type === 'token') {
           assistantContent += event.content
           const last = messages.value[messages.value.length - 1]
@@ -47,19 +65,6 @@ export const useChatStore = defineStore('chat', () => {
           }
         } else if (event.type === 'slots') {
           slots.value = event.data
-        } else if (event.type === 'done') {
-          // Anonymous first request is assigned a server-owned, random ID.
-          // Store that ID and its matching capability token together.
-          if (event.session_id && event.session_id !== currentSessionId.value) {
-            const previousId = currentSessionId.value
-            const entry = sessions.value.find(s => s.id === previousId)
-            if (entry) entry.id = event.session_id
-            currentSessionId.value = event.session_id
-          }
-          if (event.session_token && currentSessionId.value) {
-            sessionTokens.value[currentSessionId.value] = event.session_token
-            sessionToken.value = event.session_token
-          }
         } else if (event.type === 'quality') {
           // Quality grade from SSE stream
           const last = messages.value[messages.value.length - 1]
@@ -70,7 +75,9 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
     } catch {
-      messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
+      if (currentSessionId.value === initiatingId) {
+        messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
+      }
     } finally {
       isStreaming.value = false
     }
