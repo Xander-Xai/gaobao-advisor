@@ -6,7 +6,7 @@
 ## Context
 Gaokao advice requires factual recall of:
 - School rankings, admission scores, major details
-- Zhang Xuefeng quotes and analysis frameworks
+- Expert-domain quotes and analysis frameworks
 - Policy rules and cutoff lines
 
 Pure vector search misses exact keyword matches (score thresholds, school names).
