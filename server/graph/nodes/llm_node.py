@@ -4,7 +4,7 @@ This module provides both synchronous (graph node) and streaming (SSE) entry
 points with automatic retry, context trimming, token estimation, and
 conversation memory management (dual-layer: recent + summary).
 
-Migration from zhangxuefeng-agent:
+Migration notes:
 - retry_api_call     ← backend/agent/core.py:31-51
 - trim_messages      ← backend/agent/core.py:54-69
 - estimate_tokens    ← backend/agent/langchain_agent.py:37-39

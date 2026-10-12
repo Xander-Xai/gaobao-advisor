@@ -161,43 +161,17 @@ GROUP_TRIGGERS: dict[str, list[str]] = {
         "专升本",
         "升本率",
     ],
-    "G9_zhangxuefeng_methodology_origin": [
-        "张雪峰",
-        "雪峰",
-        "方法论溯源",
-        "为什么这么说",
-        "张雪峰的故事",
-        "张雪峰的经历",
-        "他的人生",
-        "他者视角",
-        "批评",
-        "盲点",
-        "局限",
-        "访谈",
-        "说过",
-        "行为模式",
-        "决策",
-        "《演说家》",
-        "综艺",
-        "直播",
-        "讲座",
-        "雪峰蔚来",
-    ],
+    # PUBLIC DEMO: the G9 persona-methodology group is NOT redistributed here
+    # (it reproduces a named individual's methodology and speech patterns).
+    # Its trigger list is removed along with it so the name is not retained in
+    # source. With no corpus shipped this map is documentation only.
 }
 
 
-# 张雪峰原版金句触发词——提及这些时优先召回 zhangxuefeng 金句
-# 谨慎选择:只保留"非他不可"的强信号,避免"他说的""综艺"等宽泛词误触
-_ZX_TRIGGERS: list[str] = [
-    "张雪峰",
-    "雪峰",
-    "演说家",
-    "直播里讲",
-    "主播说",
-    "讲座说过",
-    "他者视角",
-    "盲点",
-]
+# PUBLIC DEMO: the persona-quote trigger list is not redistributed here.
+# It only ever boosted quotes from an excluded corpus, so it is removed
+# together with that corpus.
+_ZX_TRIGGERS: list[str] = []
 
 
 def split_group(content: str, group_id: str) -> list[Chunk]:
@@ -238,8 +212,16 @@ def split_group(content: str, group_id: str) -> list[Chunk]:
 
 
 def load_all_groups(groups_dir: str) -> dict[str, list[Chunk]]:
-    """加载所有知识组文件，切分为 chunks。"""
+    """加载所有知识组文件，切分为 chunks。
+
+    A missing or unreadable directory yields an empty mapping rather than
+    raising: construction must not crash a request path. Callers that need to
+    distinguish "no corpus" from "nothing matched" should consult
+    ``server.services.rag.status()``, which is the authoritative signal.
+    """
     all_groups: dict[str, list[Chunk]] = {}
+    if not groups_dir or not os.path.isdir(groups_dir):
+        return all_groups
     for filename in sorted(os.listdir(groups_dir)):
         if not filename.endswith(".md"):
             continue
@@ -396,7 +378,18 @@ class KbRetriever:
         self._init_embeddings()
 
     def _load_quotes(self, quotes_path: str) -> list[QuoteEntry]:
+        """Load the attributed-quote index, if one is configured.
+
+        PUBLIC DEMO: the upstream quote corpus was quotations attributed to a
+        named individual and is not redistributed. Any caller supplying a
+        ``quotes_path`` must supply a corpus they have the right to ship; the
+        caller is responsible for that, and ``rag.status()`` is what makes a
+        missing corpus visible rather than silent.
+        """
         quotes: list[QuoteEntry] = []
+        if not quotes_path or not os.path.isdir(quotes_path):
+            return quotes
+
         # 主语录库（按专业索引）
         index_path = os.path.join(quotes_path, "_by_major.json")
         if os.path.exists(index_path):
@@ -414,24 +407,6 @@ class KbRetriever:
                             sentiment=q.get("sentiment", ""),
                         )
                     )
-        # 张雪峰原版金句（带出处/年份）—独立加载,不依赖主索引
-        zx_path = os.path.join(quotes_path, "zhangxuefeng_originals.json")
-        if os.path.exists(zx_path):
-            with open(zx_path, encoding="utf-8") as f:
-                zx_raw: list[dict] = json.load(f)
-            for q in zx_raw:
-                quotes.append(
-                    QuoteEntry(
-                        id=q["id"],
-                        text=q["text"],
-                        major=q.get("major", "zhangxuefeng"),
-                        tags=q.get("tags", []),
-                        category=q.get("category", ""),
-                        sentiment=q.get("sentiment", ""),
-                        source=q.get("source", ""),
-                        year=q.get("year", 0),
-                    )
-                )
         return quotes
 
     def _init_embeddings(self) -> None:
@@ -524,8 +499,7 @@ class KbRetriever:
             if query_emb is not None and q.embedding is not None:
                 vec_score = self._cosine_similarity(query_emb, q.embedding)
             kw_bonus = 0.3 if keyword_exact_match(user_msg, q.major) else 0.0
-            # 张雪峰触发词加权,略高于 kw_bonus=0.3
-            # 当用户明确问张雪峰时,ZX 金句优先于同关键词其他金句
+            # Persona-quote boost removed with the excluded corpus.
             zx_bonus = 0.4 if zx_triggered and q.id.startswith("zx_") else 0.0
             final = vec_score + kw_bonus + zx_bonus
             scored.append((i, final))

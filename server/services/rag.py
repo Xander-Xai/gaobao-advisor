@@ -24,13 +24,63 @@ _active_provider: str = "unknown"
 _cache = RagCache()
 
 
+class RagDisabledError(RuntimeError):
+    """Raised when RAG retrieval is requested but no corpus is available.
+
+    The public demo ships without a knowledge corpus (the upstream corpus has
+    no clear redistribution rights). Retrieval therefore fails loudly instead
+    of returning an empty result that downstream code would mistake for
+    "nothing relevant found".
+    """
+
+
+def status() -> dict[str, Any]:
+    """Report whether RAG is usable, and why not if it is not.
+
+    Downstream code (notably ``/api/v1/health``) surfaces this so that a
+    disabled RAG stack can never be reported as a healthy system.
+    """
+    configured = bool(_groups_dir) and bool(_quotes_path)
+    groups_dir_exists = bool(_groups_dir) and os.path.isdir(_groups_dir)
+    enabled_env = os.getenv("ENABLE_RAG_KB", "").lower() in ("true", "1", "yes")
+
+    if not enabled_env:
+        state, reason = "RAG_DISABLED", "ENABLE_RAG_KB is not enabled"
+    elif not configured:
+        state, reason = "RAG_DISABLED", "RAG corpus was never configured (configure() not called)"
+    elif not groups_dir_exists:
+        state, reason = "RAG_DISABLED", f"configured corpus directory is absent: {_groups_dir}"
+    else:
+        state, reason = "RAG_ENABLED", ""
+
+    return {
+        "state": state,
+        "reason": reason,
+        "corpus_configured": configured,
+        "provider": _active_provider,
+    }
+
+
+def is_available() -> bool:
+    """True only when retrieval can actually return evidence."""
+    return status()["state"] == "RAG_ENABLED"
+
+
 def configure(groups_dir: str, quotes_path: str) -> None:
     """Set paths for the RAG knowledge base. Call before first use.
 
     Embedding provider is selected from env var RAG_EMBEDDING_PROVIDER
     (siliconflow | openai | dashscope | ollama | keyword). Defaults to
     siliconflow if SILICONFLOW_API_KEY is set, otherwise keyword.
+
+    Raises:
+        RagDisabledError: if ``ENABLE_RAG_KB`` is not enabled. Configuring a
+            corpus the deployment will not use would re-introduce the
+            silent-degradation class of bug this module guards against.
     """
+    if os.getenv("ENABLE_RAG_KB", "").lower() not in ("true", "1", "yes"):
+        raise RagDisabledError("cannot configure a RAG corpus while ENABLE_RAG_KB is not enabled")
+
     global _groups_dir, _quotes_path, _active_provider
     _groups_dir = groups_dir
     _quotes_path = quotes_path
@@ -88,6 +138,9 @@ def search(user_msg: str, slots: dict | None = None) -> dict[str, Any]:
     from server.metrics import record_cache_hit, record_cache_miss
 
     slots = slots or {}
+
+    if not is_available():
+        raise RagDisabledError("RAG retrieval requested but unavailable: " + status()["reason"])
 
     # Check cache first
     cached = _cache.get(user_msg, slots)

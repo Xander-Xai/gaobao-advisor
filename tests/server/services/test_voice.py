@@ -25,8 +25,11 @@ class TestVoiceRenderPrompt:
         has_spoken = "口语" in prompt
         assert has_length_constraint or has_spoken, "Prompt should have constraints or spoken-style requirement"
 
-    def test_prompt_mentions_zhangxuefeng(self):
-        assert "张雪峰" in VOICE_RENDER_SYSTEM_PROMPT, "Should reference the advising methodology"
+    def test_prompt_forbids_persona_imitation(self):
+        """PUBLIC DEMO: the render prompt must not instruct the model to
+        imitate any named individual's manner of speaking."""
+        assert "张雪峰" not in VOICE_RENDER_SYSTEM_PROMPT
+        assert "模仿特定人物" in VOICE_RENDER_SYSTEM_PROMPT
 
 
 class TestSceneVoiceStyles:

@@ -96,12 +96,44 @@ class TestRagWrapper:
         assert callable(rag.search)
         assert callable(rag.load_contextual_knowledge)
         assert callable(rag.configure)
+        assert callable(rag.status)
+        assert callable(rag.is_available)
 
-    def test_configure_sets_paths(self):
+    def test_configure_refused_when_rag_disabled(self, monkeypatch):
+        """PUBLIC DEMO: configuring a corpus while RAG is off is refused.
+
+        The private original asserted ``configure()`` succeeds unconditionally.
+        That made it possible to load a corpus the deployment never uses while
+        runtime behaviour silently stayed degraded. Here configuration is only
+        permitted when retrieval is genuinely switched on.
+        """
+        import pytest
+
         from server.services import rag
 
-        # Should not raise
-        rag.configure("/tmp/fake_groups", "/tmp/fake_quotes")
+        monkeypatch.setenv("ENABLE_RAG_KB", "false")
+        with pytest.raises(rag.RagDisabledError):
+            rag.configure("/tmp/fake_groups", "/tmp/fake_quotes")
+
+    def test_configure_accepted_when_enabled(self, monkeypatch, tmp_path):
+        """With the switch on and a real directory, configure succeeds."""
+
+        from server.services import rag
+
+        groups = tmp_path / "groups"
+        groups.mkdir()
+        quotes = tmp_path / "quotes"
+        quotes.mkdir()
+
+        monkeypatch.setenv("ENABLE_RAG_KB", "true")
+        try:
+            rag.configure(str(groups), str(quotes))
+            assert rag.status()["state"] == "RAG_ENABLED"
+        finally:
+            # Restore module state so other tests see the shipped default.
+            import importlib
+
+            importlib.reload(rag)
 
 
 class TestQualityOrchestrator:
