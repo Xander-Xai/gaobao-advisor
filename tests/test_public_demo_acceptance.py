@@ -221,9 +221,36 @@ class TestExcludedAssetsAbsent:
         offenders = [f for f in _tracked_files() if f.endswith(suffix)]
         assert offenders == [], f"binary data artifacts tracked: {offenders}"
 
+    # Tokens that identify the upstream persona / its old project names. These
+    # must never appear in a shipped path, and must not appear in shipped
+    # content either — the negative-control tests below are the only allowed
+    # exception because they assert the absence.
+    _PERSONA_TOKENS = ("zhangxuefeng", "xuefeng", "雪峰")
+    _NEGATIVE_CONTROL_TESTS = {
+        "tests/test_public_demo_acceptance.py",
+        "tests/test_g9_retrieval.py",
+        "tests/test_quote_attribution.py",
+        "tests/test_voice.py",
+        "tests/server/services/test_voice.py",
+    }
+
     def test_no_named_person_corpus_tracked(self) -> None:
-        offenders = [f for f in _tracked_files() if "zhangxuefeng" in f.lower()]
-        assert offenders == []
+        offenders = [f for f in _tracked_files() if any(t in f.lower() for t in self._PERSONA_TOKENS)]
+        assert offenders == [], f"persona-named path must not be tracked: {offenders}"
+
+    def test_no_persona_token_in_shipped_content(self) -> None:
+        """No shipped (non-test) file may reference the persona name."""
+        offenders = []
+        for f in _tracked_files():
+            if f in self._NEGATIVE_CONTROL_TESTS:
+                continue
+            try:
+                text = (REPO_ROOT / f).read_text(encoding="utf-8", errors="ignore")
+            except (OSError, UnicodeDecodeError):
+                continue
+            if any(t in text.lower() for t in self._PERSONA_TOKENS):
+                offenders.append(f)
+        assert offenders == [], f"persona token in shipped content: {offenders}"
 
     def test_rag_module_has_no_persona_loader(self) -> None:
         source = (REPO_ROOT / "server" / "services" / "kb_retriever.py").read_text(encoding="utf-8")
