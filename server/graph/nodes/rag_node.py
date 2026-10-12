@@ -1,49 +1,89 @@
-"""RAG retrieval node — fetches knowledge chunks and expert quotes."""
+"""RAG retrieval node.
+
+Public demo behaviour (fail-closed / honest degradation):
+
+The public deployment ships **without** a knowledge corpus. Rather than
+swallowing the error and returning an empty ``knowledge_context`` — which
+downstream code would happily pass to the LLM as "no knowledge available" —
+this node records an explicit ``rag_state`` on the graph state. Downstream
+rendering and the ``/api/v1/health`` endpoint both surface that value, so a
+disabled RAG stack can never be reported as a working one.
+"""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from server.services import rag
 
+logger = logging.getLogger(__name__)
+
 
 def rag_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Search the knowledge base for relevant content.
+    """Fetch knowledge chunks and expert quotes, or report why it could not.
 
-    Uses the RAG service to find knowledge groups, chunks, and expert quotes
-    related to the user's query and slots.
+    Returns:
+        A partial state update. ``rag_state`` is one of ``RAG_ENABLED`` or
+        ``RAG_DISABLED``; ``rag_reason`` explains a disabled state.
     """
     text = state.get("input_text", "")
     slots = state.get("slots", {})
 
-    rag_chunks: list[dict] = []
-    expert_quotes: list[dict] = []
-    knowledge_context = ""
+    trace = list(state.get("trace", []))
+
+    if not rag.is_available():
+        reason = rag.status()["reason"]
+        logger.warning("RAG disabled, skipping retrieval: %s", reason)
+        trace.append({"node": "rag_retrieve", "event": "RAG_DISABLED", "reason": reason})
+        return {
+            "rag_chunks": [],
+            "expert_quotes": [],
+            "knowledge_context": "",
+            "rag_state": "RAG_DISABLED",
+            "rag_reason": reason,
+            "trace": trace,
+        }
 
     try:
         search_result = rag.search(text, slots)
-        rag_chunks = search_result.get("group_chunks", [])
-        expert_quotes = search_result.get("quotes", [])
-
-        # Build knowledge context string from chunks
-        if rag_chunks:
-            parts = []
-            for chunk in rag_chunks[:5]:
-                section = chunk.get("section_title", "")
-                content = chunk.get("text", "")
-                if section:
-                    parts.append(f"[{section}] {content}")
-                else:
-                    parts.append(content)
-            knowledge_context = "\n\n".join(parts)
-
+    except rag.RagDisabledError:
+        reason = rag.status()["reason"]
+        logger.warning("RAG became unavailable mid-request: %s", reason)
+        trace.append({"node": "rag_retrieve", "event": "RAG_DISABLED", "reason": reason})
+        return {
+            "rag_chunks": [],
+            "expert_quotes": [],
+            "knowledge_context": "",
+            "rag_state": "RAG_DISABLED",
+            "rag_reason": reason,
+            "trace": trace,
+        }
     except Exception as exc:
-        import logging
+        reason = f"retrieval error: {exc.__class__.__name__}"
+        logger.exception("RAG retrieval failed")
+        trace.append({"node": "rag_retrieve", "event": "RAG_ERROR", "reason": reason})
+        return {
+            "rag_chunks": [],
+            "expert_quotes": [],
+            "knowledge_context": "",
+            "rag_state": "RAG_DISABLED",
+            "rag_reason": reason,
+            "trace": trace,
+        }
 
-        logging.getLogger(__name__).debug("RAG retrieval failed: %s", exc, exc_info=True)
-        # RAG not configured or error — continue without knowledge
+    rag_chunks: list[dict] = search_result.get("group_chunks", [])
+    expert_quotes: list[dict] = search_result.get("quotes", [])
 
-    trace = list(state.get("trace", []))
+    knowledge_context = ""
+    if rag_chunks:
+        parts = []
+        for chunk in rag_chunks[:5]:
+            section = chunk.get("section_title", "")
+            content = chunk.get("text", "")
+            parts.append(f"[{section}] {content}" if section else content)
+        knowledge_context = "\n\n".join(parts)
+
     trace.append(
         {
             "node": "rag_retrieve",
@@ -55,5 +95,7 @@ def rag_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         "rag_chunks": rag_chunks,
         "expert_quotes": expert_quotes,
         "knowledge_context": knowledge_context,
+        "rag_state": "RAG_ENABLED",
+        "rag_reason": "",
         "trace": trace,
     }

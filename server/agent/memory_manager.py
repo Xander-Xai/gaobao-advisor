@@ -1,6 +1,6 @@
 """Memory manager — dual-layer memory (recent + summary).
 
-Migrated and adapted from zhangxuefeng-agent's LangChainAgent:
+Migrated and adapted from the upstream private agent's LangChainAgent:
 - _summarize_history   (backend/agent/langchain_agent.py:106-149)
 - _build_memory_messages  (backend/agent/langchain_agent.py:121-149)
 - _estimate_tokens     (backend/agent/langchain_agent.py:37-39)

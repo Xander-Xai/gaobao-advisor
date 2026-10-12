@@ -1,6 +1,6 @@
 """User Profile — structured model for student information.
 
-Adapted from zhangxuefeng-agent's user_profile.py (backend/user_profile.py:27-100).
+Adapted from the upstream private agent's user_profile.py (backend/user_profile.py:27-100).
 Replaces Redis persistence with SQLite to match gaobao-advisor's architecture.
 
 This profile model represents what we know about the user. Fields align with
