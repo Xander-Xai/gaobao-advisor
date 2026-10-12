@@ -7,8 +7,8 @@
  * server's detail when present.
  *
  * Auth: profile endpoints require `Authorization: Bearer <session_token>`.
- * The token is received in the chat SSE `done` event and stored in
- * the chat store. Callers pass the token explicitly (avoids circular
+ * The first anonymous chat is assigned a new server-owned session_id and
+ * token in its SSE `done` event. Continuations send the matching Bearer token. Callers pass the token explicitly (avoids circular
  * import between this client and the Pinia store).
  */
 
@@ -74,10 +74,10 @@ export const chatAPI = {
    * Returns the list of parsed JSON events collected from the stream.
    * Caller must read the final `done.session_token` to auth profile/voice.
    */
-  async send(sessionId, message, slots = {}, scene = 'gaokao') {
+  async send(sessionId, message, slots = {}, scene = 'gaokao', token = null) {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ session_id: sessionId, message, slots, scene }),
     })
     if (!response.ok || !response.body) {
