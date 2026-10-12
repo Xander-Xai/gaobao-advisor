@@ -38,6 +38,7 @@ gaokao_cache.db
 
 # 开发备份
 backup/
+backups/
 
 # 视频制作临时文件
 xuefeng-promo-video/
@@ -61,3 +62,9 @@ knowledge/quotes/quote_meta.json
 knowledge/quotes/group_embeddings.npy
 knowledge/quotes/group_meta.json
 .worktrees/
+
+# ── public demo: runtime state is never committed ──
+data/*.db
+data/*.db-*
+data/reports/
+!data/sample/
