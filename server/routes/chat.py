@@ -130,6 +130,7 @@ async def chat(request: ChatRequest, authorization: str | None = Header(None)):
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
 
+
 class FeedbackRequest(BaseModel):
     """用户反馈请求"""
 
