@@ -1,49 +1,86 @@
+"""Contextual knowledge loading tests — PUBLIC DEMO EDITION.
+
+The private original shipped a ``knowledge/`` corpus (including a group
+reproducing a named individual's methodology and a quotation file attributed
+to that person) and this suite asserted keyword-trigger loading against it.
+
+That corpus has no confirmed redistribution rights and is not shipped. The
+loader remains in the codebase for the ``SkillService``/``KbRetriever`` path,
+but with no corpus present it must return "nothing available" — and callers
+must be able to tell that apart from "nothing matched".
+
+``quality.knowledge_loader.load_contextual_knowledge`` returns ``None`` when
+no knowledge applies. That ``None`` is indistinguishable from a silent failure
+at the call site, which is precisely the degradation this demo avoids
+elsewhere. The authoritative signal is ``server.services.rag.status()``.
 """
-P2-1 知识库按需加载模块测试
-"""
+
+from __future__ import annotations
+
+import pytest
 
 from quality.knowledge_loader import load_contextual_knowledge
+from server.services import rag
 
 
-class TestKnowledgeLoader:
-    def setup_method(self):
-        pass
+@pytest.fixture(autouse=True)
+def _rag_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENABLE_RAG_KB", "false")
 
-    def test_ai_era_triggers(self):
-        result = load_contextual_knowledge("人工智能专业怎么样？AI时代就业前景好吗？")
-        assert result is not None
-        assert "AI时代" in result
 
-    def test_subject_selection_triggers(self):
-        result = load_contextual_knowledge("新高考选科怎么选？物化生组合怎么样？")
-        assert result is not None
-        assert "选科" in result
+class TestCorpusNotShipped:
+    def test_knowledge_directory_absent(self) -> None:
+        from pathlib import Path
 
-    def test_vocational_triggers(self):
-        result = load_contextual_knowledge("专科生有什么出路？专升本难吗？")
-        assert result is not None
-        assert "专科" in result or "职业" in result
+        assert not (Path(__file__).resolve().parent.parent / "knowledge").exists()
 
-    def test_no_match_returns_none(self):
-        result = load_contextual_knowledge("今天天气怎么样？")
-        assert result is None
+    def test_legacy_knowledge_base_file_absent(self) -> None:
+        from pathlib import Path
 
-    def test_max_files_limit(self):
-        result = load_contextual_knowledge("AI时代选科怎么选？人工智能和计算机哪个好？", max_files=1)
-        assert result is not None
-        # 只加载了 1 个文件的内容
+        root = Path(__file__).resolve().parent.parent
+        assert not (root / "knowledge_base.md").exists()
 
-    def test_slots_context(self):
-        result = load_contextual_knowledge(
-            "这个专业怎么样", slots={"interest": {"value": "人工智能"}, "goal": {"value": "就业"}}
-        )
-        assert result is not None
-        assert "AI" in result
 
-    def test_cache_works(self):
-        """加载两次应使用缓存。"""
-        r1 = load_contextual_knowledge("计算机专业就业前景")
-        r2 = load_contextual_knowledge("AI专业怎么样")
-        # 第一次加载会缓存，第二次使用缓存
-        assert r1 is not None
-        assert r2 is not None
+class TestLoaderReturnsNothingRatherThanInventing:
+    """The loader must not fabricate content when the corpus is absent."""
+
+    def test_returns_none_for_ai_era_query(self) -> None:
+        assert load_contextual_knowledge("AI 时代还值得读大学吗") is None
+
+    def test_returns_none_for_subject_selection(self) -> None:
+        assert load_contextual_knowledge("新高考选科怎么选") is None
+
+    def test_returns_none_for_vocational_query(self) -> None:
+        assert load_contextual_knowledge(" vocational 策略") is None
+
+    def test_respects_max_files(self) -> None:
+        assert load_contextual_knowledge("就业", max_files=1) is None
+
+    def test_accepts_slots_without_error(self) -> None:
+        assert load_contextual_knowledge("就业", {"score": {"value": 600}}) is None
+
+    def test_repeated_calls_are_stable(self) -> None:
+        first = load_contextual_knowledge("就业")
+        second = load_contextual_knowledge("就业")
+        assert first == second
+
+
+class TestUnavailabilityIsDiscoverable:
+    """A None from the loader must be backed by a queryable status."""
+
+    def test_status_is_authoritative(self) -> None:
+        status = rag.status()
+        assert status["state"] == "RAG_DISABLED"
+        assert status["corpus_configured"] is False
+
+    def test_status_reason_is_human_readable(self) -> None:
+        reason = rag.status()["reason"]
+        assert isinstance(reason, str)
+        assert reason.strip()
+
+    def test_enabling_without_corpus_still_reports_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Flipping the env var alone must not fake availability."""
+        monkeypatch.setenv("ENABLE_RAG_KB", "true")
+        status = rag.status()
+        assert status["state"] == "RAG_DISABLED"
+        assert status["corpus_configured"] is False

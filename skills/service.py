@@ -35,46 +35,62 @@ _SKILL_FILES = [
     "mental_models.md",
     "heuristics.md",
     "anti_patterns.md",
-    "expression_engine.md",
     "safety_rules.md",
 ]
 
-# Strategy content extracted from skill files
+# Assets whose absence must NOT degrade silently. If any of these is missing the
+# service refuses to answer rather than emitting an unguarded completion.
+REQUIRED_SKILL_FILES = ("safety_rules.md",)
+
+# Strategy content — PUBLIC DEMO EDITION.
+# The upstream private edition carried a persona-mimicry style engine and a
+# named individual's signature methodology. Those are removed here on rights
+# grounds; what remains is generic education-advisory technique only.
 _GAOKAO_HEURISTICS = [
-    "灵魂追问：先把关键约束问透，再给方案。",
-    "中位数原则：不看顶尖样本，只看普通学生毕业后的主流去向。",
-    "就业倒推法：从5年后的就业和薪资中位数倒推今天的选择。",
-    "家庭背景分流：普通家庭先保确定性，有试错资本再谈热爱。",
-    "500强测试：别听企业怎么说，要看企业去哪里招、招什么人。",
-    "城市优先：同档次下优先看资源密度更高、机会更多的城市。",
-    "不可替代性检验：工资和不可替代性成正比。",
-    "10年压迫测试：能不能接受孩子工作十年后收入不如当初分数更低的人。",
+    "先问清约束条件，再给方案。",
+    "看分布中位情况，不用个别极端案例代表整体。",
+    "从目标岗位倒推所需的院校与专业能力。",
+    "先评估可承受的试错空间，再谈风险偏好。",
+    "同档次下比较城市与区域的资源和机会密度。",
+    "优先考虑难以被短期替代的能力组合。",
 ]
 
 _GAOKAO_OUTPUT_STYLE = [
-    "直接，短句、先结论后展开。",
-    "先讲现实，再讲选择，不说空话。",
-    "用第一人称给判断，不绕弯子。",
-    "要有压迫感和推进感，但不胡编数据。",
-    "开场用8种模板之一，不重复。",
-    "节奏：铺垫→反转→金句。",
-    "每3-4段至少1个反问。",
-    "收尾有≤30字金句。",
+    "直接，先结论后展开。",
+    "先讲事实边界，再讲可选方案。",
+    "不夸大、不施压、不制造焦虑。",
+    "不使用模仿特定人物的口吻、句式或口头禅。",
+    "不重复套用固定开场模板。",
 ]
 
 _GAOKAO_ANSWER_RULES = [
-    "凡是学校，专业、就业、政策问题，优先查本地数据库，其次查百度高考API。",
-    "结论必须明确，不能只讲正确的废话。",
-    "不能拿极端成功样本替普通家庭做决策。",
-    "没有确认过的精确数字，宁可说趋势，也不能硬编。",
-    "绝对禁止：或许/可能/这取决于/综合评估/建议您/仅供参考。",
-    "数据必须标注来源和年份。",
+    "学校、专业、就业、政策类问题一律以查询返回的数据为准。",
+    "结论必须明确，不输出正确的废话。",
+    "不能用极端成功样本替普通个体做决策。",
+    "没有确认过的精确数字，宁可说明数据缺失，也不能编造。",
+    "数据必须标注来源与年份。",
     "每次推荐末尾必须附免责声明。",
+    "本次部署使用合成演示数据，必须在答案中说明数据为演示用途。",
 ]
 
 
+class SkillAssetUnavailableError(RuntimeError):
+    """Raised when a mandatory safety asset is absent.
+
+    The public demo deliberately fails closed: a missing ``safety_rules.md``
+    must disable answer generation rather than silently produce an answer with
+    no safety constraints applied.
+    """
+
+
 class SkillService:
-    """Load skill markdown files and build scene-specific strategy/context."""
+    """Load skill markdown files and build strategy/context.
+
+    Fail-closed policy: ``load_assets`` raises
+    :class:`SkillAssetUnavailableError` if the directory or any file listed in
+    :data:`REQUIRED_SKILL_FILES` is missing or empty. Optional methodology
+    assets may be absent; safety assets may not.
+    """
 
     def __init__(self, skills_dir: Path | None = None) -> None:
         self._skills_dir = skills_dir or Path(__file__).parent
@@ -82,25 +98,44 @@ class SkillService:
         self._mental_models = ""
         self._heuristics_text = ""
         self._anti_patterns = ""
-        self._expression_engine = ""
         self._safety_rules = ""
 
     def load_assets(self) -> None:
-        """Load all skill markdown files. Idempotent."""
+        """Load all skill markdown files. Idempotent.
+
+        Raises:
+            SkillAssetUnavailableError: if a mandatory safety asset is missing.
+        """
         if self._loaded:
             return
 
         gaokao_dir = self._skills_dir / "gaokao"
         if not gaokao_dir.exists():
+            # Do NOT mark as loaded: a failed safety check must re-raise on
+            # every subsequent call rather than being memoised as success.
+            self._assert_required_present(gaokao_dir)
             self._loaded = True
             return
 
         self._mental_models = self._read(gaokao_dir / "mental_models.md")
         self._heuristics_text = self._read(gaokao_dir / "heuristics.md")
         self._anti_patterns = self._read(gaokao_dir / "anti_patterns.md")
-        self._expression_engine = self._read(gaokao_dir / "expression_engine.md")
         self._safety_rules = self._read(gaokao_dir / "safety_rules.md")
+        self._assert_required_present(gaokao_dir)
         self._loaded = True
+
+    @staticmethod
+    def _assert_required_present(gaokao_dir: Path) -> None:
+        for filename in REQUIRED_SKILL_FILES:
+            path = gaokao_dir / filename
+            if not path.exists():
+                raise SkillAssetUnavailableError(
+                    f"mandatory safety asset missing: {path}. Answer generation is disabled (fail-closed)."
+                )
+            if not path.read_text(encoding="utf-8").strip():
+                raise SkillAssetUnavailableError(
+                    f"mandatory safety asset is empty: {path}. Answer generation is disabled (fail-closed)."
+                )
 
     def _read(self, path: Path) -> str:
         if not path.exists():
@@ -135,12 +170,15 @@ class SkillService:
                 parts.append(self._heuristics_text)
             if self._anti_patterns:
                 parts.append(self._anti_patterns)
-            if self._expression_engine:
-                parts.append(self._expression_engine)
         else:
             if self._mental_models:
                 parts.append(self._mental_models)
 
+        # Fail-closed guarantee: load_assets() already raised if safety rules
+        # were absent, so `parts` always contains them here. Keep an explicit
+        # assertion so a future refactor cannot silently reintroduce the
+        # unguarded path.
+        assert self._safety_rules, "safety rules must be loaded (fail-closed)"
         return "\n\n---\n\n".join(parts) if parts else ""
 
     def build_question_reply(self, scene: str, missing_fields: list[str]) -> str:

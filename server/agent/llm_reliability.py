@@ -1,6 +1,6 @@
 """LLM reliability utilities — retry, context trimming, token estimation.
 
-Migrated and adapted from zhangxuefeng-agent's AgentCore patterns:
+Migrated and adapted from the upstream private agent's AgentCore patterns:
 - _retry_api_call  (backend/agent/core.py:31-51)
 - _trim_messages  (backend/agent/core.py:54-69)
 - _estimate_tokens (backend/agent/langchain_agent.py:37-39)

@@ -1,9 +1,13 @@
 """数据来源标注硬规则后处理。
 
-在 LLM 输出后，自动检测未带来源标注的具体数字，
-按 zhangxuefeng-skill-merged 的 6 条来源标注硬规则补全。
+在 LLM 输出后，自动检测未带来源标注的具体数字并补全。
 
-设计原则（来自 zhangxuefeng-skill-merged SKILL.md:196-207）：
+PUBLIC DEMO NOTE: the private original derived these rules from a named
+individual's personal skill package. Only the generic, non-attributable rule
+is retained here: any concrete figure must carry a source marker. The personal
+methodology and the quotation corpus are not redistributed.
+
+覆盖的数值类别：
 - 录取分数线/位次
 - 薪资数据
 - 就业率

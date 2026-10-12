@@ -28,7 +28,7 @@ def _get_skill_service() -> SkillService:
     if _skill_service is None:
         with _init_lock:
             if _skill_service is None:  # double-check
-                _skill_service = SkillService(skills_dir=Path(__file__).parents[2] / "skills")
+                _skill_service = SkillService(skills_dir=Path(__file__).parents[3] / "skills")
     return _skill_service
 
 

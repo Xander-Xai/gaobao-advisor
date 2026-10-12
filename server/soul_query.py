@@ -1,6 +1,6 @@
 """Soul Query Engine — intelligent question-asking for user profiling.
 
-Adapted from zhangxuefeng-agent's soul_query.py (backend/soul_query.py:1-143).
+Adapted from the upstream private agent's soul_query.py (backend/soul_query.py:1-143).
 
 Strategy:
 1. Check required fields (province, score, subject, interest) — if any are
