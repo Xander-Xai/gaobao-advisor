@@ -174,27 +174,67 @@ cd frontend && npx vitest run      # 前端单元测试
 ruff check . && ruff format --check .
 ```
 
+最近一次本地验证（本机 uv 托管环境；CI 在 Python 3.10 / 3.11 上运行同一套门禁）：
+
+| 检查 | 结果 |
+|---|---|
+| `pytest tests` | **885 passed / 1 skipped**，覆盖率 **77.33%**（门禁 70%）|
+| `ruff check` / `ruff format --check` | 通过 |
+| `vitest run`（frontend）| **50 passed** |
+| `npm run build`（frontend）| 通过 |
+| Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_DISABLED` |
+
+CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
+Secret Scan（gitleaks 全历史）、Security Audit（pip-audit + npm audit）、
+Frontend Quality Gate、No-Key Container Smoke Test、Redistribution Gate。
+门禁失败即红，不通过跳过或降低阈值来「修绿」。
+
 ---
 
 ## 项目结构
 
 ```text
 server/
-  main.py              FastAPI 入口
-  auth.py              会话令牌签发与校验（HMAC）
-  routes/              chat / data / health / profile / voice / knowledge
-  graph/               LangGraph 编排与节点
+  main.py              FastAPI 入口（挂载 8 个路由）
+  auth.py              会话令牌签发与校验（HMAC-SHA256）
+  routes/              health / onboarding / chat / profile / data / knowledge / voice
+  report/              报告生成路由
+  graph/               LangGraph 编排与 17 个节点
   services/            rag / kb_retriever / quality / llm_router ...
   middleware/          CSP、限流、注入检测
 db/                    SQLAlchemy 模型与会话
-skills/                SkillService（fail-closed）+ 原创安全规则
+skills/gaokao/         SkillService（fail-closed）+ 原创安全规则与启发式
 quality/               质量与幻觉检查
 legacy/                数据查询适配层
 scrapers/              数据采集器（默认不发起外部请求）
 scripts/               数据导入脚本 + seed_demo_data.py
-frontend/              Vue 3 + Vite
-tests/                 单元与验收测试
+frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
+tests/                 单元与验收测试（885 passed / 1 skipped）
 ```
+
+---
+
+## 已知限制与不适用场景
+
+本工程是**可运行的开源工程样本**，不是可直接上线的生产系统，也不是志愿决策依据。
+请明确以下边界：
+
+* **数据**：默认只有程序生成的合成数据，**不用于真实志愿填报决策**。真实录取数据需
+  由使用者自行准备、导入并确保拥有合法授权；`VERIFIED_PUBLIC_DATA` 当前仍为
+  **PENDING**，未随仓库分发。
+* **知识检索**：RAG 默认关闭，**不附带任何知识库语料**；只有开关而无授权语料时，
+  健康检查仍返回 `RAG_DISABLED`。
+* **联网能力**：第三方抓取（`ENABLE_OUTBOUND_FETCH`）与联网搜索（`ENABLE_SEARCH`）
+  默认关闭。
+* **身份体系**：只有「会话能力令牌」（HMAC 签名），没有账号、密码、注册、跨设备
+  恢复；多 worker 部署必须显式设置 `SESSION_SECRET`。
+* **语音**：WebSocket 语音链路默认关闭，需自备 DashScope 凭据。
+* **生产级验证**：未做容量、并发、SLA 或真实 RAG 质量评测；可观测性组件
+  （Prometheus / Sentry）需自行配置后才生效。
+* **第三方数据再分发**：第三方招生数据存在授权不确定性，本仓库**不**再分发这类数据。
+
+> 说明：以上是不适用边界，不是待办列表。历史版本中曾尝试过的人物化/营销类内容
+> 已从当前源码树移除。
 
 ---
 
