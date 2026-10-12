@@ -16,6 +16,8 @@ export const useChatStore = defineStore('chat', () => {
     const id = `session-${Date.now()}`
     sessions.value.unshift({ id, scene, title: '新对话', createdAt: new Date() })
     currentSessionId.value = id
+    sessionToken.value = null // Never reuse a previous session's capability token.
+    slots.value = {}
     messages.value = []
     return id
   }
@@ -26,7 +28,7 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
     try {
-      const events = await chatAPI.send(currentSessionId.value, text, slots.value)
+      const events = await chatAPI.send(currentSessionId.value, text, slots.value, 'gaokao', sessionToken.value)
       for (const event of events) {
         if (event.type === 'token') {
           assistantContent += event.content
@@ -44,7 +46,14 @@ export const useChatStore = defineStore('chat', () => {
         } else if (event.type === 'slots') {
           slots.value = event.data
         } else if (event.type === 'done') {
-          // Persist the HMAC session token for subsequent profile/voice calls.
+          // Anonymous first request is assigned a server-owned, random ID.
+          // Store that ID and its matching capability token together.
+          if (event.session_id && event.session_id !== currentSessionId.value) {
+            const previousId = currentSessionId.value
+            const entry = sessions.value.find(s => s.id === previousId)
+            if (entry) entry.id = event.session_id
+            currentSessionId.value = event.session_id
+          }
           if (event.session_token) sessionToken.value = event.session_token
         } else if (event.type === 'quality') {
           // Quality grade from SSE stream
