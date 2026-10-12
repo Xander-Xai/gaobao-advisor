@@ -49,7 +49,6 @@ class TestChatTokenIssuance:
         assert len(done_events) == 1
         assert "session_token" in done_events[0]
 
-
     def test_anonymous_chat_cannot_mint_token_for_caller_selected_session(self, monkeypatch):
         """A known session ID must never be sufficient to get its bearer proof."""
         from server.auth import verify_session_token
@@ -61,11 +60,7 @@ class TestChatTokenIssuance:
             json={"session_id": requested_id, "message": "你好", "scene": "gaokao"},
         )
         assert response.status_code == 200
-        events = [
-            json.loads(line[6:])
-            for line in response.text.split("\n")
-            if line.startswith("data: ")
-        ]
+        events = [json.loads(line[6:]) for line in response.text.split("\n") if line.startswith("data: ")]
         done = next(item for item in events if item.get("type") == "done")
         assert done["session_id"].startswith("session-")
         assert done["session_id"] != requested_id
