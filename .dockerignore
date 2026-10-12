@@ -6,7 +6,6 @@ __pycache__
 data/
 .env
 .streamlit/secrets.toml
-demo-preview.gif
 *.db
 node_modules
 frontend/dist
