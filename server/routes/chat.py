@@ -3,14 +3,15 @@
 import asyncio
 import json
 import logging
+import secrets
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from db.database import get_session
 from db.models import Highlight
-from server.auth import create_session_token
+from server.auth import create_session_token, verify_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
 
@@ -97,22 +98,37 @@ async def _sse_generator(
         if degraded:
             yield f"data: {json.dumps({'type': 'degraded', 'message': 'AI 服务暂时不稳定，已启用降级回复'})}\n\n"
 
-    yield f"data: {json.dumps({'type': 'done', 'message_id': f'{session_id}-response', 'session_token': create_session_token(session_id)})}\n\n"
+    yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'message_id': f'{session_id}-response', 'session_token': create_session_token(session_id)})}\n\n"
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, authorization: str | None = Header(None)):
+    """Anonymous clients get a *new server-owned* session; existing sessions need proof.
+
+    Never mint a bearer credential for an unauthenticated, caller-selected ID:
+    that would turn knowledge of a session ID into access to its profile.
+    """
+    if authorization is None:
+        # Ignore the untrusted session_id (which may name another user's session).
+        # The generated ID has 192 bits of randomness and fits ChatRequest's shape.
+        session_id = "session-" + secrets.token_urlsafe(24)
+    else:
+        if not authorization.startswith("Bearer ") or not verify_session_token(
+            request.session_id, authorization.removeprefix("Bearer ").strip()
+        ):
+            raise HTTPException(status_code=401, detail="Invalid session token")
+        session_id = request.session_id
+
     return StreamingResponse(
         _sse_generator(
-            request.session_id,
+            session_id,
             request.scene,
             request.message,
             request.slots,
         ),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
-
 
 class FeedbackRequest(BaseModel):
     """用户反馈请求"""
