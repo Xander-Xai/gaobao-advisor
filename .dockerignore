@@ -8,3 +8,7 @@ data/
 .streamlit/secrets.toml
 demo-preview.gif
 *.db
+node_modules
+frontend/dist
+frontend/node_modules
+.git

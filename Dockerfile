@@ -33,4 +33,11 @@ EXPOSE 8000
 
 USER appuser
 
+# The image ships no database. The entrypoint generates the deterministic
+# SYNTHETIC dataset on first start; nothing is downloaded and no real data is
+# present in the image or its layers.
+COPY --chown=appuser:appuser docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
