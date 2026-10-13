@@ -1,4 +1,28 @@
-# gaobao-advisor — AI 高考志愿顾问
+# gaobao-advisor — LangGraph AI 高考志愿咨询工程
+
+[![CI](https://github.com/Xander-Xai/gaobao-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/Xander-Xai/gaobao-advisor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue)
+![Demo](https://img.shields.io/badge/data-SYNTHETIC__DEMO-orange)
+
+**一个可复现的 AI Agent 工程样本**：LangGraph 有状态工作流、FastAPI / SSE、结构化数据查询、Vue 3，以及会话安全与失败关闭设计。
+
+**3 分钟先跑 API 演示，无需模型 Key 或真实招生数据：**
+
+```bash
+git clone https://github.com/Xander-Xai/gaobao-advisor.git
+cd gaobao-advisor
+docker build -t gb-advisor .
+docker run --rm -p 8000:8000 gb-advisor
+# 在另一个终端执行：
+curl http://localhost:8000/api/v1/health
+curl "http://localhost:8000/api/v1/data/schools?limit=3"
+```
+
+> Docker 默认启动 **FastAPI 后端**，不会自动打开 Vue 前端。前端开发启动见[快速开始](#快速开始)。
+> 演示数据为程序生成的虚构数据，**不能用于真实高考志愿决策**；知识库检索默认关闭。
+
+**导航：** [核心能力](#这个仓库是什么不是什么) · [工程设计](#关键工程设计) · [架构](#架构) · [快速开始](#快速开始) · [演示步骤](TUTORIAL.md) · [数据与 RAG 边界](#数据分发模式) · [安全与贡献](#许可与合规)
 
 一个基于 **LangGraph + 结构化高考数据查询 + FastAPI/SSE + Vue 3** 的 AI 志愿填报
 顾问开源工程。它不是把问题直接丢给大模型的 ChatBot，而是把志愿咨询拆成
@@ -29,6 +53,22 @@
 | Vue 3 前端 | 可用 | `frontend/` |
 | **知识库检索（RAG）** | **默认关闭** | 见下方「RAG 边界」 |
 | 联网搜索 | 关闭 | 无第三方检索授权 |
+
+---
+
+## 关键工程设计
+
+| 工程问题 | 采用的设计 | 查看实现 |
+|---|---|---|
+| 多轮咨询的信息不完整 | LangGraph 条件路由、槽位采集和追问分支 | [图定义](server/graph/graph.py) · [状态](server/graph/state.py) |
+| LLM 与结构化业务数据如何协作 | 查询节点接入 SQLite/SQLAlchemy，后续生成与来源标注分离 | [数据 API](server/routes/data.py) · [图定义](server/graph/graph.py) |
+| 可选 RAG 无语料时怎么办 | 显式 `RAG_DISABLED`，不可用时 fail-closed，不假装命中检索 | [RAG 服务](server/services/rag.py) |
+| 匿名多轮会话如何隔离 | 服务端签发 session ID；后续请求使用 HMAC 绑定的 Bearer token | [鉴权](server/auth.py) · [SSE 聊天](server/routes/chat.py) |
+| 如何验证仓库能实际运行 | 合成数据种子、无 Key Docker、Python/前端/安全 CI 门禁 | [CI](.github/workflows/ci.yml) · [验收测试](tests/test_public_demo_acceptance.py) |
+
+**读代码顺序（面向 AI 应用工程实践）：** `server/graph/graph.py` → `server/graph/state.py` → `server/routes/chat.py` → `server/auth.py` → `server/services/rag.py`。这条路线比只看 API 列表更容易理解状态流转、异步流式输出与错误边界。
+
+**真实性说明：** 工作流编排与 SSE 生成分开实现；当前图定义不包含独立的 `llm_reason` 节点，LLM token streaming 由 `server/routes/chat.py` 处理。项目没有已验证的吞吐量、SLA、真实录取准确率或 RAG 评测指标。
 
 ---
 
@@ -111,17 +151,17 @@
 
 ## 架构
 
-```text
-security_scan → intent_detect → scene_route → slot_extract → profile_check
-   ├── 信息不足 → question_generate ─┐
-   └── 信息完整 → quality_orchestrate ┤
-                       ├── data_query │
-                       ├── rag_retrieve (可选；默认 RAG_DISABLED)
-                       ├── reason     │
-                       ├── structure_output → source_attribution
-                       ├── quality_post_check → quality_judge
-                       └── feedback → memory_update → render_reply → END
+```mermaid
+flowchart LR
+    A["security_scan"] --> B["intent_detect"] --> C["scene_route"] --> D["slot_extract"] --> E{"profile_check"}
+    E -->|"信息不足"| F["question_generate"]
+    E -->|"已有回复"| L["render_reply"]
+    E -->|"资料完整"| G["quality_orchestrate"] --> H["data_query"] --> I["rag_retrieve（默认关闭）"] --> J["reason"] --> K["structure_output"] --> L
+    F --> L
+    L --> M["source_attribution"] --> N["quality_post_check"] --> O["quality_judge"] --> P["feedback"] --> Q["memory_update"] --> R(["END"])
 ```
+
+> 图示对应 [`server/graph/graph.py`](server/graph/graph.py) 注册的 17 个节点；LLM Token 流由 SSE 路由独立处理，不应误解为所有节点都在一次流式调用中执行。
 
 核心技术栈：
 
@@ -235,6 +275,17 @@ tests/                 单元与验收测试（885 passed / 1 skipped）
 
 > 说明：以上是不适用边界，不是待办列表。历史版本中曾尝试过的人物化/营销类内容
 > 已从当前源码树移除。
+
+---
+
+## 演示和参与
+
+- **初次使用：** [无 Key 演示教程](TUTORIAL.md)；[合成模式演示检查项](examples/demo_conversation.md)。不提供真实院校报考推荐样例。
+- **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
+- **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+- **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)。
+
+不提供承诺运行中的在线 Demo 服务；以仓库代码和最新 CI 为准。
 
 ---
 
