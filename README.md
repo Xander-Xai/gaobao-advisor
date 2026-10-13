@@ -292,6 +292,7 @@ tests/                 单元与验收测试（885 passed / 1 skipped）
 ## 许可与合规
 
 * 代码：[`LICENSE`](LICENSE)（MIT）。
+* 来源：本项目最初派生自上游 [`ziqihe10-droid/xuefeng-agent`](https://github.com/ziqihe10-droid/xuefeng-agent) 的 **MIT 授权版本**（截至 commit `58167355`，此后上游改为 AGPL-3.0）。本仓库**仅继承 MIT 阶段的代码**，并在此基础上独立完成了 LangGraph / FastAPI / Vue 3 / 容器化 / 会话安全 / 自动化测试等工程重构；**未包含上游 AGPL 阶段的新增代码**。原始 MIT 版权声明保留于 [`LICENSE`](LICENSE)，来源与核验说明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 * 数据：[`DATA_LICENSE.md`](DATA_LICENSE.md) — 合成数据集以 CC0-1.0 提供。
 * 隐私：[`PRIVACY.md`](PRIVACY.md)。安全：[`SECURITY.md`](SECURITY.md)。
 * 第三方：[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)。
