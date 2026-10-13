@@ -292,6 +292,7 @@ tests/                 单元与验收测试（885 passed / 1 skipped）
 ## 许可与合规
 
 * 代码：[`LICENSE`](LICENSE)（MIT）。
+* 来源：本项目基于早期的 **MIT 许可代码**继续开发，并在此基础上独立完成了 LangGraph / FastAPI / Vue 3 / 容器化 / 会话安全 / 自动化测试等工程重构。完整来源、固定版本与后续许可证变更说明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；原始 MIT 版权声明与许可正文见 [`LICENSE`](LICENSE)。
 * 数据：[`DATA_LICENSE.md`](DATA_LICENSE.md) — 合成数据集以 CC0-1.0 提供。
 * 隐私：[`PRIVACY.md`](PRIVACY.md)。安全：[`SECURITY.md`](SECURITY.md)。
 * 第三方：[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)。

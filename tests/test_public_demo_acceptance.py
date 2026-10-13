@@ -234,12 +234,53 @@ class TestExcludedAssetsAbsent:
         "tests/server/services/test_voice.py",
     }
 
+    # Narrow, audited attribution exceptions. Each entry maps a file to a tuple
+    # of (literal, exact expected occurrence count). Before scanning, only these
+    # exact literals are masked — everything else in the same file, and any
+    # extra copy of the literal, is still scanned. This is deliberately
+    # file-scoped and literal-scoped: it does NOT exempt whole files from
+    # scanning and does NOT skip whole lines.
+    _ALLOWED_ATTRIBUTION_LITERALS = {
+        # The canonical original MIT copyright notice (exactly one line).
+        "LICENSE": (("Copyright (c) 2026 雪峰Agent Contributors", 1),),
+        # The audited upstream source URL (exactly once).
+        "THIRD_PARTY_NOTICES.md": (("https://github.com/ziqihe10-droid/xuefeng-agent", 1),),
+    }
+
+    @classmethod
+    def _mask_allowed_attribution(cls, fname: str, text: str) -> str:
+        """Mask only the audited literal(s), enforcing the exact counts.
+
+        A missing or duplicated allowed literal is itself a regression and
+        raises ``AssertionError`` (the copyright notice must exist exactly
+        once; the upstream URL must appear exactly once).
+        """
+        out = text
+        for literal, expected in cls._ALLOWED_ATTRIBUTION_LITERALS.get(fname, ()):
+            found = out.count(literal)
+            assert found == expected, (
+                f"{fname}: expected exactly {expected} occurrence(s) of {literal!r}, found {found}"
+            )
+            out = out.replace(literal, "")
+        return out
+
+    @classmethod
+    def _persona_offenders(cls, fname: str, text: str) -> list[str]:
+        masked = cls._mask_allowed_attribution(fname, text)
+        low = masked.lower()
+        return [t for t in cls._PERSONA_TOKENS if t in low]
+
     def test_no_named_person_corpus_tracked(self) -> None:
         offenders = [f for f in _tracked_files() if any(t in f.lower() for t in self._PERSONA_TOKENS)]
         assert offenders == [], f"persona-named path must not be tracked: {offenders}"
 
     def test_no_persona_token_in_shipped_content(self) -> None:
-        """No shipped (non-test) file may reference the persona name."""
+        """No shipped (non-test) file may reference the persona name.
+
+        The only exceptions are the exact, audited attribution literals masked
+        by ``_mask_allowed_attribution``; every other byte of every file is
+        still scanned.
+        """
         offenders = []
         for f in _tracked_files():
             if f in self._NEGATIVE_CONTROL_TESTS:
@@ -248,9 +289,62 @@ class TestExcludedAssetsAbsent:
                 text = (REPO_ROOT / f).read_text(encoding="utf-8", errors="ignore")
             except (OSError, UnicodeDecodeError):
                 continue
-            if any(t in text.lower() for t in self._PERSONA_TOKENS):
+            if self._persona_offenders(f, text):
                 offenders.append(f)
         assert offenders == [], f"persona token in shipped content: {offenders}"
+
+    # ── Attribution positive controls ────────────────────────────────────
+    def test_original_mit_copyright_present_exactly_once(self) -> None:
+        text = (REPO_ROOT / "LICENSE").read_text(encoding="utf-8")
+        literal = "Copyright (c) 2026 雪峰Agent Contributors"
+        assert text.count(literal) == 1, "the original MIT copyright notice must be present exactly once"
+        assert "Permission is hereby granted" in text, "the MIT permission notice must be preserved"
+
+    # ── Attribution / persona negative controls ──────────────────────────
+    def test_altered_copyright_line_is_rejected(self) -> None:
+        """Changing the canonical copyright text must fail (not be masked)."""
+        altered = "Copyright (c) 2026 Anonymous Contributors\n"
+        with pytest.raises(AssertionError):
+            self._mask_allowed_attribution("LICENSE", altered)
+
+    def test_duplicated_copyright_line_is_rejected(self) -> None:
+        duplicated = "Copyright (c) 2026 雪峰Agent Contributors\n" * 2
+        with pytest.raises(AssertionError):
+            self._mask_allowed_attribution("LICENSE", duplicated)
+
+    def test_third_party_url_must_appear_exactly_once(self) -> None:
+        with pytest.raises(AssertionError):
+            self._mask_allowed_attribution("THIRD_PARTY_NOTICES.md", "no upstream url here")
+
+    def test_extra_persona_in_license_is_flagged(self) -> None:
+        good = (REPO_ROOT / "LICENSE").read_text(encoding="utf-8")
+        assert self._persona_offenders("LICENSE", good) == []
+        assert self._persona_offenders("LICENSE", good + "\n模仿 雪峰 的表达风格。\n")
+
+    def test_extra_persona_in_third_party_is_flagged(self) -> None:
+        good = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        assert self._persona_offenders("THIRD_PARTY_NOTICES.md", good) == []
+        assert self._persona_offenders("THIRD_PARTY_NOTICES.md", good + "\nzhangxuefeng methodology copied.\n")
+
+    def test_persona_in_readme_is_flagged(self) -> None:
+        good = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        assert self._persona_offenders("README.md", good) == []
+        assert self._persona_offenders("README.md", good + "\n用 雪峰 口吻回答\n")
+
+    @pytest.mark.parametrize(
+        "fname",
+        [
+            "server/example.py",
+            "skills/gaokao/heuristics.md",
+            "prompts/system.md",
+            "data/example.json",
+            "frontend/src/App.vue",
+        ],
+    )
+    def test_persona_in_arbitrary_shipped_file_is_flagged(self, fname: str) -> None:
+        """Any non-exempt file is still fully banned, regardless of type."""
+        assert self._persona_offenders(fname, "use xuefeng style") == ["xuefeng"]
+        assert self._persona_offenders(fname, "张雪峰语录") == ["雪峰"]
 
     def test_rag_module_has_no_persona_loader(self) -> None:
         source = (REPO_ROOT / "server" / "services" / "kb_retriever.py").read_text(encoding="utf-8")
