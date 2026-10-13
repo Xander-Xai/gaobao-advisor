@@ -1,5 +1,12 @@
 # Web 版部署指南
 
+> ⚠️ **状态：部分内容已过时（历史记录）。**
+> 本文档记录的是早期 **Streamlit 原型**（`streamlit run app.py`）的部署方式；该
+> 原型入口 `app.py` 与 `启动Web版.bat` 已从当前源码树移除。
+> **当前 Web 部署方式为 FastAPI + Vue 3**，请以仓库根目录 `README.md` 的
+> 「快速开始 / Docker」章节为准（`docker build -t gb-advisor .` 或 `docker compose up`）。
+> 下文 Streamlit 相关步骤，以及成本 / 增长 / 收入等预估，仅供参考，**不代表当前能力或承诺**。
+
 > gaobao-advisor Web版 — 三种部署方式，从免费到专业
 
 ---

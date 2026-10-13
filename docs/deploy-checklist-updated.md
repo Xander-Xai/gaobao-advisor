@@ -1,5 +1,13 @@
 # 生产环境部署检查清单（已更新）
 
+> ⚠️ **状态：历史验收清单（2026-06-16），非当前验证结果。**
+> 当前项目定位为**开源工程样本**：默认合成数据、RAG 默认关闭，**未做生产级容量、
+> 并发或 SLA 验证**。因此本文中「达到生产就绪标准 / 建议立即上线 / 可用性 99.5% /
+> 用户量与延迟预估」等描述**不代表当前状态**，仅为该次记录的当时假设。
+> 部署请以 `README.md` 与仓库内实际存在的 `docker-compose.yml` / `docker-compose.prod.yml` 为准。
+> 已知过时/缺失引用：`tests/locustfile.py`、`data/vector_index/` 当前不存在；
+> 实际测试指标为 **885 passed / 1 skipped，覆盖率 77.33%**（Python）、**50 passed**（前端）。
+
 > 本清单基于 2026-06-16 验收报告更新，包含所有 P1 问题的解决方案。
 
 ---
@@ -123,7 +131,7 @@ curl http://localhost:3100/ready       # Loki
 # 运行完整测试套件
 python3 -m pytest tests/ -v --tb=short
 
-# 预期结果: 695+ passed, 覆盖率 > 80%
+# 实际结果: 885 passed / 1 skipped, 覆盖率 77.33%
 ```
 
 ### 前端测试
@@ -131,7 +139,7 @@ python3 -m pytest tests/ -v --tb=short
 cd frontend
 npm test
 
-# 预期结果: 12+ passed (MessageBubble, ChatArea, MessageInput, AppSidebar, AppHeader, AppRightPanel)
+# 实际结果: 50 passed (MessageBubble, ChatArea, MessageInput, AppSidebar, AppHeader, AppRightPanel)
 ```
 
 ### 端到端测试
@@ -363,10 +371,10 @@ curl -f http://localhost:8000/api/v1/health
 - [x] Slack/Email 通知配置
 
 ### 测试
-- [x] 后端测试 695+ passed
-- [x] 前端测试 12+ passed
-- [x] 覆盖率 > 80%
-- [x] E2E 测试通过
+- [ ] 后端测试（当前 885 passed / 1 skipped）
+- [ ] 前端测试（当前 50 passed）
+- [ ] 覆盖率（当前 77.33%，门禁 70%）
+- [ ] E2E 测试（需自行搭建）
 
 ### 文档
 - [x] SPEC.md 需求规格
@@ -379,15 +387,11 @@ curl -f http://localhost:8000/api/v1/health
 
 ## 🎯 上线决策
 
-**所有 P1 问题已解决，项目达到生产就绪标准。**
+> 本节记录的是 2026-06-16 当时的内部判断，**不构成当前结论**。
 
-✅ **建议立即上线**
-
-预计效果：
-- 首月用户：100-500 人
-- 响应延迟：P95 < 2s
-- 错误率：< 2%
-- 可用性：> 99.5%
+当时的记录为「P1 问题已解决」。但以当前定位看，本项目是**开源工程样本**，默认合成
+数据、RAG 默认关闭，**未完成生产级验证**，因此**不应据此直接上线真实志愿决策服务**。
+下方「预计效果」（用户量 / 延迟 / 可用性）为当时假设，非实测。
 
 ---
 
