@@ -1,7 +1,9 @@
 # Implementation Plan: gaobao-advisor 用户体验升级（非手动开发任务）
 
+> ⚠️ **历史文档**：本文记录 2026-06 的研发阶段实施计划，**不代表当前项目实现状态**。最新架构与运行说明以根目录 [README.md](../README.md) 为准。
+
 > 制定日期：2026-06-12
-> 基于：[开发计划](development-plan.md) + [体验审计报告](user-experience-audit.md)
+> 基于：[开发计划](development-plan.md) + 体验审计报告（`user-experience-audit.md`，历史文档，已移除）
 > 当前代码状态：333 tests passing, quality 7 modules complete, prompt v2.7
 
 ---
