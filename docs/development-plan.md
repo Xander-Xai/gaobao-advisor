@@ -1,7 +1,10 @@
 # 开发计划：gaobao-advisor 用户体验升级
 
+> ⚠️ **历史文档**：本文记录 2026-06 的研发阶段计划，**不代表当前项目实现状态**。最新架构与运行说明以根目录 [README.md](../README.md) 为准。
+> 文中同类条件下的 `app.py` / `system_prompt.md` / `user-experience-audit.md` 为当时版本，现已从公开源码树移除；其余指向仓库现有文件的链接已修正为正确的相对路径。
+
 > 制定日期：2026-06-12 | 更新日期：2026-06-13
-> 基于：[用户视角体验审计报告](user-experience-audit.md)
+> 基于：用户视角体验审计报告（`user-experience-audit.md`，历史文档，已移除）
 > 目标：让家长/学生打开就能用、用了就信任、信任就能落地
 > **当前状态：Phase 0-3 已全部实现，Phase 5-8 执行计划已制定**
 
@@ -26,7 +29,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 0.1：后端预配置 API Key，移除用户侧输入
 
-- **文件**：[app.py](app.py) L232-291
+- **文件**：`app.py` L232-291
 - **改动**：
   - 部署时必须在 `.env` 或 `st.secrets` 中配好 `LLM_API_KEY`
   - 移除侧边栏的 API Key 输入框和"使用此 Key"按钮
@@ -35,7 +38,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 0.2：首次使用引导流程
 
-- **文件**：[app.py](app.py) L37-55（欢迎消息和快速提问）
+- **文件**：`app.py` L37-55（欢迎消息和快速提问）
 - **改动**：
   - 重写欢迎消息：简短问候 + 3 步引导（选省份→填分数→说想法）
   - 替换 6 个硬编码快速问题为**动态引导卡片**：
@@ -47,7 +50,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 0.3：加载体验优化
 
-- **文件**：[app.py](app.py) L409
+- **文件**：`app.py` L409
 - **改动**：
   - 将 `st.spinner("正在分析中，请稍候...")` 替换为分阶段提示：
     - 第 1 秒：「正在匹配你的信息...」
@@ -64,7 +67,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 1.1：扩大数据导入范围
 
-- **文件**：[scripts/import_baidu_gaokao.py](scripts/import_baidu_gaokao.py)
+- **文件**：[scripts/import_baidu_gaokao.py](../scripts/import_baidu_gaokao.py)
 - **改动**：
   - 扩展导入参数：覆盖全部 30 个主要省份 × 近 3 年（2023/2024/2025）
   - 扩大学校范围：不只是 top 80，改为全量导入（百度高考 API 支持分页）
@@ -77,7 +80,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 1.2：数据时效性和来源标注
 
-- **文件**：[agent.py](agent.py) L443-556（数据注入逻辑）+ [system_prompt.md](system_prompt.md)
+- **文件**：[agent.py](../agent.py) L443-556（数据注入逻辑）+ `system_prompt.md`
 - **改动**：
   - 每条注入数据附加年份标签：`[2025年数据]` 而不是 `[T1]`
   - 在 AI 回复中强制要求注明数据年份
@@ -87,7 +90,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 1.3：选科约束查询
 
-- **文件**：[gaokao_data.py](gaokao_data.py) + [agent.py](agent.py) L443-556
+- **文件**：[gaokao_data.py](../gaokao_data.py) + [agent.py](../agent.py) L443-556
 - **改动**：
   - 新增 `query_subject_requirements(school_id, province, year)` 函数，查询 `EnrollmentPlan.subject_requirement`
   - 在推荐学校时，如果用户已提供选科信息，自动过滤掉不满足选科要求的专业
@@ -96,7 +99,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 1.4：院校信息补全
 
-- **文件**：[scripts/seed_data.py](scripts/seed_data.py) + 新增 `scripts/import_schools_full.py`
+- **文件**：[scripts/seed_data.py](../scripts/seed_data.py) + 新增 `scripts/import_schools_full.py`
 - **改动**：
   - 补充普通本科和专科院校的基础信息（名称、省份、城市、类型、层次）
   - 补充院校官网 URL、招生办电话（公开信息）
@@ -111,7 +114,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 2.1：冲/稳/保结构化卡片
 
-- **文件**：[app.py](app.py)（新增渲染逻辑）+ [agent.py](agent.py)（结构化输出）
+- **文件**：`app.py`（新增渲染逻辑）+ [agent.py](../agent.py)（结构化输出）
 - **改动**：
   - AI 回复中的学校推荐改为**结构化数据块**（JSON 或标记格式），前端解析后渲染为卡片
   - 每张卡片包含：学校名、城市、层次标签（985/211/双一流）、往年最低分、往年最低位次、录取概率评估
@@ -124,7 +127,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 2.2：院校详情面板
 
-- **文件**：[app.py](app.py)（新增组件）
+- **文件**：`app.py`（新增组件）
 - **改动**：
   - 卡片可展开查看：
     - 学校基本信息（层次、类型、排名）
@@ -136,7 +139,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 2.3：志愿表生成工具
 
-- **文件**：新增 [app.py](app.py) 中的侧边栏工具 or 新页面
+- **文件**：新增 `app.py` 中的侧边栏工具 or 新页面
 - **改动**：
   - 在侧边栏添加"生成志愿表"按钮
   - 基于当前推荐结果，自动生成志愿排序建议：
@@ -148,7 +151,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 2.4：快捷操作优化
 
-- **文件**：[app.py](app.py) L48-55
+- **文件**：`app.py` L48-55
 - **改动**：
   - 快速提问改为**场景分类**而非具体案例：
     - 「我是高分考生，想冲名校」
@@ -167,7 +170,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 3.1：对话持久化
 
-- **文件**：[agent.py](agent.py) + [app.py](app.py) + [db/models.py](db/models.py)
+- **文件**：[agent.py](../agent.py) + `app.py` + [db/models.py](../db/models.py)
 - **改动**：
   - 新增 `Conversation` 表：session_id, user_label, messages_json, slots_json, created_at, updated_at
   - 用户首次访问时生成 session_id（存 cookie 或 URL 参数）
@@ -178,7 +181,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 3.2：结果导出与分享
 
-- **文件**：[app.py](app.py)
+- **文件**：`app.py`
 - **改动**：
   - 添加"导出咨询报告"按钮：
     - 汇总用户的省份/分数/选科信息
@@ -190,7 +193,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 3.3：对话记忆增强
 
-- **文件**：[agent.py](agent.py) L415
+- **文件**：[agent.py](../agent.py) L415
 - **改动**：
   - 扩大上下文窗口：从 10 轮提升到 20 轮（40 条消息）
   - 超出窗口后，自动摘要之前的关键信息作为 system 消息注入
@@ -199,7 +202,7 @@ Phase 0 (零门槛)  →  Phase 1 (数据可信)  →  Phase 2 (结果好用)  �
 
 ### Task 3.4：移动端适配增强
 
-- **文件**：[app.py](app.py) CSS 部分
+- **文件**：`app.py` CSS 部分
 - **改动**：
   - 增强移动端 CSS：
     - 侧边栏默认折叠

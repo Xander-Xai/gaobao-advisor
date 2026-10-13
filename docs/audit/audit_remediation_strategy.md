@@ -1,5 +1,7 @@
 # Gaobao Advisor — 第三轮独立审计核验与治理策略报告
 
+> ⚠️ **历史文档**：本文记录 2026-06 的第三轮独立审计，为历史材料；**其审计结论保持原样、未作修改**，但不代表当前项目实现状态。最新架构与运行说明以根目录 [README.md](../../README.md) 为准。
+
 > **核验日期**：2026-06-16
 > **核验基线**：基于第三轮独立审计报告所提出的 22 项自查、横切审计链及 9 大核心发现，通过本轮深度静态分析、动态测试运行、Git 索引检查和逻辑回溯，还原 codebase 真实状态。
 
@@ -49,7 +51,7 @@ graph TD
   ```
 
 #### 2. 补齐语音 WebSocket 端点安全防护（修复 X-8 旁路漏洞）
-- **修改位置**：[voice.py](file:///home/dev/projects/gaobao/gaobao-advisor/server/routes/voice.py#L59-L64)
+- **修改位置**：[voice.py](../../server/routes/voice.py)
 - **修复逻辑**：在接收语音识别（ASR）结果后，调用 `detect_injection` 和 `sanitize_input` 对输入进行强过滤，防止利用语音伪造 Prompt 注入。
 - **差异对比**：
   ```diff
@@ -71,7 +73,7 @@ graph TD
 #### 1. 清理根目录 Shims 与测试用例重定向（解决 C-2）
 直接删除根目录下的 compatibility shims (`agent.py`, `gaokao_data.py`, `kb_retriever.py`, `ratelimit.py`) 会直接击垮 10 个测试文件。
 - **治理策略**：
-  1. 批量重构 10 个测试文件（使用 [grep](file:///home/dev/projects/gaobao/gaobao-advisor/tests) 指引）：
+  1. 批量重构 10 个测试文件（使用 [grep](../../tests) 指引）：
      - 将引用的旧辅助函数指向新模块 `server/services/`
      - 若针对已被 Deprecated 的旧功能的测试，重定向其导入为 `from legacy.xxx import ...`
   2. 测试验证全绿（653 passed）后，执行 `git rm` 彻底清空根目录的 4 个 shims 文件。
