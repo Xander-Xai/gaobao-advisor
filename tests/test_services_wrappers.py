@@ -116,12 +116,16 @@ class TestRagWrapper:
             rag.configure("/tmp/fake_groups", "/tmp/fake_quotes")
 
     def test_configure_accepted_when_enabled(self, monkeypatch, tmp_path):
-        """With the switch on and a real directory, configure succeeds."""
+        """With the switch on and a valid marked corpus, configure succeeds."""
 
         from server.services import rag
 
         groups = tmp_path / "groups"
         groups.mkdir()
+        (groups / "G1_core_method.md").write_text(
+            "<!-- SYNTHETIC_DEMO -->\n# demo\n## 志愿填报\n合成演示内容\n",
+            encoding="utf-8",
+        )
         quotes = tmp_path / "quotes"
         quotes.mkdir()
 
@@ -131,6 +135,28 @@ class TestRagWrapper:
             assert rag.status()["state"] == "RAG_ENABLED"
         finally:
             # Restore module state so other tests see the shipped default.
+            import importlib
+
+            importlib.reload(rag)
+
+    def test_configure_rejected_when_corpus_unmarked(self, monkeypatch, tmp_path):
+        """A corpus without the SYNTHETIC_DEMO marker must be refused (fail closed)."""
+        import pytest
+
+        from server.services import rag
+
+        groups = tmp_path / "groups"
+        groups.mkdir()
+        (groups / "G1.md").write_text("# unmarked\n## section\nunmarked content\n", encoding="utf-8")
+        quotes = tmp_path / "quotes"
+        quotes.mkdir()
+
+        monkeypatch.setenv("ENABLE_RAG_KB", "true")
+        try:
+            with pytest.raises(rag.RagCorpusError):
+                rag.configure(str(groups), str(quotes))
+            assert rag.status()["state"] == "RAG_ERROR"
+        finally:
             import importlib
 
             importlib.reload(rag)

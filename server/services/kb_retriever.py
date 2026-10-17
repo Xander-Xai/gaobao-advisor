@@ -11,7 +11,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from collections import Counter
 from dataclasses import dataclass, field
+from math import log
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -19,6 +22,100 @@ logger = logging.getLogger(__name__)
 import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_ASCII_WORD_RE = re.compile(r"[a-z0-9]+")
+
+# Function-word characters that make Chinese bigrams noisy for retrieval.
+# Bigrams containing any of these are dropped (e.g. "的关", "与暗", "什么").
+_STOP_CHARS = set("的了着过吗呢吧啊呀哦嗯是在和与及或我你他她它这那什么怎请就都也还又很太更最把被让给对")
+
+
+def tokenize(text: str) -> list[str]:
+    """Tokenize mixed Chinese/ASCII text for BM25.
+
+    Chinese text is tokenized into adjacent character bigrams (which behave far
+    better than unigrams for retrieval while staying dependency-free), and
+    ASCII runs are lowercased word tokens. Bigrams made of function-word
+    characters are dropped so that generic strings such as "的关系" do not
+    masquerade as evidence.
+    """
+    text = (text or "").lower()
+    tokens: list[str] = _ASCII_WORD_RE.findall(text)
+    chars = _CJK_RE.findall(text)
+    for i in range(len(chars) - 1):
+        a, b = chars[i], chars[i + 1]
+        if a in _STOP_CHARS or b in _STOP_CHARS:
+            continue
+        tokens.append(a + b)
+    return tokens
+
+
+class BM25:
+    """Minimal BM25 (Okapi) scorer over a small in-memory corpus.
+
+    Used as the always-available keyword retrieval path. It requires no API
+    key, no network and no model download, which is what makes the default
+    synthetic demo work offline.
+    """
+
+    def __init__(self, documents: list[str], k1: float = 1.5, b: float = 0.75):
+        self.k1 = k1
+        self.b = b
+        self._tf: list[Counter[str]] = [Counter(tokenize(d)) for d in documents]
+        self._len = [sum(c.values()) for c in self._tf]
+        self._avgdl = (sum(self._len) / len(self._len)) if self._len else 0.0
+        self._df: Counter[str] = Counter()
+        for counter in self._tf:
+            self._df.update(counter.keys())
+        self._n = len(documents)
+
+    @property
+    def size(self) -> int:
+        return self._n
+
+    def idf(self, term: str) -> float:
+        df = self._df.get(term, 0)
+        return log(1 + (self._n - df + 0.5) / (df + 0.5))
+
+    def score(self, query: str) -> list[float]:
+        """Return a BM25 score per document, in corpus order."""
+        scores = [0.0] * self._n
+        if self._n == 0 or not self._avgdl:
+            return scores
+        for term in set(tokenize(query)):
+            df = self._df.get(term, 0)
+            if df == 0:
+                continue
+            idf = self.idf(term)
+            for i, counter in enumerate(self._tf):
+                f = counter.get(term, 0)
+                if not f:
+                    continue
+                denom = f + self.k1 * (1 - self.b + self.b * self._len[i] / self._avgdl)
+                scores[i] += idf * (f * (self.k1 + 1)) / denom
+        return scores
+
+    def matched_terms(self, query: str, doc_index: int) -> int:
+        """Number of distinct query terms that occur in a given document."""
+        return len(self.matched_set(query, doc_index))
+
+    def matched_set(self, query: str, doc_index: int) -> set[str]:
+        """Distinct query terms that occur in a given document."""
+        terms = set(tokenize(query))
+        counter = self._tf[doc_index]
+        return {t for t in terms if t in counter}
+
+    def query_idf_mass(self, query: str) -> float:
+        """Sum of idf over distinct *in-vocabulary* query terms.
+
+        Out-of-vocabulary bigrams are excluded: natural-language queries almost
+        always contain segmentation bigrams absent from any small corpus, and
+        counting them would cap coverage below any usable threshold. Coverage
+        therefore measures "of the query terms the corpus knows, how much mass
+        does this document match".
+        """
+        return sum(self.idf(t) for t in set(tokenize(query)) if self._df.get(t, 0) > 0)
 
 
 @dataclass
@@ -30,6 +127,13 @@ class Chunk:
     embedding: np.ndarray | None = None
     start_line: int = 0
     section_title: str = ""
+    chunk_id: str = ""
+
+    @property
+    def citation_label(self) -> str:
+        """Stable, human-readable source marker for citation in answers."""
+        section = self.section_title or self.group_id
+        return f"{self.group_id} § {section}"
 
 
 @dataclass
@@ -54,6 +158,8 @@ class RetrievalResult:
     groups: list[str]  # 选中的知识组 ID 列表
     group_chunks: list[Chunk] = field(default_factory=list)
     quotes: list[QuoteEntry] = field(default_factory=list)
+    has_evidence: bool = False
+    citations: list[dict[str, Any]] = field(default_factory=list)
 
 
 GROUP_TRIGGERS: dict[str, list[str]] = {
@@ -181,32 +287,30 @@ def split_group(content: str, group_id: str) -> list[Chunk]:
     current_title = ""
     start_line = 1
 
+    def _flush(text: str, title: str, line: int) -> None:
+        stripped = text.strip()
+        if not stripped:
+            return
+        chunks.append(
+            Chunk(
+                text=stripped,
+                group_id=group_id,
+                start_line=line,
+                section_title=title,
+                chunk_id=f"{group_id}#L{line}",
+            )
+        )
+
     for i, line in enumerate(content.split("\n"), start=1):
         if line.startswith("## "):
-            if current_text.strip():
-                chunks.append(
-                    Chunk(
-                        text=current_text.strip(),
-                        group_id=group_id,
-                        start_line=start_line,
-                        section_title=current_title,
-                    )
-                )
+            _flush(current_text, current_title, start_line)
             current_title = line[3:].strip()
             current_text = line + "\n"
             start_line = i
         else:
             current_text += line + "\n"
 
-    if current_text.strip():
-        chunks.append(
-            Chunk(
-                text=current_text.strip(),
-                group_id=group_id,
-                start_line=start_line,
-                section_title=current_title,
-            )
-        )
+    _flush(current_text, current_title, start_line)
 
     return chunks
 
@@ -366,15 +470,35 @@ class KbRetriever:
         group_threshold: float = 0.3,
         max_groups: int = 2,
         max_quotes: int = 3,
+        max_chunks: int = 5,
+        min_keyword_score: float = 0.8,
+        min_dense_score: float = 0.35,
+        min_coverage: float = 0.2,
     ):
         self._vector_weight = vector_weight
         self._keyword_weight = keyword_weight
         self._group_threshold = group_threshold
         self._max_groups = max_groups
         self._max_quotes = max_quotes
+        self._max_chunks = max_chunks
+        self._min_keyword_score = min_keyword_score
+        self._min_dense_score = min_dense_score
+        self._min_coverage = min_coverage
         self._embedder = embedding_provider or KeywordOnlyEmbedding()
         self._groups = load_all_groups(groups_dir)
         self._quotes = self._load_quotes(quotes_path)
+
+        # Flatten chunks into a single index so BM25 operates over one corpus,
+        # and remember which flat indices belong to each group.
+        self._flat_chunks: list[Chunk] = []
+        self._group_indices: dict[str, list[int]] = {}
+        for group_id, chunks in self._groups.items():
+            self._group_indices[group_id] = []
+            for chunk in chunks:
+                self._group_indices[group_id].append(len(self._flat_chunks))
+                self._flat_chunks.append(chunk)
+        self._bm25 = BM25([c.text for c in self._flat_chunks])
+
         self._init_embeddings()
 
     def _load_quotes(self, quotes_path: str) -> list[QuoteEntry]:
@@ -458,7 +582,13 @@ class KbRetriever:
             logger.debug("Query embedding failed: %s", e)
             return None
 
-    def _score_groups(self, user_msg: str, query_emb: np.ndarray | None) -> list[tuple[str, float]]:
+    def _score_groups(
+        self,
+        user_msg: str,
+        query_emb: np.ndarray | None,
+        bm25_scores: list[float],
+    ) -> list[tuple[str, float]]:
+        max_bm = max(bm25_scores) if bm25_scores else 0.0
         scores: list[tuple[str, float]] = []
         for group_id, chunks in self._groups.items():
             vec_score = 0.0
@@ -467,9 +597,12 @@ class KbRetriever:
                     if chunk.embedding is not None:
                         sim = self._cosine_similarity(query_emb, chunk.embedding)
                         vec_score = max(vec_score, sim)
+            indices = self._group_indices.get(group_id, [])
+            bm_group = max((bm25_scores[i] for i in indices), default=0.0)
+            bm_norm = (bm_group / max_bm) if max_bm > 0 else 0.0
             triggers = GROUP_TRIGGERS.get(group_id, [])
             kw_score = keyword_match_score(user_msg, triggers)
-            hybrid = self._vector_weight * vec_score + self._keyword_weight * kw_score
+            hybrid = self._vector_weight * vec_score + self._keyword_weight * kw_score + 0.5 * bm_norm
             scores.append((group_id, hybrid))
         scores.sort(key=lambda x: -x[1])
         return scores
@@ -480,16 +613,56 @@ class KbRetriever:
             selected = [g for g, _ in scores[: self._max_groups]]
         return selected
 
-    def _select_top_chunks(self, group_ids: list[str], query_emb: np.ndarray | None) -> list[Chunk]:
+    def _chunk_dense_score(self, chunk: Chunk, query_emb: np.ndarray | None) -> float:
+        if query_emb is None or chunk.embedding is None:
+            return 0.0
+        return self._cosine_similarity(query_emb, chunk.embedding)
+
+    def _select_evidence(
+        self,
+        user_msg: str,
+        query_emb: np.ndarray | None,
+        group_ids: list[str],
+        bm25_scores: list[float],
+    ) -> tuple[list[Chunk], list[dict[str, Any]]]:
+        """Return only chunks that genuinely match the query.
+
+        A chunk counts as evidence when it passes *either* the keyword path
+        (BM25 above ``min_keyword_score`` with enough distinct matched terms)
+        *or* the dense path (cosine similarity above ``min_dense_score``). When
+        nothing passes, the result is empty — callers must treat that as "no
+        evidence", never as "answer freely".
+        """
+        q_terms = set(tokenize(user_msg))
+        min_match = 1 if len(q_terms) <= 2 else 2
+        idf_mass = self._bm25.query_idf_mass(user_msg)
+
         candidates: list[tuple[Chunk, float]] = []
         for group_id in group_ids:
-            for chunk in self._groups.get(group_id, []):
-                score = 0.0
-                if query_emb is not None and chunk.embedding is not None:
-                    score = self._cosine_similarity(query_emb, chunk.embedding)
-                candidates.append((chunk, score))
+            for idx in self._group_indices.get(group_id, []):
+                chunk = self._flat_chunks[idx]
+                dense = self._chunk_dense_score(chunk, query_emb)
+                kw = bm25_scores[idx] if idx < len(bm25_scores) else 0.0
+                matched = self._bm25.matched_set(user_msg, idx)
+                coverage = (sum(self._bm25.idf(t) for t in matched) / idf_mass) if idf_mass > 0 else 0.0
+                kw_ok = kw >= self._min_keyword_score and len(matched) >= min_match and coverage >= self._min_coverage
+                dense_ok = dense >= self._min_dense_score
+                if kw_ok or dense_ok:
+                    candidates.append((chunk, dense + kw))
+
         candidates.sort(key=lambda x: -x[1])
-        return [c for c, _ in candidates]
+        selected = [c for c, _ in candidates[: self._max_chunks]]
+        citations = [
+            {
+                "chunk_id": c.chunk_id,
+                "group_id": c.group_id,
+                "section_title": c.section_title,
+                "source": c.citation_label,
+                "start_line": c.start_line,
+            }
+            for c in selected
+        ]
+        return selected, citations
 
     def _select_top_quotes(self, user_msg: str, query_emb: np.ndarray | None) -> list[QuoteEntry]:
         scored: list[tuple[int, float]] = []
@@ -518,16 +691,24 @@ class KbRetriever:
         return selected
 
     def search(self, user_msg: str, slots: dict) -> RetrievalResult:
-        """主检索方法：混合向量 + 关键词。"""
+        """主检索方法：BM25 关键词 + 可选向量（dense）混合。
+
+        The keyword/BM25 path is always available (no API key, no network).
+        The dense path only contributes when the configured embedding provider
+        actually returns vectors.
+        """
         query_emb = self._embed_query(user_msg)
-        group_scores = self._score_groups(user_msg, query_emb)
+        bm25_scores = self._bm25.score(user_msg)
+        group_scores = self._score_groups(user_msg, query_emb, bm25_scores)
         selected_groups = self._select_top_groups(group_scores)
-        selected_chunks = self._select_top_chunks(selected_groups, query_emb)
+        selected_chunks, citations = self._select_evidence(user_msg, query_emb, selected_groups, bm25_scores)
         selected_quotes = self._select_top_quotes(user_msg, query_emb)
         result = RetrievalResult(
             groups=selected_groups,
             group_chunks=selected_chunks,
             quotes=selected_quotes,
+            has_evidence=bool(selected_chunks),
+            citations=citations,
         )
         logger.info(
             "RAG retrieval: query=%s, groups=%d, chunks=%d, quotes=%d",

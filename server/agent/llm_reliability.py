@@ -187,6 +187,30 @@ def build_llm_context(state: dict[str, Any]) -> str:
     if heuristics:
         parts.append(f"决策启发：{'; '.join(heuristics[:5])}")
 
+    # Knowledge-evidence boundary. The model must never upgrade "no evidence"
+    # into a confident factual claim, and must cite evidence when it has it.
+    rag_state = state.get("rag_state", "")
+    rag_evidence = bool(state.get("rag_evidence"))
+    sources = state.get("rag_sources") or []
+    if rag_state == "RAG_ENABLED":
+        if rag_evidence and sources:
+            labels = "、".join(str(s.get("source", "")) for s in sources[:5] if s.get("source"))
+            parts.append(
+                f"知识库证据来源：{labels}。"
+                "请仅基于上述检索到的证据作答，并在相关结论后以「（来源：<来源标记>）」的形式引用。"
+            )
+        else:
+            parts.append(
+                "知识库已启用，但未检索到与该问题直接相关的证据。"
+                "严禁编造或凭记忆杜撰结论；若无法从已知证据验证，请明确说明"
+                "「当前知识库未收录相关依据，无法验证」，并建议用户补充信息或查阅官方渠道。"
+            )
+    elif rag_state in ("RAG_DISABLED", "RAG_ERROR"):
+        reason = state.get("rag_reason") or "知识检索不可用"
+        parts.append(
+            f"⚠️ 知识检索不可用（{reason}）。不得声称引用了知识库；涉及具体政策或数据时必须说明无法通过知识库验证。"
+        )
+
     parts.append("请基于以上信息，用你的人设和表达方式，给出回复。")
 
     return "\n\n".join(parts)

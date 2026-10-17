@@ -124,38 +124,47 @@ class TestSessionIdentity:
         assert "secrets.token_urlsafe" in source, "session identifiers must come from a CSPRNG"
 
 
-# ── 3. Disabled subsystems are reported, not faked ───────────────────────
-class TestDisabledSubsystemsAreVisible:
-    def test_rag_disabled_by_default(self) -> None:
+# ── 3. Subsystem state is real, not faked ────────────────────────────────
+class TestSubsystemStateIsHonest:
+    def test_rag_enabled_by_default_with_synthetic_corpus(self) -> None:
         from server.services import rag
 
-        assert rag.status()["state"] == "RAG_DISABLED"
+        assert rag.initialize_default() is True
+        assert rag.status()["state"] == "RAG_ENABLED"
+        assert rag.status()["documents"] >= 1
 
-    def test_health_reports_degraded_subsystems(self) -> None:
+    def test_health_reports_real_rag_state(self) -> None:
         import asyncio
 
         from server.routes.health import health_check
+        from server.services import rag
 
+        assert rag.initialize_default() is True
         payload = asyncio.run(health_check())
-        assert payload["optional_services"]["rag"]["state"] == "RAG_DISABLED"
-        assert payload["degraded_services"], "a degraded subsystem must be listed"
+        assert payload["optional_services"]["rag"]["state"] == "RAG_ENABLED"
+        assert payload["optional_services"]["rag"]["integrity_ok"] is True
         assert payload["data_profile"] == "SYNTHETIC_DEMO"
 
-    def test_health_never_claims_full_health_with_rag_off(self) -> None:
+    def test_health_reports_rag_error_when_disabled(self, monkeypatch) -> None:
+        """A switched-off RAG must be visible as degraded, not folded into ok."""
         import asyncio
 
         from server.routes.health import health_check
+        from server.services import rag
 
-        payload = asyncio.run(health_check())
-        assert payload["status"] in ("ok", "degraded")
-        # Even when "ok" (DB connected), degraded_services must still be truthful.
-        if payload["status"] == "ok":
-            assert payload["degraded_services"] == ["rag"]
+        monkeypatch.setenv("ENABLE_RAG_KB", "false")
+        rag.reset()
+        try:
+            payload = asyncio.run(health_check())
+            assert payload["optional_services"]["rag"]["state"] == "RAG_DISABLED"
+            assert "rag" in payload["degraded_services"]
+        finally:
+            rag.reset()
 
     def test_shipped_config_matches_runtime(self) -> None:
         env = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
         rag_line = next(ln for ln in env.splitlines() if ln.strip().startswith("ENABLE_RAG_KB"))
-        assert rag_line.split("=", 1)[1].strip() == "false"
+        assert rag_line.split("=", 1)[1].strip() == "true"
         search_line = next(ln for ln in env.splitlines() if ln.strip().startswith("ENABLE_SEARCH"))
         assert search_line.split("=", 1)[1].strip() == "false"
 
@@ -202,7 +211,6 @@ class TestExcludedAssetsAbsent:
         [
             "backups/",
             "data/reports/",
-            "knowledge/",
             "prompts/",
             "memory/",
             "content_scripts/",
@@ -215,6 +223,24 @@ class TestExcludedAssetsAbsent:
     def test_prefix_not_tracked(self, prefix: str) -> None:
         offenders = [f for f in _tracked_files() if f.startswith(prefix)]
         assert offenders == [], f"{prefix} must not be tracked: {offenders}"
+
+    def test_only_synthetic_demo_corpus_tracked_under_knowledge(self) -> None:
+        """``knowledge/`` may ship, but only the marked SYNTHETIC_DEMO corpus.
+
+        The private upstream corpus (persona methodology, quotation collection)
+        must not creep back in under the same directory.
+        """
+        allowed_prefix = "knowledge/synthetic_demo/"
+        offenders = [f for f in _tracked_files() if f.startswith("knowledge/") and not f.startswith(allowed_prefix)]
+        assert offenders == [], f"only the synthetic demo corpus may ship: {offenders}"
+
+    def test_tracked_corpus_files_are_marked_synthetic(self) -> None:
+        marker = "SYNTHETIC_DEMO"
+        files = [f for f in _tracked_files() if f.startswith("knowledge/synthetic_demo/groups/")]
+        assert files, "the synthetic demo corpus must be tracked"
+        for f in files:
+            text = (REPO_ROOT / f).read_text(encoding="utf-8")
+            assert marker in text, f"{f} must carry the {marker} marker"
 
     @pytest.mark.parametrize("suffix", [".db", ".sqlite", ".sqlite3", ".sql", ".gz", ".corrupted"])
     def test_no_binary_data_artifacts_tracked(self, suffix: str) -> None:

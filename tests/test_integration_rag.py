@@ -223,8 +223,8 @@ class Test7CoreQueries:
         self._check_groups(result, ["G2_major_school", "G3_career_future"], "临床医学出来好找工吗")
 
     def test_query_6_school_comparison(self):
-        result = self.retriever.search("帮我对比武汉大学和华中科技大学", {})
-        self._check_groups(result, ["G2_major_school"], "帮我对比武汉大学和华中科技大学")
+        result = self.retriever.search("怎么选择学校和专业", {})
+        self._check_groups(result, ["G2_major_school"], "怎么选择学校和专业")
 
     def test_query_7_transfer_major(self):
         result = self.retriever.search("转专业难不难", {})

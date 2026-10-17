@@ -11,10 +11,10 @@ set -eu
 DB_PATH="${GAOBAO__DB_PATH:-data/demo.db}"
 export DATABASE_URL="${DATABASE_URL:-sqlite:///${DB_PATH}}"
 
-# RAG is shipped disabled because no redistributable corpus is bundled.
-# Force it off so a stray environment variable cannot make the service claim
-# a retrieval capability it does not have.
-export ENABLE_RAG_KB=false
+# RAG ships enabled against the bundled SYNTHETIC_DEMO knowledge corpus, which
+# is original, synthetic and CC0. Retrieval works offline with no API key. Set
+# ENABLE_RAG_KB=false to switch it off, or point the paths at your own corpus.
+export ENABLE_RAG_KB="${ENABLE_RAG_KB:-true}"
 
 if [ ! -f "${DB_PATH}" ]; then
     echo "[entrypoint] no demo database at ${DB_PATH}; generating SYNTHETIC data..."
