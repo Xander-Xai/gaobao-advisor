@@ -162,7 +162,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
   **忽略调用方传入的 `session_id`**；
 * 继续会话必须携带与该 `session_id` 匹配的 `Authorization: Bearer <token>`；
 * 令牌为 `HMAC-SHA256(SESSION_SECRET, session_id)`，不匹配即
-  `422 Invalid session token`；不同会话不能复用令牌。
+  `401 Invalid session token`；不同会话不能复用令牌。
 
 > 这是**会话能力令牌**，不是账号体系：没有密码、没有用户注册、没有跨设备
 > 账号恢复。生产环境必须设置强随机 `SESSION_SECRET`。
