@@ -78,6 +78,13 @@ async def _sse_generator(
     if result.get("structured_result"):
         yield f"data: {json.dumps({'type': 'structured', 'result': result['structured_result']})}\n\n"
 
+    # Emit retrieval evidence/citations so the client can show sources, and
+    # report degraded retrieval explicitly instead of hiding it.
+    if result.get("rag_state") == "RAG_ENABLED" and result.get("rag_sources"):
+        yield f"data: {json.dumps({'type': 'sources', 'data': result['rag_sources'], 'has_evidence': True})}\n\n"
+    elif result.get("rag_state") in ("RAG_DISABLED", "RAG_ERROR"):
+        yield f"data: {json.dumps({'type': 'rag_status', 'state': result['rag_state'], 'reason': result.get('rag_reason', '')})}\n\n"
+
     # Phase 2: Stream LLM tokens in real-time
     if result.get("reply"):
         # Non-LLM reply (security block, question generation): emit in chunks

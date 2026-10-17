@@ -31,6 +31,11 @@ class AdvisorState(TypedDict, total=False):
     expert_quotes: list[dict]
     data_query_results: dict
     knowledge_context: str
+    rag_state: str  # RAG_ENABLED | RAG_DISABLED | RAG_ERROR
+    rag_evidence: bool  # True only when matching evidence was retrieved
+    rag_sources: list[dict]  # citations for retrieved chunks
+    rag_reason: str  # explanation when state != RAG_ENABLED or no evidence
+    knowledge_query: bool  # input is a knowledge question (routing signal)
 
     # ── Reasoning & Output ────────────────────────────────────
     reasoning: str

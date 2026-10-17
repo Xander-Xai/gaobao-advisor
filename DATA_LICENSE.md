@@ -17,10 +17,30 @@ Regenerate with:
 python -m scripts.seed_demo_data --db data/demo.db --reset
 ```
 
+## Synthetic knowledge corpus
+
+`knowledge/synthetic_demo/` is the knowledge corpus that ships with the demo.
+
+* **Type:** original, machine-authored, synthetic (no source text reused)
+* **License:** CC0-1.0
+* **Contains:** fictional institution rules, illustrative admission-policy
+  examples, volunteer-application FAQ and explanatory notes
+* **Markers:** every `groups/*.md` file starts with a `SYNTHETIC_DEMO` notice;
+  `manifest.json` records the corpus marker, licence, version and per-file
+  sha256 hashes; institution names carry `（合成）` and match
+  `scripts/seed_demo_data.py`
+* **Not included:** the upstream persona-methodology group, any quotation
+  collection, or any real admission policy/data
+
+`server/services/rag.py::validate_corpus` refuses to serve a corpus that does
+not carry the `SYNTHETIC_DEMO` marker, so an unmarked or rights-unclear corpus
+cannot silently masquerade as demo knowledge.
+
 ## What is deliberately NOT here
 
 The upstream private project contained a knowledge corpus and a quotation
 collection attributed to a named individual, plus production database backups.
-None of it is redistributed here. See README "RAG 边界" and "安全规则资产".
+None of it is redistributed here. See README "RAG 能力" and "安全规则资产".
 
-If you add a corpus, you must be able to state its licence and provenance.
+If you add a corpus, you must be able to state its licence and provenance and
+must enable RAG only after that corpus passes the integrity check.

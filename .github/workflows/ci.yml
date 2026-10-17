@@ -115,19 +115,35 @@ jobs:
             if curl -sf http://localhost:8000/api/v1/health > /tmp/health.json; then break; fi
             sleep 2
           done
-      - name: Health must report synthetic profile and honest RAG state
+      - name: Health must report synthetic profile and real RAG state
         run: |
           python - <<'PY'
           import json
           h = json.load(open("/tmp/health.json"))
           assert h["data_profile"] == "SYNTHETIC_DEMO", h
-          assert h["optional_services"]["rag"]["state"] == "RAG_DISABLED", h
-          assert "rag" in h["degraded_services"], h
+          rag = h["optional_services"]["rag"]
+          assert rag["state"] == "RAG_ENABLED", h
+          assert rag["integrity_ok"] is True, h
+          assert rag["documents"] >= 1, h
+          assert h["degraded_services"] == [], h
           print(json.dumps(h, indent=2))
           PY
       - name: Synthetic data endpoints respond
         run: |
           curl -sf "http://localhost:8000/api/v1/data/schools?limit=3" | python -c "import sys,json;d=json.load(sys.stdin);assert d['items'];print('schools ok:',len(d['items']))"
+      - name: No-Key RAG returns evidence and citations
+        run: |
+          curl -sf -X POST "http://localhost:8000/api/v1/knowledge/search" \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"平行志愿的投档规则是什么"}' > /tmp/kb.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/kb.json"))
+          assert d["has_evidence"] is True, d
+          assert d["count"] >= 1, d
+          assert d["citations"] and all(c.get("source") for c in d["citations"]), d
+          print("rag evidence ok:", d["count"], d["citations"][0]["source"])
+          PY
       - if: always()
         run: docker logs gb-advisor || true
 

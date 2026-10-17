@@ -32,12 +32,22 @@ from server.graph.state import AdvisorState
 
 
 def _profile_has_data(state: AdvisorState) -> str:
-    """Routing function: complete profile goes to quality pipeline,
-    incomplete profile goes to question generation."""
+    """Routing function: complete profile goes to the full pipeline,
+    incomplete profile goes to question generation.
+
+    Knowledge questions (``knowledge_query``) run the full pipeline even with
+    an incomplete profile: they are answerable from the knowledge corpus and
+    should not be turned into profile-collection questions. The structured
+    data node simply finds nothing to query when no profile slots are present,
+    so the SQL and RAG paths coexist without either fabricating the other's
+    answer.
+    """
     if state.get("reply"):
         return "has_reply"
     missing = state.get("missing_fields", [])
     if not missing:
+        return "complete"
+    if state.get("knowledge_query"):
         return "complete"
     return "incomplete"
 

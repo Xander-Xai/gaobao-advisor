@@ -1,98 +1,155 @@
-"""G9 persona-methodology retrieval tests — PUBLIC DEMO EDITION.
+"""RAG availability tests — PUBLIC DEMO EDITION (synthetic corpus enabled).
 
-The private original carried ``knowledge/groups/G9_zhangxuefeng_methodology_origin.md``
-and this suite asserted that the G9 group was retrievable and that its triggers
-fired on mentions of that individual.
+The upstream private project shipped ``knowledge/groups/G9_zhangxuefeng_methodology_origin.md``
+and this suite asserted that the G9 persona group was retrievable. That corpus
+reproduces a named person's methodology and is **not** redistributed here.
 
-G9 is a reproduction of a named person's methodology. It is not redistributed
-here, so the retrieval path must report *unavailable* rather than returning an
-empty-but-successful result. These tests pin that contract.
+What ships instead is an original **SYNTHETIC_DEMO** corpus. In the default
+demo environment RAG is enabled against it and retrieval returns real,
+citable evidence. These tests pin that contract, the persona-corpus exclusion,
+and the fail-closed behaviour when the corpus is missing or unmarked.
 """
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import pytest
 
 from server.services import rag
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 @pytest.fixture(autouse=True)
-def _rag_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Every test in this module runs with RAG disabled, as shipped."""
-    monkeypatch.setenv("ENABLE_RAG_KB", "false")
+def _fresh_rag(monkeypatch: pytest.MonkeyPatch):
+    """Run each test from a clean RAG state with the default (enabled) switch."""
+    monkeypatch.delenv("ENABLE_RAG_KB", raising=False)
+    rag.reset()
+    yield
+    rag.reset()
 
 
-class TestCorpusAbsent:
-    def test_groups_directory_not_shipped(self) -> None:
-        from pathlib import Path
+class TestPersonaCorpusAbsent:
+    def test_g9_persona_group_absent(self) -> None:
+        legacy = REPO_ROOT / "knowledge" / "groups"
+        assert not (legacy / "G9_zhangxuefeng_methodology_origin.md").exists()
 
-        assert not (Path(__file__).resolve().parent.parent / "knowledge").exists(), (
-            "no knowledge corpus may be present in the public demo"
-        )
-
-    def test_g9_group_absent(self) -> None:
-        from pathlib import Path
-
-        g9 = Path(__file__).resolve().parent.parent / "knowledge" / "groups"
-        assert not (g9 / "G9_zhangxuefeng_methodology_origin.md").exists()
+    def test_no_persona_named_file_in_corpus(self) -> None:
+        offenders = [
+            str(p)
+            for p in (REPO_ROOT / "knowledge").rglob("*")
+            if any(t in p.name.lower() for t in ("zhangxuefeng", "xuefeng", "雪峰"))
+        ]
+        assert offenders == [], f"persona assets must not ship: {offenders}"
 
 
-class TestRetrievalIsDisabledNotEmpty:
-    """The key contract: unavailable retrieval must not look like success."""
+class TestSyntheticCorpusShipped:
+    def test_corpus_present_and_marked(self) -> None:
+        groups = REPO_ROOT / "knowledge" / "synthetic_demo" / "groups"
+        assert groups.is_dir(), "the synthetic demo corpus must ship"
+        files = sorted(groups.glob("*.md"))
+        assert files, "the synthetic demo corpus must contain group files"
+        for path in files:
+            text = path.read_text(encoding="utf-8")
+            assert rag.CORPUS_MARKER in text, f"{path.name} must carry the SYNTHETIC_DEMO marker"
 
-    def test_status_reports_disabled(self) -> None:
+    def test_manifest_marker(self) -> None:
+        import json
+
+        manifest = json.loads((REPO_ROOT / "knowledge" / "synthetic_demo" / "manifest.json").read_text("utf-8"))
+        assert manifest["marker"] == rag.CORPUS_MARKER
+        assert manifest["license"] == "CC0-1.0"
+
+
+class TestRagDefaultEnabled:
+    def test_defaults_on_and_initializes(self) -> None:
+        assert rag._enabled() is True
+        assert rag.initialize_default() is True
         status = rag.status()
-        assert status["state"] == "RAG_DISABLED"
-        assert status["reason"], "a disabled state must carry an explanation"
+        assert status["state"] == "RAG_ENABLED"
+        assert status["documents"] >= 1
+        assert status["integrity_ok"] is True
 
-    def test_search_raises_instead_of_returning_empty(self) -> None:
-        """The exact bug this guards: empty result read as 'nothing found'."""
+    def test_known_question_returns_evidence_and_citations(self) -> None:
+        assert rag.initialize_default() is True
+        result = rag.search("平行志愿的投档规则是什么", {})
+        assert result["has_evidence"] is True
+        assert result["group_chunks"], "a known synthetic question must return evidence"
+        assert result["citations"], "evidence must carry citations"
+        assert all(c["source"] for c in result["citations"])
+
+    def test_off_domain_question_returns_no_evidence(self) -> None:
+        assert rag.initialize_default() is True
+        result = rag.search("量子缠结与超导磁悬浮技术前沿", {})
+        assert result["has_evidence"] is False
+        assert result["group_chunks"] == []
+
+
+class TestFailClosed:
+    def test_missing_corpus_reports_error(self, tmp_path: Path) -> None:
+        groups = tmp_path / "groups"
+        groups.mkdir()
+        (groups / "G1.md").write_text(f"<!-- {rag.CORPUS_MARKER} -->\n## s\ncontent\n", encoding="utf-8")
+        quotes = tmp_path / "quotes"
+        quotes.mkdir()
+        rag.configure(str(groups), str(quotes))
+        assert rag.status()["state"] == "RAG_ENABLED"
+
+        # Remove the corpus out from under the running configuration.
+        import shutil
+
+        shutil.rmtree(groups)
+        assert rag.status()["state"] == "RAG_ERROR"
+        with pytest.raises(rag.RagCorpusError):
+            rag.search("平行志愿", {})
+
+    def test_unmarked_corpus_rejected(self, tmp_path: Path) -> None:
+        groups = tmp_path / "groups"
+        groups.mkdir()
+        (groups / "G1.md").write_text("# unmarked\n## s\ncontent\n", encoding="utf-8")
+        quotes = tmp_path / "quotes"
+        quotes.mkdir()
+        with pytest.raises(rag.RagCorpusError):
+            rag.configure(str(groups), str(quotes))
+        assert rag.status()["state"] == "RAG_ERROR"
+
+    def test_disabled_switch_reports_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ENABLE_RAG_KB", "false")
+        assert rag.status()["state"] == "RAG_DISABLED"
         with pytest.raises(rag.RagDisabledError):
             rag.search("就业前景怎么样", {})
 
-    def test_configure_refused_while_disabled(self) -> None:
-        with pytest.raises(rag.RagDisabledError):
-            rag.configure("knowledge/groups", "knowledge/quotes/_index.json")
 
-    def test_is_available_is_false(self) -> None:
-        assert rag.is_available() is False
-
-
-class TestRagNodeReportsDisabled:
-    def test_rag_node_marks_disabled(self) -> None:
+class TestRagNodeSurface:
+    def test_node_reports_evidence(self) -> None:
         from server.graph.nodes.rag_node import rag_retrieve_node
 
-        out = rag_retrieve_node({"input_text": "帮我看看就业", "slots": {}, "trace": []})
-        assert out["rag_state"] == "RAG_DISABLED"
-        assert out["rag_reason"]
-        assert out["knowledge_context"] == ""
-        # The trace must carry the state so it cannot be silently dropped.
-        assert any(e.get("event") == "RAG_DISABLED" for e in out["trace"])
+        assert rag.initialize_default() is True
+        out = rag_retrieve_node({"input_text": "平行志愿的投档规则", "slots": {}, "trace": []})
+        assert out["rag_state"] == "RAG_ENABLED"
+        assert out["rag_evidence"] is True
+        assert out["knowledge_context"]
+        assert out["rag_sources"]
 
     def test_health_surfaces_rag_state(self) -> None:
-        """Health must never report ok while retrieval is unavailable."""
         import asyncio
 
         from server.routes.health import health_check
 
+        assert rag.initialize_default() is True
         payload = asyncio.run(health_check())
-        assert payload["optional_services"]["rag"]["state"] == "RAG_DISABLED"
-        assert "rag" in payload["degraded_services"]
+        assert payload["optional_services"]["rag"]["state"] == "RAG_ENABLED"
+        assert payload["optional_services"]["rag"]["documents"] >= 1
         assert payload["data_profile"] == "SYNTHETIC_DEMO"
 
 
 class TestEnvironmentHonesty:
-    def test_env_example_disables_rag(self) -> None:
-        from pathlib import Path
-
-        env = (Path(__file__).resolve().parent.parent / ".env.example").read_text(encoding="utf-8")
+    def test_env_example_enables_rag(self) -> None:
+        env = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
         line = next(ln for ln in env.splitlines() if ln.strip().startswith("ENABLE_RAG_KB"))
-        assert line.split("=", 1)[1].strip() == "false", "shipped config must match shipped behaviour"
+        assert line.split("=", 1)[1].strip() == "true", "shipped config must match shipped behaviour"
 
-    def test_config_defaults_to_disabled(self) -> None:
-        monkey = os.environ.get("ENABLE_RAG_KB", "")
-        assert monkey.lower() not in ("true", "1", "yes"), (
-            "test environment must not enable a corpus that does not exist"
-        )
+    def test_entrypoint_defaults_rag_on(self) -> None:
+        script = (REPO_ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
+        assert 'ENABLE_RAG_KB="${ENABLE_RAG_KB:-true}"' in script
