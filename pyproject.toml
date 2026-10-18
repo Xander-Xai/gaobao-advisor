@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gaobao-advisor"
-version = "2.1.0"
+version = "3.0.0"
 description = "基于 LangGraph、结构化查询与合成数据的 AI 志愿咨询开源工程示例"
 readme = "README.md"
 license = {text = "MIT"}

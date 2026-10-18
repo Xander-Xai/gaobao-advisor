@@ -1,5 +1,12 @@
 # Knowledge Retrieval Architecture Upgrade — Implementation Plan
 
+> **Historical document (superseded).** This plan records the 2026-06-13 design at
+> the time it was written. Current shipped behaviour differs: `ENABLE_RAG_KB`
+> defaults to **true** on the bundled original `SYNTHETIC_DEMO` corpus
+> (`knowledge/synthetic_demo/`), using BM25 keyword retrieval, citations and
+> fail-closed states. See README "RAG 能力", `docs/rag-demo.md` and ADR-004 for
+> the current state. The text below is preserved as historical fact.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Upgrade gaobao-advisor's knowledge injection from full-context stuffing to hybrid vector+keyword retrieval, reducing per-call token consumption by ~40% while improving retrieval coverage from 2/7 to 6/7 test queries.
@@ -1038,6 +1045,8 @@ Edit `.env.example` — add the following block after the `ENABLE_SEARCH=false` 
 ```bash
 
 # ── 知识检索引擎（RAG） ──
+# 历史说明（已被取代）：当前发布默认 ENABLE_RAG_KB=true，使用随仓 SYNTHETIC_DEMO
+# 原创合成语料与 BM25 检索；以下为 2026-06-13 计划原文。
 # ENABLE_RAG_KB=true   # 启用向量+关键词混合检索（默认关闭，使用旧的全量注入）
 # EMBEDDING_PROVIDER=openai     # embedding 来源：openai / dashscope / ollama
 # EMBEDDING_MODEL=text-embedding-3-small  # embedding 模型
