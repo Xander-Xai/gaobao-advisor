@@ -1,0 +1,21 @@
+{
+  "marker": "SYNTHETIC_DEMO",
+  "notice": "合成演示评测集 / SYNTHETIC DEMO EVAL — 查询与预期知识组均为虚构示例，仅用于验证检索链路可用，不代表真实 RAG 质量指标。",
+  "license": "CC0-1.0",
+  "version": "1.0.0",
+  "description": "Small labeled set: each query maps to one or more expected knowledge groups. Used only to verify that the BM25 retrieval path ranks the right group into the top-k; it is not a benchmark of production RAG quality.",
+  "queries": [
+    {"query": "平行志愿怎么投档", "expected_groups": ["G1_core_method"]},
+    {"query": "冲稳保怎么分配", "expected_groups": ["G1_core_method"]},
+    {"query": "退档和滑档有什么区别", "expected_groups": ["G1_core_method"]},
+    {"query": "计算机专业就业前景怎么样", "expected_groups": ["G2_major_school", "G3_career_future"]},
+    {"query": "临床医学要读几年", "expected_groups": ["G7_employment_paths", "G2_major_school"]},
+    {"query": "师范生怎么当老师", "expected_groups": ["G7_employment_paths"]},
+    {"query": "考公务员哪些专业合适", "expected_groups": ["G7_employment_paths", "G3_career_future"]},
+    {"query": "专科可以专升本吗", "expected_groups": ["G8_graduate_and_vocational", "G4_life_planning"]},
+    {"query": "考研还是就业怎么选", "expected_groups": ["G8_graduate_and_vocational", "G3_career_future"]},
+    {"query": "怎么选择大学所在的城市", "expected_groups": ["G4_life_planning"]},
+    {"query": "数据来源可信度怎么分级", "expected_groups": ["G5_data_format"]},
+    {"query": "新高考选科怎么选", "expected_groups": ["G6_quick_ref", "G4_life_planning"]}
+  ]
+}

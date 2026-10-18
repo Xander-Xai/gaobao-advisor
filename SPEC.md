@@ -12,7 +12,7 @@ The project targets Chinese high school students and their families making criti
 - **FastAPI server** (`server/main.py`) — primary HTTP entry point with async support, CORS, rate limiting, security middleware, and Sentry monitoring
 - **LangGraph workflow** (`server/graph/graph.py`) — 13-node state machine for multi-turn conversation flow with conditional branching (profile completeness check), offline LLM reasoning + streaming token emission
 - **SQLite database** (`db/database.py`) — embedded persistence with WAL mode; 13 tables covering schools, majors, admission scores, enrollment plans, graduate programs, career trends, conversations, feedback, and yi-fen-yi-duan
-- **Hybrid RAG** (`server/services/rag.py`) — vector + keyword knowledge retrieval over 2.7MB of extracted text with 9 knowledge groups (G1-G9) and 155+ expert quotes
+- **Hybrid RAG** (`server/services/rag.py`) — BM25 keyword + optional dense retrieval over the bundled **SYNTHETIC_DEMO** corpus (`knowledge/synthetic_demo/`, 8 groups); enabled by default, no key required, with citations and fail-closed error states. (This spec predates the synthetic-corpus switch; see README "RAG 能力" and `docs/rag-demo.md` for current behaviour.)
 - **Voice pipeline** (`server/services/voice.py`) — WebSocket-based ASR -> Graph -> TTS loop using DashScope API for phone-like interaction
 - **Quality modules** (`quality/`) — 7 modules: AI-era risk detection, anti-pattern checking, cross-validation, emotion detection, decision heuristics, model selector, and contextual knowledge loader
 - **Skills framework** (`skills/`) — plugin-style skill modules with Gaokao-specific consulting logic (5 mental models, 8 heuristics, 8 anti-patterns, expression engine, safety rules)
@@ -98,7 +98,7 @@ nginx (:80)
   |-- /api/*  --> FastAPI (port 8000)
   |                |-- /api/v1/chat      --> LangGraph 13-node workflow + SSE stream
   |                |-- /api/v1/data/*    --> SQLite (schools, scores, plans, yi-fen-yi-duan)
-  |                |-- /api/v1/knowledge/* --> Hybrid RAG (G1-G9 + quotes)
+  |                |-- /api/v1/knowledge/* --> Hybrid RAG (SYNTHETIC_DEMO corpus)
   |                |-- /api/v1/profile/* --> SQLite (user_profile slots)
   |                |-- /api/v1/onboarding --> SQLite (onboarding)
   |                |-- /api/v1/health    --> in-memory status

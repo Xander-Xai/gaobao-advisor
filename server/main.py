@@ -31,25 +31,20 @@ async def lifespan(app: FastAPI):
 
     init_db()
 
-    # Initialize RAG with knowledge base paths.
-    # A corpus is only configured when ENABLE_RAG_KB is on; otherwise the
-    # service stays transparently RAG_DISABLED (see server.services.rag.status).
+    # Initialize RAG with the bundled SYNTHETIC_DEMO corpus.
+    # The corpus ships with the repository and is enabled by default; set
+    # ENABLE_RAG_KB=false to switch it off. A missing or corrupt corpus is
+    # reported as an explicit error by server.services.rag.status() (fail
+    # closed) — it must never be reported as healthy.
     import logging
 
-    from server.services.rag import RagDisabledError
-    from server.services.rag import configure as configure_rag
+    from server.services import rag as rag_service
 
     _logger = logging.getLogger(__name__)
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _groups_dir = os.path.join(_project_root, "knowledge", "groups")
-    _quotes_dir = os.path.join(_project_root, "knowledge", "quotes")
-    if os.path.isdir(_groups_dir):
-        try:
-            configure_rag(groups_dir=_groups_dir, quotes_path=_quotes_dir)
-        except RagDisabledError as exc:
-            _logger.warning("knowledge corpus present but RAG stays disabled: %s", exc)
+    if rag_service.initialize_default():
+        _logger.info("RAG ready: %s", rag_service.status())
     else:
-        _logger.warning("Knowledge groups dir not found: %s — RAG disabled", _groups_dir)
+        _logger.warning("RAG not ready: %s", rag_service.status())
 
     yield
 

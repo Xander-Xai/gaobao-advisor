@@ -15,7 +15,7 @@ What changed and why?
 - [ ] Frontend tests/build (or docs-only: not applicable)
 - [ ] No-key Docker smoke (or docs-only: not applicable)
 - [ ] No new secrets, real user data, persona corpus or unauthorized material
-- [ ] Default `SYNTHETIC_DEMO` / `RAG_DISABLED` boundaries preserved
+- [ ] Default `SYNTHETIC_DEMO` data and RAG boundaries preserved (RAG defaults on against the original synthetic corpus; fail-closed on missing/corrupt corpus)
 
 ## Reviewer notes
 

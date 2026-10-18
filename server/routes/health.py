@@ -31,6 +31,9 @@ async def health_check():
             "state": rag_status["state"],
             "reason": rag_status["reason"],
             "corpus_configured": rag_status["corpus_configured"],
+            "documents": rag_status.get("documents", 0),
+            "chunks": rag_status.get("chunks", 0),
+            "integrity_ok": rag_status.get("integrity_ok", False),
         },
     }
 

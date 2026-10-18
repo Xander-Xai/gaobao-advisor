@@ -18,9 +18,16 @@ docker run --rm -p 8000:8000 gb-advisor
 ```bash
 curl http://localhost:8000/api/v1/health
 curl "http://localhost:8000/api/v1/data/schools?limit=3"
+# 知识库检索（默认启用，无需 Key）
+curl -X POST http://localhost:8000/api/v1/knowledge/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"平行志愿的投档规则是什么"}'
 ```
 
-预期健康检查中的 `data_profile` 为 `SYNTHETIC_DEMO`，可选 RAG 服务状态为 `RAG_DISABLED`。院校列表来自程序合成的数据，不对应真实招生结果。
+预期健康检查中的 `data_profile` 为 `SYNTHETIC_DEMO`，知识检索状态为
+`RAG_ENABLED`（`documents`/`chunks` 为随仓合成语料数量，`integrity_ok=true`）。
+院校列表来自程序合成的数据，检索证据来自仓库自带的**原创合成语料**，
+均不对应真实招生结果。
 
 Docker 默认运行 FastAPI 后端；它**不会同时启动 Vue 开发服务器**。
 
@@ -58,9 +65,12 @@ cd frontend && npm ci && npx vitest run && npm run build
 
 ## 使用边界
 
-- 不需要 LLM Key 即可检查健康状态和合成数据 API；配置模型是可选操作。
-- `ENABLE_RAG_KB=false`、`ENABLE_OUTBOUND_FETCH=false` 为默认安全值。
+- 不需要 LLM Key 即可检查健康状态、合成数据 API 与知识库检索；配置模型是可选操作。
+- `ENABLE_RAG_KB=true`（默认，使用随仓合成语料）、`ENABLE_OUTBOUND_FETCH=false`、
+  `ENABLE_SEARCH=false` 为默认值；知识检索在语料缺失/损坏时 fail-closed（返回
+  `RAG_ERROR`，不编造答案）。
 - 未经授权不得分发真实招生数据库、第三方知识语料或历史私人会话。
-- 本工程没有生产级并发、可用性或 RAG 质量验证。
+- 本工程没有生产级并发、可用性或真实 RAG 质量验证；`knowledge/synthetic_demo/`
+  只是原创合成演示语料。
 
 返回 [README](README.md) 查看整体架构、安全设计与技术限制。

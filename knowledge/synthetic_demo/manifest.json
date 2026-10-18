@@ -1,0 +1,41 @@
+{
+  "marker": "SYNTHETIC_DEMO",
+  "notice": "合成演示知识语料 / SYNTHETIC DEMO KNOWLEDGE — 全部内容为虚构占位，不对应任何真实院校、政策或录取数据，不得用于真实志愿决策。",
+  "license": "CC0-1.0",
+  "version": "1.0.0",
+  "group_count": 8,
+  "files": {
+    "G1_core_method.md": {
+      "sha256": "66978ebef5ac95106fbb3887844ca0ace16d7b7c831bbdbc3350d62894f23a60",
+      "bytes": 2581
+    },
+    "G2_major_school.md": {
+      "sha256": "6b148af8715ac9be8d8426ca94f2577b2b4d074e0c82643d67d0e6c33018f2c0",
+      "bytes": 2493
+    },
+    "G3_career_future.md": {
+      "sha256": "bbcc21f5fcfc917973e44c91825c71e5e7b56a525749854caaa739754b281905",
+      "bytes": 1848
+    },
+    "G4_life_planning.md": {
+      "sha256": "ca1854d023a8ea79843a04e9fd17cf19a37f4a5401129f1190e656ead811f29d",
+      "bytes": 1513
+    },
+    "G5_data_format.md": {
+      "sha256": "f82ceb121037dc20373010169396e039aafc352af492ea3cf3867a4329d549b3",
+      "bytes": 1377
+    },
+    "G6_quick_ref.md": {
+      "sha256": "9219ad304ec66c39cfe0a78ff38a455fe134efabeb2f7e3fddc8aed9f6a51bf5",
+      "bytes": 1133
+    },
+    "G7_employment_paths.md": {
+      "sha256": "db7b7196fe32a21d75b724d414070c181c6d9bd3df300af408ecdb634ab5bc6f",
+      "bytes": 1563
+    },
+    "G8_graduate_and_vocational.md": {
+      "sha256": "1a711032b40654093d483d5bb2bdf99f45a476e2be062ce286b14450b8f39b5c",
+      "bytes": 1397
+    }
+  }
+}

@@ -4,7 +4,7 @@
 > **最后更新**: 2026-06-16  
 > **适用场景**: 自托管（Docker）部署的故障排查与应急响应；配合仓库内实际存在的
 > `scripts/setup_ssl.sh` / `scripts/backup_db.sh` / `docker-compose.prod.yml`。
-> 本项目默认合成数据、RAG 默认关闭，不构成生产 SLA 或真实志愿决策依据。
+> 本项目默认合成数据、RAG 默认启用（随仓原创合成语料），不构成生产 SLA 或真实志愿决策依据。
 
 ---
 

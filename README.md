@@ -20,13 +20,13 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 ```
 
 > Docker 默认启动 **FastAPI 后端**，不会自动打开 Vue 前端。前端开发启动见[快速开始](#快速开始)。
-> 演示数据为程序生成的虚构数据，**不能用于真实高考志愿决策**；知识库检索默认关闭。
+> 演示数据为程序生成的虚构数据，**不能用于真实高考志愿决策**；知识库检索默认启用，使用随仓库分发的原创合成语料。
 
 **导航：** [核心能力](#这个仓库是什么不是什么) · [工程设计](#关键工程设计) · [架构](#架构) · [快速开始](#快速开始) · [演示步骤](TUTORIAL.md) · [数据与 RAG 边界](#数据分发模式) · [安全与贡献](#许可与合规)
 
 一个基于 **LangGraph + 结构化高考数据查询 + FastAPI/SSE + Vue 3** 的 AI 志愿填报
 顾问开源工程。它不是把问题直接丢给大模型的 ChatBot，而是把志愿咨询拆成
-**画像采集 → 数据查询 → 知识检索（可选）→ 决策推理 → 来源标注 → 质量检查 →
+**画像采集 → 数据查询 → 知识检索（合成语料）→ 决策推理 → 来源标注 → 质量检查 →
 多轮记忆** 的可观测工作流。
 
 > **数据边界先行：** 本仓库默认只附带由程序生成的**合成演示数据**
@@ -51,7 +51,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 | 数据导入脚本 | 可用（自行提供数据） | `scripts/import_*.py`；第三方抓取默认关闭 |
 | FastAPI + SSE + WebSocket 语音 | 可用 | 语音默认关闭，需自备 DashScope 凭据 |
 | Vue 3 前端 | 可用 | `frontend/` |
-| **知识库检索（RAG）** | **默认关闭** | 见下方「RAG 边界」 |
+| **知识库检索（RAG）** | **默认可用** | 随仓原创 SYNTHETIC_DEMO 合成语料；BM25 关键词检索为基础，无 Key 也能用；带来源引用与 fail-closed |
 | 联网搜索 | 关闭 | 无第三方检索授权 |
 
 ---
@@ -62,13 +62,14 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 |---|---|---|
 | 多轮咨询的信息不完整 | LangGraph 条件路由、槽位采集和追问分支 | [图定义](server/graph/graph.py) · [状态](server/graph/state.py) |
 | LLM 与结构化业务数据如何协作 | 查询节点接入 SQLite/SQLAlchemy，后续生成与来源标注分离 | [数据 API](server/routes/data.py) · [图定义](server/graph/graph.py) |
-| 可选 RAG 无语料时怎么办 | 显式 `RAG_DISABLED`，不可用时 fail-closed，不假装命中检索 | [RAG 服务](server/services/rag.py) |
+| 可选 RAG 语料缺失/损坏时怎么办 | 默认启用随仓合成语料；语料缺失或完整性校验失败时显式 `RAG_ERROR` 并 fail-closed，检索报错而不是静默给无证据答案 | [RAG 服务](server/services/rag.py) |
+| 检索结果如何可引用 | 每个检索片段带稳定 `chunk_id` 与 `source`（组名 § 小节），随 SSE `sources` 事件与知识检索接口返回 | [检索器](server/services/kb_retriever.py) · [SSE 聊天](server/routes/chat.py) |
 | 匿名多轮会话如何隔离 | 服务端签发 session ID；后续请求使用 HMAC 绑定的 Bearer token | [鉴权](server/auth.py) · [SSE 聊天](server/routes/chat.py) |
 | 如何验证仓库能实际运行 | 合成数据种子、无 Key Docker、Python/前端/安全 CI 门禁 | [CI](.github/workflows/ci.yml) · [验收测试](tests/test_public_demo_acceptance.py) |
 
 **读代码顺序（面向 AI 应用工程实践）：** `server/graph/graph.py` → `server/graph/state.py` → `server/routes/chat.py` → `server/auth.py` → `server/services/rag.py`。这条路线比只看 API 列表更容易理解状态流转、异步流式输出与错误边界。
 
-**真实性说明：** 工作流编排与 SSE 生成分开实现；当前图定义不包含独立的 `llm_reason` 节点，LLM token streaming 由 `server/routes/chat.py` 处理。项目没有已验证的吞吐量、SLA、真实录取准确率或 RAG 评测指标。
+**真实性说明：** 工作流编排与 SSE 生成分开实现；当前图定义不包含独立的 `llm_reason` 节点，LLM token streaming 由 `server/routes/chat.py` 处理。项目没有已验证的吞吐量、SLA 或真实录取准确率；RAG 仅有一份小规模**合成**标注集的组级命中率（`12/12`），**不构成生产级 RAG 质量评测**。
 
 ---
 
@@ -89,18 +90,30 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
    （当前为 **PENDING**，未随仓库分发）。录取分数等客观事实是可公开候选，
    但需要逐项留存来源与使用条款，不能反推数据库备份、会话记录或语料可公开。
 
+> **知识语料**同样遵循这一原则：随仓库分发的只有**原创、机器编写、带
+> `SYNTHETIC_DEMO` 标记**的合成语料（见下一节）。真实招生资料/第三方语料必须走
+> 单独的授权导入链路，不能直接混入默认演示。
+
 ---
 
-## RAG 边界（务必阅读）
+## RAG 能力（默认演示可用）
 
-上游私有工程的知识库语料**没有可确认的再分发授权**，因此本仓库**不附带语料**。
-对此采取 **fail-closed（失败即关闭）** 策略，而不是静默降级：
+本仓库自带一份**原创合成知识语料** `knowledge/synthetic_demo/`（虚构院校规则、
+录取政策示例、志愿填报 FAQ 与说明性文档，CC0-1.0），因此默认演示环境中 RAG
+是**启用**的，启动即自动完成语料完整性校验并初始化，**无需任何 API Key**。
 
-* `ENABLE_RAG_KB=false`（默认），与运行时行为一致；
-* `server/services/rag.py` 提供 `status()` / `is_available()`，语料不可用时
-  检索请求**抛出 `RagDisabledError`**，而不是返回空列表假装「没检索到」；
-* `rag_retrieve_node` 把状态写入图状态 `rag_state`；
-* `/api/v1/health` 如实返回：
+检索实现复用现有 `KbRetriever`（未新建平行框架）：
+
+* **BM25 关键词检索**是始终可用的基础路径（离线、无 Key）；
+* 配置了 embedding provider（siliconflow / openai / dashscope / ollama）时叠加
+  **Dense Retrieval**；无 Key 时自动使用 `keyword`，不发任何付费请求；
+* 命中片段带稳定 `chunk_id` 与 `source`（`组名 § 小节标题`）；
+* 无匹配证据时返回 `has_evidence:false` 且**不编造**——`build_llm_context`
+  会指示模型明确说明「当前知识库无法验证」；
+* 与结构化 SQL 查询职责分离：知识问题路由到检索链路，含画像的混合问题
+  同时执行 `data_query` 与 `rag_retrieve`。
+
+健康检查如实反映状态（Docker 默认启动实测输出）：
 
 ```json
 {
@@ -108,18 +121,25 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
   "data_profile": "SYNTHETIC_DEMO",
   "optional_services": {
     "rag": {
-      "state": "RAG_DISABLED",
-      "reason": "ENABLE_RAG_KB is not enabled",
-      "corpus_configured": false
+      "state": "RAG_ENABLED",
+      "reason": "",
+      "corpus_configured": true,
+      "documents": 8,
+      "chunks": 31,
+      "integrity_ok": true
     }
   },
-  "degraded_services": ["rag"]
+  "degraded_services": []
 }
 ```
 
-若要演示 RAG，请提供**原创且授权清晰**的语料，设置
-`ENABLE_RAG_KB=true` 并通过 `rag.configure()` 显式配置；仅有开关而没有语料
-仍然只会得到 `RAG_DISABLED`（`corpus_configured: false`），这是刻意设计。
+**fail-closed：** 语料缺失、损坏或未带 `SYNTHETIC_DEMO` 标记时，
+`rag.status()` 返回 `RAG_ERROR`、检索请求抛出 `RagCorpusError`、
+`/api/v1/knowledge/search` 返回 `503`——不会静默退化成无证据的模型答案。设置
+`ENABLE_RAG_KB=false` 则返回 `RAG_DISABLED`。
+
+> **真实数据环境**：启用 RAG 前必须完成**已授权语料**的配置与完整性检查，
+> 未获授权的第三方语料不得随仓库分发或用于演示。
 
 ---
 
@@ -142,7 +162,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
   **忽略调用方传入的 `session_id`**；
 * 继续会话必须携带与该 `session_id` 匹配的 `Authorization: Bearer <token>`；
 * 令牌为 `HMAC-SHA256(SESSION_SECRET, session_id)`，不匹配即
-  `422 Invalid session token`；不同会话不能复用令牌。
+  `401 Invalid session token`；不同会话不能复用令牌。
 
 > 这是**会话能力令牌**，不是账号体系：没有密码、没有用户注册、没有跨设备
 > 账号恢复。生产环境必须设置强随机 `SESSION_SECRET`。
@@ -156,7 +176,7 @@ flowchart LR
     A["security_scan"] --> B["intent_detect"] --> C["scene_route"] --> D["slot_extract"] --> E{"profile_check"}
     E -->|"信息不足"| F["question_generate"]
     E -->|"已有回复"| L["render_reply"]
-    E -->|"资料完整"| G["quality_orchestrate"] --> H["data_query"] --> I["rag_retrieve（默认关闭）"] --> J["reason"] --> K["structure_output"] --> L
+    E -->|"资料完整"| G["quality_orchestrate"] --> H["data_query"] --> I["rag_retrieve（合成语料，默认启用）"] --> J["reason"] --> K["structure_output"] --> L
     F --> L
     L --> M["source_attribution"] --> N["quality_post_check"] --> O["quality_judge"] --> P["feedback"] --> Q["memory_update"] --> R(["END"])
 ```
@@ -171,7 +191,7 @@ flowchart LR
 | API | FastAPI + Pydantic + SSE + WebSocket |
 | Agent 编排 | LangGraph StateGraph |
 | 数据库 | SQLite + SQLAlchemy |
-| 知识检索 | Dense Embedding + Keyword Hybrid Retrieval（语料可选） |
+| 知识检索 | BM25 关键词 + 可选 Dense Embedding 混合检索（随仓合成语料默认启用） |
 | LLM | OpenAI Compatible API（DeepSeek / Qwen / GLM / Moonshot / GPT / Ollama） |
 | 可观测性 | Prometheus + Sentry + Analytics |
 | 部署 | Docker / Docker Compose + Nginx |
@@ -186,9 +206,14 @@ flowchart LR
 docker build -t gb-advisor .
 docker run --rm -p 8000:8000 gb-advisor
 curl http://localhost:8000/api/v1/health
+# 知识库检索（默认启用，无需 Key）
+curl -X POST http://localhost:8000/api/v1/knowledge/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"平行志愿的投档规则是什么"}'
 ```
 
-容器首次启动会在本地生成合成数据库，**镜像内不含任何数据库文件**。
+容器首次启动会在本地生成合成数据库，**镜像内不含任何数据库文件**；知识库语料
+随镜像分发（原创合成语料），健康检查返回 `optional_services.rag.state = RAG_ENABLED`。
 
 ### 本地
 
@@ -218,11 +243,15 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **885 passed / 1 skipped**，覆盖率 **77.33%**（门禁 70%）|
+| `pytest tests` | **922 passed / 1 skipped**，覆盖率 **79.65%**（门禁 70%）|
 | `ruff check` / `ruff format --check` | 通过 |
-| `vitest run`（frontend）| **50 passed** |
-| `npm run build`（frontend）| 通过 |
-| Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_DISABLED` |
+| Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
+| Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
+| 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
+| `vitest run`（frontend）| 未在本轮改动中运行（前端未改动）|
+
+> 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
+> `docker run` 后 `curl` 的真实健康检查结果。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
 Secret Scan（gitleaks 全历史）、Security Audit（pip-audit + npm audit）、
@@ -248,8 +277,9 @@ quality/               质量与幻觉检查
 legacy/                数据查询适配层
 scrapers/              数据采集器（默认不发起外部请求）
 scripts/               数据导入脚本 + seed_demo_data.py
+knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
 frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
-tests/                 单元与验收测试（885 passed / 1 skipped）
+tests/                 单元与验收测试（922 passed / 1 skipped）
 ```
 
 ---
@@ -262,8 +292,10 @@ tests/                 单元与验收测试（885 passed / 1 skipped）
 * **数据**：默认只有程序生成的合成数据，**不用于真实志愿填报决策**。真实录取数据需
   由使用者自行准备、导入并确保拥有合法授权；`VERIFIED_PUBLIC_DATA` 当前仍为
   **PENDING**，未随仓库分发。
-* **知识检索**：RAG 默认关闭，**不附带任何知识库语料**；只有开关而无授权语料时，
-  健康检查仍返回 `RAG_DISABLED`。
+* **知识检索**：默认启用随仓**原创合成语料**（`knowledge/synthetic_demo/`），
+  可在无 Key 环境下完成 BM25 检索与引用；它是演示语料，**不是真实招生知识**。
+  真实语料需自行提供并完成授权与完整性检查后再启用；语料缺失/损坏时返回
+  `RAG_ERROR` 并 fail-closed。
 * **联网能力**：第三方抓取（`ENABLE_OUTBOUND_FETCH`）与联网搜索（`ENABLE_SEARCH`）
   默认关闭。
 * **身份体系**：只有「会话能力令牌」（HMAC 签名），没有账号、密码、注册、跨设备
@@ -283,7 +315,8 @@ tests/                 单元与验收测试（885 passed / 1 skipped）
 - **初次使用：** [无 Key 演示教程](TUTORIAL.md)；[合成模式演示检查项](examples/demo_conversation.md)。不提供真实院校报考推荐样例。
 - **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
 - **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
-- **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)。
+- **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)。
+- **RAG 演示与健康检查：** [docs/rag-demo.md](docs/rag-demo.md)。
 
 不提供承诺运行中的在线 Demo 服务；以仓库代码和最新 CI 为准。
 
