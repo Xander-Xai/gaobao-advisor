@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from server.graph.nodes.data_nodes import numeric_score
 from slots.extractor import SlotExtractor
 
 _extractor = SlotExtractor()
@@ -29,6 +30,13 @@ def slot_extract_node(state: dict[str, Any]) -> dict[str, Any]:
     for k, v in existing.items():
         if v:
             merged[k] = v
+
+    # Downstream nodes (data query, render, structured card) need a numeric
+    # score, while the extractor stores the user-facing "600分" in score_rank.
+    if not merged.get("score"):
+        score = numeric_score(merged)
+        if score is not None:
+            merged["score"] = score
 
     trace = list(state.get("trace", []))
     trace.append({"node": "slot_extract", "event": "slots_merged", "count": len([v for v in merged.values() if v])})

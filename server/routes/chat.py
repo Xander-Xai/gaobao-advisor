@@ -9,11 +9,13 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from config.loader import load_llm_config
 from db.database import get_session
 from db.models import Highlight
 from server.auth import create_session_token, verify_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
+from server.graph.nodes.render import _DISCLAIMER
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +87,22 @@ async def _sse_generator(
     elif result.get("rag_state") in ("RAG_DISABLED", "RAG_ERROR"):
         yield f"data: {json.dumps({'type': 'rag_status', 'state': result['rag_state'], 'reason': result.get('rag_reason', '')})}\n\n"
 
-    # Phase 2: Stream LLM tokens in real-time
-    if result.get("reply"):
-        # Non-LLM reply (security block, question generation): emit in chunks
-        reply = result["reply"]
+    # Phase 2: build the answer.
+    # Question/security replies are final and must not be rewritten. The
+    # grounded template is used offline; when a key is configured the model
+    # streams instead (the template remains the failure fallback).
+    reply = result.get("reply")
+    is_template = result.get("reply_source") == "template"
+    llm_configured = bool(str(load_llm_config().get("api_key", "")).strip())
+
+    if reply and not (is_template and llm_configured):
+        if is_template:
+            yield f"data: {json.dumps({'type': 'degraded', 'message': '未配置 LLM Key，已使用基于结构化数据的确定性模板答复'})}\n\n"
         chunk_size = 20
         for i in range(0, len(reply), chunk_size):
             chunk = reply[i : i + chunk_size]
             yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
     else:
-        # LLM reply: stream tokens one by one
         full_reply = []
         degraded = False
         for token, is_degraded in llm_node_stream(result):
@@ -104,6 +112,11 @@ async def _sse_generator(
         result["reply"] = "".join(full_reply)
         if degraded:
             yield f"data: {json.dumps({'type': 'degraded', 'message': 'AI 服务暂时不稳定，已启用降级回复'})}\n\n"
+
+    # Every answer carries the synthetic-data boundary, including LLM output.
+    if result.get("reply") and "声明：以上分析基于" not in result["reply"]:
+        result["reply"] += _DISCLAIMER
+        yield f"data: {json.dumps({'type': 'token', 'content': _DISCLAIMER})}\n\n"
 
     yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'message_id': f'{session_id}-response', 'session_token': create_session_token(session_id)})}\n\n"
 

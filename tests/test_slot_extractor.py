@@ -88,3 +88,18 @@ def test_score_oral(extractor):
     slots_dict, _ = extractor.extract("大概六百分")
     assert slots_dict["score_rank"]["filled"] is True
     assert "600" in slots_dict["score_rank"]["value"]
+
+
+def test_extracts_synthetic_demo_province(extractor):
+    """The SYNTHETIC_DEMO dataset uses fictional provinces; chat must accept them."""
+    slots_dict, _ = extractor.extract("我是示例省·甲的物理类考生")
+    assert slots_dict["province"]["filled"] is True
+    assert slots_dict["province"]["value"] == "示例省·甲"
+
+
+def test_interest_fallback_ignores_subject_term(extractor):
+    """'物理类' must not leak into the interest slot as '物理'."""
+    slots_dict, _ = extractor.extract("我是示例省·甲的物理类考生，600分，想报计算机")
+    assert slots_dict["subject"]["value"] == "物理"
+    assert "计算机" in slots_dict["interest"]["value"]
+    assert "物理" not in slots_dict["interest"]["value"]

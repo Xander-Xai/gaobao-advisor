@@ -9,20 +9,20 @@ runtime cannot drift again.
 
 ## Overview
 
-Gaobao Advisor is an AI-powered college application advisor for the Chinese Gaokao system. It combines a deep knowledge base (20+ modules from 8 books, 61 video courses, 3,016+ schools, 792 majors) with structured consultation logic to produce professional-grade admissions guidance — not just generic chatbot output.
+Gaobao Advisor is an AI-powered college-application consultation workflow for the Chinese Gaokao system. The **public demo ships only a small, deterministic `SYNTHETIC_DEMO` dataset** (8 schools, 12 majors, 128 admission-score rows) plus an original 8-group synthetic knowledge corpus. It does **not** ship real admissions data or third-party corpora, and its output must not be used for real application decisions.
 
-The project targets Chinese high school students and their families making critical college/major choices. It runs as a FastAPI backend with a **Vue 3** SPA frontend, using **LangGraph** as the conversation state machine, deployed via Docker Compose with nginx reverse proxy.
+The source retains an import path for user-supplied or licensed data, and the private upstream project had a larger knowledge base; none of that is redistributed here (see `DATA_LICENSE.md` and `THIRD_PARTY_NOTICES.md`). The project targets Chinese high school students and their families, and runs as a FastAPI backend with a **Vue 3** SPA frontend, using **LangGraph** as the conversation state machine, deployable via Docker Compose with an nginx reverse proxy.
 
 ## Architecture
 
 ### Service Layer
 - **FastAPI server** (`server/main.py`) — primary HTTP entry point with async support, CORS, rate limiting, security middleware, and Sentry monitoring
-- **LangGraph workflow** (`server/graph/graph.py`) — 13-node state machine for multi-turn conversation flow with conditional branching (profile completeness check), offline LLM reasoning + streaming token emission
-- **SQLite database** (`db/database.py`) — embedded persistence with WAL mode; 13 tables covering schools, majors, admission scores, enrollment plans, graduate programs, career trends, conversations, feedback, and yi-fen-yi-duan
-- **Hybrid RAG** (`server/services/rag.py`) — BM25 keyword + optional dense retrieval over the bundled **SYNTHETIC_DEMO** corpus (`knowledge/synthetic_demo/`, 8 groups); enabled by default, no key required, with citations and fail-closed error states. (This spec predates the synthetic-corpus switch; see README "RAG 能力" and `docs/rag-demo.md` for current behaviour.)
+- **LangGraph workflow** (`server/graph/graph.py`) — 17-node state machine for multi-turn conversation flow with conditional branching (profile completeness check), offline reasoning-context assembly + streaming token emission
+- **SQLite database** (`db/database.py`) — embedded persistence with WAL mode; 14 tables covering schools, majors, admission scores, enrollment plans, graduate programs, career trends, conversations, feedback, and yi-fen-yi-duan
+- **Hybrid RAG** (`server/services/rag.py`) — BM25 keyword + optional dense retrieval over the bundled **SYNTHETIC_DEMO** corpus (`knowledge/synthetic_demo/`, 8 groups, 31 chunks); enabled by default, no key required, with citations and fail-closed error states. See README "RAG 能力" and `docs/rag-demo.md` for current behaviour.
 - **Voice pipeline** (`server/services/voice.py`) — WebSocket-based ASR -> Graph -> TTS loop using DashScope API for phone-like interaction
 - **Quality modules** (`quality/`) — 7 modules: AI-era risk detection, anti-pattern checking, cross-validation, emotion detection, decision heuristics, model selector, and contextual knowledge loader
-- **Skills framework** (`skills/`) — plugin-style skill modules with Gaokao-specific consulting logic (5 mental models, 8 heuristics, 8 anti-patterns, expression engine, safety rules)
+- **Skills framework** (`skills/`) — plugin-style skill modules with Gaokao-specific consulting logic; 4 original markdown assets (mental models, heuristics, anti-patterns, safety rules) plus a fail-closed `SkillService`
 - **Profile system** (`server/user_profile.py`, `server/routes/profile.py`) — 7-field user profiling (required: province, score, subject, interest; optional: region, family, goal) with SoulQuery engine
 
 ### Frontend
@@ -31,7 +31,7 @@ The project targets Chinese high school students and their families making criti
 
 ### Data Pipeline
 - **Data importers** (`scrapers/`) — Baidu Gaokao parallel scrapers with checkpoint-based resume for 30 provinces
-- **Database schema** — 13 tables (school, major, admission_score, enrollment_plan, subject_ranking, graduate_program, graduate_score, career_trend, yi_fen_yi_duan, conversation, conversation_message, feedback, highlight)
+- **Database schema** — 14 tables (school, major, admission_score, enrollment_plan, subject_ranking, graduate_program, graduate_score, career_trend, yi_fen_yi_duan, conversation, conversation_message, feedback, highlight, quality_score)
 
 ## Key Design Decisions
 
@@ -60,7 +60,7 @@ See `docs/superpowers/adr/ADR-001-fastapi-migration.md`:
 | POST | `/api/v1/profile/{session_id}/skip` | Skip profiling question | `server/routes/profile.py` |
 | WS | `/ws/call` | Real-time voice call (ASR -> Graph -> TTS) | `server/routes/voice.py` |
 
-## LangGraph Workflow (13 nodes)
+## LangGraph Workflow (17 nodes)
 
 ```
 security_scan → intent_detect → scene_route → slot_extract → profile_check
@@ -90,10 +90,10 @@ The graph uses conditional branching at `profile_check`: incomplete profiles tri
 ## Two-Phase Streaming
 
 The `/api/v1/chat` endpoint uses a two-phase architecture:
-1. **Phase 1 (Sync):** `graph.invoke()` runs the full LangGraph pipeline synchronously, producing structured metadata (slots, emotion, structured card)
-2. **Phase 2 (Streaming):** LLM tokens are streamed in real-time via `llm_node_stream()` — the LLM is NOT called during graph.invoke(), avoiding double LLM calls
+1. **Phase 1 (Sync):** `graph.invoke()` runs the full LangGraph pipeline synchronously, producing structured metadata (slots, emotion, structured card) plus a grounded deterministic template (`reply_source="template"`)
+2. **Phase 2 (Streaming):** with a configured LLM key, tokens stream via `llm_node_stream()`; without a key (or on LLM failure), the grounded template is streamed and a `degraded` notice is emitted. The LLM is never called during `graph.invoke()`, avoiding double LLM calls.
 
-SSE events emitted: `slots`, `emotion`, `structured`, `token`, `degraded`, `done` (with HMAC-signed session_token)
+SSE events emitted: `slots`, `emotion`, `structured`, `sources` / `rag_status`, `token`, `degraded`, `done` (with HMAC-signed session_token), and `error` if the graph fails
 
 ## Data Flow
 
@@ -103,7 +103,7 @@ User (browser/mobile)
   v
 nginx (:80)
   |-- /api/*  --> FastAPI (port 8000)
-  |                |-- /api/v1/chat      --> LangGraph 13-node workflow + SSE stream
+  |                |-- /api/v1/chat      --> LangGraph 17-node workflow + SSE stream
   |                |-- /api/v1/data/*    --> SQLite (schools, scores, plans, yi-fen-yi-duan)
   |                |-- /api/v1/knowledge/* --> Hybrid RAG (SYNTHETIC_DEMO corpus)
   |                |-- /api/v1/profile/* --> SQLite (user_profile slots)
@@ -123,7 +123,7 @@ nginx (:80)
 
 ## Testing Strategy
 
-- **pytest** with httpx ASGI transport for integration tests (48 test files, **538 tests**)
+- **pytest** with httpx ASGI transport for integration tests (74 `test_*.py` files, **939 collected / 938 passed / 1 skipped**)
 - Key test suites:
   - `tests/test_agent_core.py` — core agent logic
   - `tests/test_chat_sse.py` — SSE streaming chat

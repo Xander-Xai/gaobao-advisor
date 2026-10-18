@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 # Disclaimer suffix appended to all advice
-_DISCLAIMER = "\n\n---\n声明：以上分析基于公开数据和AI模型，仅供参考。最终志愿填报请以各省教育考试院官方发布信息为准。"
+_DISCLAIMER = (
+    "\n\n---\n声明：以上分析基于当前数据源和AI模型，仅供参考。"
+    "本仓库默认使用 SYNTHETIC_DEMO 合成演示数据，不对应真实院校或录取结果，"
+    "不可用于真实志愿决策；最终志愿填报请以各省教育考试院官方发布信息为准。"
+)
 
 
 def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +28,7 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
             final_reply = existing_reply
         trace = list(state.get("trace", []))
         trace.append({"node": "render_reply", "event": "llm_reply_with_disclaimer"})
-        return {"reply": final_reply, "trace": trace}
+        return {"reply": final_reply, "trace": trace, "reply_source": "graph"}
 
     scene = state.get("scene", "general")
     slots = state.get("slots", {})
@@ -36,11 +40,15 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     if scene == "gaokao":
         # Build gaokao-specific reply
         province = slots.get("province", "")
-        score = slots.get("score", "")
+        score = slots.get("score") or slots.get("score_rank", "")
         subject = slots.get("subject", "")
         interest = slots.get("interest", "")
 
-        header = f"根据您提供的信息（{province}考生，{subject}，{score}分"
+        score_text = str(score)
+        if score_text and not score_text.endswith("分"):
+            score_text = f"{score_text}分"
+
+        header = f"根据您提供的信息（{province}考生，{subject}，{score_text}"
         if interest:
             header += f"，意向专业：{interest}"
         header += "），我为您分析如下："
@@ -82,4 +90,7 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     trace = list(state.get("trace", []))
     trace.append({"node": "render_reply", "event": "reply_built"})
 
-    return {"reply": reply, "trace": trace}
+    # ``template`` tells the SSE handler this is a deterministic, grounded
+    # draft. When an LLM key is configured the handler streams a model answer
+    # instead, and uses this draft verbatim as the offline/failure fallback.
+    return {"reply": reply, "trace": trace, "reply_source": "template", "template_reply": reply}

@@ -87,11 +87,22 @@ class JudgeRouter:
         cfg = load_llm_config()
         return cfg.get("model", "agnes-2.0-flash")
 
+    def _api_key_configured(self) -> bool:
+        """Return True only when a real LLM API key is configured.
+
+        The offline demo must not send user text to any LLM endpoint. Using a
+        placeholder key would still issue an outbound request (and fail), so
+        the judge is skipped entirely when no key is present.
+        """
+        return bool(str(load_llm_config().get("api_key", "")).strip())
+
     def _get_client(self) -> AsyncOpenAI:
         """获取或创建异步 OpenAI 客户端。"""
         if self._client is None:
             cfg = load_llm_config()
-            api_key = cfg.get("api_key", "") or "sk-placeholder"
+            api_key = str(cfg.get("api_key", "")).strip()
+            if not api_key:
+                raise RuntimeError("LLM_API_KEY is not configured; LLM judge skipped")
             self._client = AsyncOpenAI(
                 api_key=api_key,
                 base_url=cfg.get("base_url", "https://api.agnes.ai/v1"),
@@ -204,8 +215,21 @@ class JudgeRouter:
             conversation_history: 对话历史。
 
         Returns:
-            所有维度的评估结果列表。
+            所有维度的评估结果列表。未配置 ``LLM_API_KEY`` 时全部标记为
+            ``unscored``，且不会发起任何网络请求（离线演示的 fail-closed 路径）。
         """
+        if not self._api_key_configured():
+            logger.info("LLM_API_KEY not configured — skipping LLM judge (no outbound request)")
+            return [
+                DimensionScore(
+                    dimension=dim,
+                    score=_DEFAULT_SCORE,
+                    reason="LLM_API_KEY 未配置，跳过 LLM 评分",
+                    unscored=True,
+                )
+                for dim in DIMENSION_WEIGHTS
+            ]
+
         tasks = [
             self.evaluate_dimension(
                 dimension=dim,

@@ -2,9 +2,38 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from server.services import data_query as dq
+
+
+def numeric_score(slots: dict[str, Any]) -> int | None:
+    """Resolve a numeric score from either ``score`` or ``score_rank``.
+
+    Slot extraction stores the user-facing value as ``"600分"`` (and may append
+    a rank, e.g. ``"600分 / 位次3000"``), while the data layer needs an integer.
+    A rank-only value such as ``"位次3000"`` is deliberately not treated as a
+    score.
+    """
+    for key in ("score", "score_rank"):
+        value = slots.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            score = int(value)
+            return score if 100 <= score <= 750 else None
+        text = str(value).strip()
+        if not text:
+            continue
+        if "分" not in text and not text.isdigit():
+            continue
+        match = re.search(r"\d{2,3}", text)
+        if match:
+            score = int(match.group(0))
+            if 100 <= score <= 750:
+                return score
+    return None
 
 
 def data_query_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -20,7 +49,7 @@ def data_query_node(state: dict[str, Any]) -> dict[str, Any]:
     try:
         if scene == "gaokao":
             province = slots.get("province")
-            score = slots.get("score")
+            score = numeric_score(slots)
             subject = slots.get("subject")
             interest = slots.get("interest")
 
