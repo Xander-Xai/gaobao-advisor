@@ -28,18 +28,25 @@ import json
 import os
 import random
 import sys
+from datetime import datetime
 from pathlib import Path
+
+from config.constants import DEMO_PROVINCES
 
 SYNTHETIC_MARKER = "SYNTHETIC_DEMO_DATA"
 SYNTHETIC_NOTICE = (
     "合成演示数据 / SYNTHETIC DEMO DATA — 全部内容为虚构占位，"
     "不对应任何真实院校、专业或录取结果，不得用于真实志愿决策。"
 )
-DEMO_YEAR = 2024
+# Keep in sync with legacy.gaokao_data.DATA_YEAR: the query layer defaults to
+# "current year - 1", so a pinned literal would silently return empty results
+# once the calendar advances. Recomputing at seed time keeps a freshly seeded
+# demo answerable. Within a given year the output remains fully deterministic.
+DEMO_YEAR = datetime.now().year - 1
 RANDOM_SEED = 20240617
 
-# Fictional provinces. Deliberately not real administrative divisions.
-DEMO_PROVINCES = ["示例省·甲", "示例省·乙", "示例省·丙", "示例省·丁"]
+# Fictional provinces (single source: config.constants). Deliberately not real
+# administrative divisions.
 DEMO_CITIES = {
     "示例省·甲": ["示例市·晨", "示例市·暮"],
     "示例省·乙": ["示例市·星", "示例市·岚"],

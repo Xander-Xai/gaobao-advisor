@@ -271,5 +271,8 @@ def llm_node_stream(state: dict[str, Any]) -> Generator[tuple[str, bool], None, 
                 yield (chunk.choices[0].delta.content, False)
         return  # Normal completion
     except Exception:
-        for char in _FALLBACK_REPLY:
+        # Prefer the grounded template produced by render_reply when present;
+        # it already carries the synthetic-data disclaimer.
+        fallback = state.get("template_reply") or _FALLBACK_REPLY
+        for char in fallback:
             yield (char, True)  # Degraded: stream fallback reply with degraded flag

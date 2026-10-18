@@ -41,6 +41,8 @@ class AdvisorState(TypedDict, total=False):
     reasoning: str
     structured_result: dict
     reply: str
+    reply_source: str  # "template" (deterministic draft) | "graph" (final)
+    template_reply: str  # grounded offline/failure fallback for the SSE layer
     confidence: float
 
     # ── Traceability ──────────────────────────────────────────

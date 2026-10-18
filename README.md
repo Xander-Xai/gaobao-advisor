@@ -69,7 +69,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 
 **读代码顺序（面向 AI 应用工程实践）：** `server/graph/graph.py` → `server/graph/state.py` → `server/routes/chat.py` → `server/auth.py` → `server/services/rag.py`。这条路线比只看 API 列表更容易理解状态流转、异步流式输出与错误边界。
 
-**真实性说明：** 工作流编排与 SSE 生成分开实现；当前图定义不包含独立的 `llm_reason` 节点，LLM token streaming 由 `server/routes/chat.py` 处理。项目没有已验证的吞吐量、SLA 或真实录取准确率；RAG 仅有一份小规模**合成**标注集的组级命中率（`12/12`），**不构成生产级 RAG 质量评测**。
+**真实性说明：** 工作流编排与 SSE 生成分开实现；当前图定义不包含独立的 `llm_reason` 节点，LLM token streaming 由 `server/routes/chat.py` 处理。配置 LLM Key 时，完整画像路径通过 SSE 流式生成；无 Key 时返回基于结构化查询结果的**确定性模板**并标记降级，而不是假装调用了模型。项目没有已验证的吞吐量、SLA 或真实录取准确率；RAG 仅有一份小规模**合成**标注集的组级命中率（`12/12`），**不构成生产级 RAG 质量评测**。
 
 ---
 
@@ -224,6 +224,9 @@ pip install -e ".[dev]"
 # 生成合成数据
 python -m scripts.seed_demo_data --db data/demo.db --reset
 
+# 让应用连接到刚生成的合成库（Docker 入口脚本已自动完成这一步）
+export DATABASE_URL=sqlite:///data/demo.db
+
 # 启动
 uvicorn server.main:app --reload
 
@@ -243,12 +246,12 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **922 passed / 1 skipped**，覆盖率 **79.65%**（门禁 70%）|
+| `pytest tests` | **938 passed / 1 skipped**，覆盖率 **79.69%**（门禁 70%）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
-| `vitest run`（frontend）| 未在本轮改动中运行（前端未改动）|
+| `vitest run`（frontend）| **9 files / 50 tests passed**；`npm run build` 通过 |
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
 > `docker run` 后 `curl` 的真实健康检查结果。
@@ -279,7 +282,7 @@ scrapers/              数据采集器（默认不发起外部请求）
 scripts/               数据导入脚本 + seed_demo_data.py
 knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
 frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
-tests/                 单元与验收测试（922 passed / 1 skipped）
+tests/                 单元与验收测试（938 passed / 1 skipped）
 ```
 
 ---

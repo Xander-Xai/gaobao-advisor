@@ -11,7 +11,7 @@ import copy
 import re
 from typing import Any
 
-from config.constants import PROVINCES
+from config.constants import DEMO_PROVINCES, PROVINCES
 from slots.patterns import (
     CHINESE_DIGIT_MAP,
     CHINESE_UNIT_MAP,
@@ -32,6 +32,11 @@ from slots.patterns import (
 
 # ── 3+3 省份集合 ──
 PROVINCES_33 = {"浙江", "上海", "北京", "天津", "山东", "海南"}
+
+# Real provinces plus the fictional SYNTHETIC_DEMO provinces. The demo dataset
+# only contains the latter, so they must be extractable for the documented chat
+# flow to reach the structured-query node.
+KNOWN_PROVINCES: list[str] = [*PROVINCES, *DEMO_PROVINCES]
 
 # ── 3+3 全部20种选科组合（在初始化时从 constants 模块获取） ──
 try:
@@ -180,11 +185,11 @@ class SlotExtractor:
 
     def __init__(self):
         """初始化提取器，预编译所有正则表达式。"""
-        self._province_re = re.compile(r"(" + "|".join(PROVINCES) + r")")
+        self._province_re = re.compile(r"(" + "|".join(KNOWN_PROVINCES) + r")")
         self._province_context_re = re.compile(
             r"(?:在|到|去|来|我是|我家在|老家|籍贯|户籍)(?:的|了|位于|住在)?"
-            r"\s*(" + "|".join(PROVINCES) + r")"
-            r"|(" + "|".join(PROVINCES) + r")(?:考生|的|人|高考|参加高考|读高中|上的学)"
+            r"\s*(" + "|".join(KNOWN_PROVINCES) + r")"
+            r"|(" + "|".join(KNOWN_PROVINCES) + r")(?:考生|的|人|高考|参加高考|读高中|上的学)"
         )
         self._interest_negative_re = re.compile(INTEREST_NEGATIVE_PATTERN)
         self._interest_positive_re = re.compile(INTEREST_POSITIVE_PATTERN)
@@ -235,8 +240,8 @@ class SlotExtractor:
                 updated.append(f"省份→{prov}")
                 return
 
-        # 直接匹配省份名
-        for p in PROVINCES:
+        # 直接匹配省份名（含合成演示省份）
+        for p in KNOWN_PROVINCES:
             if p in msg:
                 s["province"]["value"] = p
                 s["province"]["filled"] = True
@@ -455,8 +460,10 @@ class SlotExtractor:
             updated.append(f"兴趣→想学{val}")
             return
 
-        # 关键词兜底
-        matched_interests = [kw for kw in INTEREST_KEYWORDS if kw in msg]
+        # 关键词兜底。排除已经作为选科提取的词（例如“物理类”里的“物理”），
+        # 否则它会被误当成专业兴趣，导致专业反查永远匹配不到。
+        subject = s.get("subject", {}).get("value", "")
+        matched_interests = [kw for kw in INTEREST_KEYWORDS if kw in msg and kw not in subject]
         if matched_interests:
             s["interest"]["value"] = " ".join(matched_interests[:3])
             s["interest"]["filled"] = True

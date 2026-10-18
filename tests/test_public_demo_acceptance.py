@@ -393,17 +393,23 @@ class TestExcludedAssetsAbsent:
         assert data.ENABLE_OUTBOUND_FETCH is False
         assert data._outbound_fetch_enabled() is False
 
-    def test_data_queries_work_without_scrapers(self) -> None:
-        """The live data path must not require the excluded collector."""
-        from db.database import init_db
+    def test_data_queries_work_without_scrapers(self, monkeypatch) -> None:
+        """The live data path must answer from the synthetic DB, not the network."""
         from scripts.seed_demo_data import seed_database
 
         seed_database(REPO_ROOT / "data" / "demo.db", reset=True)
-        init_db()
+
         from legacy import gaokao_data
 
-        schools = gaokao_data.query_schools_by_major("计算机科学与技术（合成）", "示例省·甲", 600, "物理类")
-        assert schools, "synthetic data must answer without any outbound call"
+        # seed_database rebinds db.database in place; force the legacy layer to
+        # pick up that session factory instead of one cached by an earlier test.
+        monkeypatch.setattr(gaokao_data, "HAS_DB", False, raising=False)
+        monkeypatch.setattr(gaokao_data, "_SessionFactory", None, raising=False)
+        monkeypatch.setattr(gaokao_data, "_crud", None, raising=False)
+
+        schools = gaokao_data.query_schools_by_major("计算机", "示例省·甲", 600, "物理类")
+        assert schools["total"] >= 1, "synthetic data must answer without any outbound call"
+        assert gaokao_data.query_match_schools_v2(600, "示例省·甲", "物理", "稳")
 
     def test_tracked_file_count_is_bounded(self) -> None:
         """A clean public repo should be a few hundred files, not thousands."""

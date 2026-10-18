@@ -35,6 +35,11 @@ PROVINCES: list[str] = [
     "新疆",
 ]
 
+# Fictional provinces used only by the SYNTHETIC_DEMO dataset. Slot extraction
+# recognises them so the offline demo can exercise the structured-query path
+# end to end; they are never real administrative divisions.
+DEMO_PROVINCES: list[str] = ["示例省·甲", "示例省·乙", "示例省·丙", "示例省·丁"]
+
 PROVINCE_MODES: dict[str, str] = {
     "北京": "3+3",
     "天津": "3+3",

@@ -31,6 +31,30 @@ curl -X POST http://localhost:8000/api/v1/knowledge/search \
 
 Docker 默认运行 FastAPI 后端；它**不会同时启动 Vue 开发服务器**。
 
+### 端到端 Agent 演示（合成画像）
+
+```bash
+curl -N -X POST http://localhost:8000/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "session_id": "demo-session-001",
+    "scene": "gaokao",
+    "message": "我是示例省·甲的物理类考生，600分，想报计算机"
+  }'
+```
+
+可复核的事件序列（无 LLM Key 时的实测行为）：
+
+1. `slots` — 抽取到 `province=示例省·甲`、`score_rank=600分`、`score=600`、
+   `subject=物理`、`interest=计算机`；
+2. `structured` — 结构化卡片包含分数、匹配院校（名称带「（合成）」）与位次分析；
+3. `sources` — 检索证据及 `chunk_id` / `source`（来自 `knowledge/synthetic_demo/`）；
+4. `degraded` — 明确提示「未配置 LLM Key，已使用基于结构化数据的确定性模板答复」；
+5. `token` / `done` — SSE 流式文本与 HMAC `session_token`。
+
+> 首次请求会**忽略调用方传入的 `session_id`**，返回服务端生成的会话 ID；续聊需携带
+> `Authorization: Bearer <session_token>`。以上输出只演示软件行为，不是真实志愿建议。
+
 ## 方式二：本地开发（Python 3.10/3.11 + Node.js）
 
 ```bash
@@ -40,6 +64,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 python -m scripts.seed_demo_data --db data/demo.db --reset
+export DATABASE_URL=sqlite:///data/demo.db   # 连接刚生成的合成库（Docker 已自动设置）
 uvicorn server.main:app --reload
 ```
 
