@@ -1,5 +1,12 @@
 # Gaobao Advisor — 高考志愿 AI 顾问
 
+## Versioning
+
+The canonical application version is declared in `server/__init__.py::__version__`
+(currently **3.0.0**). `pyproject.toml` and `openapi.json` / `openapi.yaml` must
+match it; `tests/test_version_consistency.py` enforces this so packaging and
+runtime cannot drift again.
+
 ## Overview
 
 Gaobao Advisor is an AI-powered college application advisor for the Chinese Gaokao system. It combines a deep knowledge base (20+ modules from 8 books, 61 video courses, 3,016+ schools, 792 majors) with structured consultation logic to produce professional-grade admissions guidance — not just generic chatbot output.
