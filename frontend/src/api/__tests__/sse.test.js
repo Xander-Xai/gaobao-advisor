@@ -28,6 +28,40 @@ function encode(str) {
   return new TextEncoder().encode(str)
 }
 
+function createGatedReader() {
+  const queue = []
+  let waiting = null
+  let closed = false
+  return {
+    reader: {
+      read() {
+        if (queue.length) return Promise.resolve({ done: false, value: queue.shift() })
+        if (closed) return Promise.resolve({ done: true })
+        return new Promise(resolve => {
+          waiting = resolve
+        })
+      },
+    },
+    push(chunk) {
+      if (waiting) {
+        const resolve = waiting
+        waiting = null
+        resolve({ done: false, value: chunk })
+      } else {
+        queue.push(chunk)
+      }
+    },
+    close() {
+      closed = true
+      if (waiting) {
+        const resolve = waiting
+        waiting = null
+        resolve({ done: true })
+      }
+    },
+  }
+}
+
 beforeEach(() => {
   vi.restoreAllMocks()
 })
@@ -72,5 +106,24 @@ describe('chatAPI.send SSE parser', () => {
 
     const events = await chatAPI.send('s', 'hi')
     expect(events.map(e => e.type)).toEqual(['slots', 'done'])
+  })
+
+  it('invokes onEvent as each frame is decoded, before the stream ends', async () => {
+    const gated = createGatedReader()
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, body: { getReader: () => gated.reader } })
+
+    const seen = []
+    const pending = chatAPI.send('s', 'hi', {}, 'gaokao', null, { onEvent: e => seen.push(e) })
+
+    gated.push(encode('data: {"type":"token","content":"第一块"}\n\n'))
+    await vi.waitFor(() => expect(seen).toHaveLength(1))
+    // The stream is still open here — no done yet.
+    expect(seen[0]).toEqual({ type: 'token', content: '第一块' })
+
+    gated.push(encode('data: {"type":"done","session_id":"s","session_token":"t"}\n\n'))
+    gated.close()
+    const events = await pending
+    expect(events.map(e => e.type)).toEqual(['token', 'done'])
+    expect(seen.map(e => e.type)).toEqual(['token', 'done'])
   })
 })
