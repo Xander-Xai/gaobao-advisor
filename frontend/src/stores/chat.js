@@ -50,91 +50,98 @@ export const useChatStore = defineStore('chat', () => {
       if (pending.rewritten) msg.rewritten = true
     }
 
-    try {
-      const events = await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential)
-      for (const event of events) {
-        if (event.type === 'done') {
-          doneReceived = true
-          // A different session may have been selected while fetch was in-flight.
-          // Only update the session which *initiated* the request.
-          const issuedId = event.session_id || initiatingId
-          const entry = sessions.value.find(s => s.id === initiatingId)
-          if (entry) entry.id = issuedId
-          if (event.session_token) sessionTokens.value[issuedId] = event.session_token
-          if (currentSessionId.value === initiatingId) {
-            currentSessionId.value = issuedId
-            sessionToken.value = event.session_token || null
-          }
-          continue
+    const applyEvent = event => {
+      if (event.type === 'done') {
+        doneReceived = true
+        // A different session may have been selected while fetch was in-flight.
+        // Only update the session which *initiated* the request.
+        const issuedId = event.session_id || initiatingId
+        const entry = sessions.value.find(s => s.id === initiatingId)
+        if (entry) entry.id = issuedId
+        if (event.session_token) sessionTokens.value[issuedId] = event.session_token
+        if (currentSessionId.value === initiatingId) {
+          currentSessionId.value = issuedId
+          sessionToken.value = event.session_token || null
         }
-        // Never write one session's reply or slots into a newly selected session.
-        if (currentSessionId.value !== initiatingId) continue
-        if (event.type === 'token') {
-          assistantContent += event.content
-          const last = findAssistant()
-          if (last?.role === 'assistant') {
-            last.content = assistantContent
-          } else {
-            messages.value.push({
-              role: 'assistant',
-              content: assistantContent,
-              qualityGrade: null,
-              rewritten: false,
-            })
-            applyPendingMeta(findAssistant())
-          }
-        } else if (event.type === 'slots') {
-          slots.value = event.data
-        } else if (event.type === 'quality') {
-          pending.qualityGrade = event.grade || null
-          pending.rewritten = event.rewritten || false
-          const last = findAssistant()
-          if (last?.role === 'assistant') last.qualityGrade = pending.qualityGrade
-        } else if (event.type === 'sources') {
-          pending.sources = Array.isArray(event.data) ? event.data : []
-          applyPendingMeta(findAssistant())
-        } else if (event.type === 'rag_status') {
-          pending.ragStatus = { state: event.state, reason: event.reason || '' }
-          applyPendingMeta(findAssistant())
-        } else if (event.type === 'degraded') {
-          pending.degraded = true
-          applyPendingMeta(findAssistant())
-        } else if (event.type === 'error') {
-          // A server-declared failure is never a successful turn.
-          lastError.value = event.message || '服务暂时不可用，请稍后重试'
+        return
+      }
+      // Never write one session's reply or slots into a newly selected session.
+      if (currentSessionId.value !== initiatingId) return
+      if (event.type === 'token') {
+        assistantContent += event.content
+        const last = findAssistant()
+        if (last?.role === 'assistant') {
+          last.content = assistantContent
+        } else {
           messages.value.push({
             role: 'assistant',
-            content: lastError.value,
-            error: true,
+            content: assistantContent,
             qualityGrade: null,
             rewritten: false,
           })
+          applyPendingMeta(findAssistant())
         }
+      } else if (event.type === 'slots') {
+        slots.value = event.data
+      } else if (event.type === 'quality') {
+        pending.qualityGrade = event.grade || null
+        pending.rewritten = event.rewritten || false
+        const last = findAssistant()
+        if (last?.role === 'assistant') last.qualityGrade = pending.qualityGrade
+      } else if (event.type === 'sources') {
+        pending.sources = Array.isArray(event.data) ? event.data : []
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'rag_status') {
+        pending.ragStatus = { state: event.state, reason: event.reason || '' }
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'degraded') {
+        pending.degraded = true
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'error') {
+        // A server-declared failure is never a successful turn.
+        lastError.value = event.message || '服务暂时不可用，请稍后重试'
+        messages.value.push({
+          role: 'assistant',
+          content: lastError.value,
+          error: true,
+          qualityGrade: null,
+          rewritten: false,
+        })
       }
+    }
+
+    // Mark whatever partial answer exists as an error/incomplete reply, without
+    // discarding already-streamed content.
+    const markFailed = fallbackMessage => {
+      const last = findAssistant()
+      if (last?.role === 'assistant') {
+        if (!last.error) last.incomplete = true
+      } else {
+        messages.value.push({
+          role: 'assistant',
+          content: fallbackMessage,
+          error: true,
+          qualityGrade: null,
+          rewritten: false,
+        })
+      }
+    }
+
+    try {
+      // Consume events incrementally: `onEvent` fires as each SSE frame is
+      // decoded, so tokens render before the stream ends.
+      await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential, { onEvent: applyEvent })
 
       // The backend always terminates a stream with an explicit `done`. If it
       // never arrived (connection cut, proxy timeout), do not present the turn
       // as a completed, persisted answer.
       if (!doneReceived) {
         if (!lastError.value) lastError.value = '连接中断，回复可能不完整'
-        const last = findAssistant()
-        if (last?.role === 'assistant') {
-          last.incomplete = true
-        } else {
-          messages.value.push({
-            role: 'assistant',
-            content: lastError.value,
-            incomplete: true,
-            qualityGrade: null,
-            rewritten: false,
-          })
-        }
+        markFailed(lastError.value)
       }
     } catch (err) {
       lastError.value = err?.message || '服务暂时不可用'
-      if (currentSessionId.value === initiatingId) {
-        messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
-      }
+      if (currentSessionId.value === initiatingId) markFailed(lastError.value)
     } finally {
       isStreaming.value = false
     }

@@ -70,11 +70,15 @@ function _toQuery(params) {
 
 export const chatAPI = {
   /**
-   * Send a chat message and yield SSE events one by one.
-   * Returns the list of parsed JSON events collected from the stream.
-   * Caller must read the final `done.session_token` to auth profile/voice.
+   * Send a chat message and stream SSE events.
+   *
+   * Returns the full list of parsed events once the stream ends (unchanged
+   * contract). When `onEvent` is supplied it is invoked *as each event is
+   * decoded*, i.e. before the stream finishes, so callers can render tokens
+   * incrementally instead of waiting for `done`. Caller must read the final
+   * `done.session_token` to auth profile/voice.
    */
-  async send(sessionId, message, slots = {}, scene = 'gaokao', token = null) {
+  async send(sessionId, message, slots = {}, scene = 'gaokao', token = null, { onEvent } = {}) {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -107,11 +111,14 @@ export const chatAPI = {
       if (!line.startsWith('data:')) return
       const payload = line.slice(5).trimStart()
       if (!payload) return
+      let event
       try {
-        events.push(JSON.parse(payload))
+        event = JSON.parse(payload)
       } catch {
-        // Ignore non-JSON keepalive/heartbeat lines.
+        return // Ignore non-JSON keepalive/heartbeat lines.
       }
+      events.push(event)
+      if (typeof onEvent === 'function') onEvent(event)
     }
     while (true) {
       const { done, value } = await reader.read()
