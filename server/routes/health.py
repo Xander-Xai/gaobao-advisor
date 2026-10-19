@@ -6,13 +6,53 @@ subsystem. A disabled knowledge subsystem is reported explicitly as
 that cannot retrieve evidence must never present itself as fully healthy.
 """
 
-from fastapi import APIRouter
+from __future__ import annotations
+
+import json
+
+from fastapi import APIRouter, Response
 
 from db.database import is_db_connected
 from server import __version__
 from server.services import rag
 
 router = APIRouter(tags=["health"])
+
+
+@router.get("/api/v1/health/live")
+async def liveness():
+    """Liveness probe — the process is up and serving requests.
+
+    Deliberately dependency-free: it must not fail because a downstream
+    subsystem is degraded (that is what readiness is for).
+    """
+    return {"status": "ok"}
+
+
+@router.get("/api/v1/health/ready")
+async def readiness():
+    """Readiness probe — required dependencies are usable.
+
+    The database is required: if it is unreachable the service is not ready
+    (HTTP 503). RAG is optional and reported as a degraded capability rather
+    than blocking readiness.
+    """
+    db_status = "connected" if is_db_connected() else "disconnected"
+    rag_status = rag.status()
+    ready = db_status == "connected"
+    body = {
+        "status": "ready" if ready else "not_ready",
+        "version": __version__,
+        "database": db_status,
+        "optional_services": {
+            "rag": {"state": rag_status["state"], "reason": rag_status["reason"]},
+        },
+    }
+    return Response(
+        content=json.dumps(body),
+        media_type="application/json",
+        status_code=200 if ready else 503,
+    )
 
 
 @router.get("/api/v1/health")

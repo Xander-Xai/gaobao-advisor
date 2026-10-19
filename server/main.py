@@ -25,6 +25,12 @@ from server.routes.voice import router as voice_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
+    # Fail fast: in production a missing SESSION_SECRET raises here rather than
+    # later as broken session verification on the first request.
+    from server.auth import ensure_secret_ready
+
+    ensure_secret_ready()
+
     init_sentry()
 
     from db.database import init_db

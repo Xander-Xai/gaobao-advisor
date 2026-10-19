@@ -36,12 +36,20 @@ def _get_secret() -> bytes:
 def _load_or_generate_secret() -> str:
     """Load secret from file or generate a new one.
 
-    In production (APP_ENV=production), missing SESSION_SECRET is fatal.
-    In development, persist generated secret to data/.session_secret
-    so multiple restarts share the same key.
+    In production (APP_ENV=production), missing SESSION_SECRET is fatal and is
+    checked *before* the development file fallback, so a leftover
+    ``data/.session_secret`` can never quietly stand in for an explicit
+    production secret. In development, the generated secret is persisted to
+    ``data/.session_secret`` so restarts and multiple local workers share it.
     """
     env = os.getenv("APP_ENV", "development")
     secret_file = os.path.join("data", ".session_secret")
+
+    # Production: require an explicit SESSION_SECRET, regardless of any file.
+    if env == "production":
+        raise RuntimeError(
+            "SESSION_SECRET must be set in production. Set it via environment variable before starting the server."
+        )
 
     # Try to load existing secret from file
     if os.path.exists(secret_file):
@@ -50,12 +58,6 @@ def _load_or_generate_secret() -> str:
         if secret:
             logger.info("Loaded session secret from %s", secret_file)
             return secret
-
-    # Production: must have explicit SESSION_SECRET
-    if env == "production":
-        raise RuntimeError(
-            "SESSION_SECRET must be set in production. Set it via environment variable before starting the server."
-        )
 
     # Development: generate and persist
     secret = secrets.token_hex(32)
@@ -71,6 +73,16 @@ def _load_or_generate_secret() -> str:
     except OSError as e:
         logger.warning("Could not persist session secret: %s", e)
     return secret
+
+
+def ensure_secret_ready() -> None:
+    """Resolve the session secret at startup so a misconfiguration fails fast.
+
+    In production a missing ``SESSION_SECRET`` raises here (during app
+    lifespan) instead of surfacing later as broken session verification on the
+    first user request.
+    """
+    _get_secret()
 
 
 def create_session_token(session_id: str) -> str:
