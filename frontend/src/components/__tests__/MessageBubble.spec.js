@@ -47,4 +47,28 @@ describe('MessageBubble', () => {
     expect(html).toContain('alert("xss")')            // "alert" is safely HTML-encoded text, not executable
     expect(html).toContain('safe')                    // text content preserved
   })
+
+  it('renders degraded state and retrieval sources', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: {
+          role: 'assistant',
+          content: '基于结构化数据的确定性模板答复',
+          degraded: true,
+          sources: [{ source: 'G1_core_method § 投档规则' }],
+        },
+      },
+    })
+    expect(wrapper.text()).toContain('已降级')
+    expect(wrapper.text()).toContain('G1_core_method § 投档规则')
+  })
+
+  it('renders an incomplete-stream warning', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: { role: 'assistant', content: '半截回复', incomplete: true },
+      },
+    })
+    expect(wrapper.text()).toContain('连接中断')
+  })
 })

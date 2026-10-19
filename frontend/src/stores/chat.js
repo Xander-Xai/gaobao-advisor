@@ -12,6 +12,8 @@ export const useChatStore = defineStore('chat', () => {
   // Required to call /api/v1/profile/* and the /ws/call voice endpoint.
   const sessionToken = ref(null)
   const sessionTokens = ref({}) // Private, in-memory credentials by server-owned session ID.
+  // Last user-visible stream/network error. Cleared at the start of each turn.
+  const lastError = ref(null)
   watch(currentSessionId, id => { sessionToken.value = id ? (sessionTokens.value[id] || null) : null })
 
   function createSession(scene = 'gaokao') {
@@ -30,12 +32,29 @@ export const useChatStore = defineStore('chat', () => {
     const initiatingId = currentSessionId.value
     const credential = sessionTokens.value[initiatingId] || null
     isStreaming.value = true
+    lastError.value = null
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
+    let doneReceived = false
+    // Metadata may arrive before the first token (sources/rag_status) — buffer
+    // it and fold it onto the assistant message once it exists.
+    const pending = { sources: null, ragStatus: null, degraded: false, qualityGrade: null, rewritten: false }
+
+    const findAssistant = () => messages.value[messages.value.length - 1]
+    const applyPendingMeta = msg => {
+      if (!msg || msg.role !== 'assistant') return
+      if (pending.sources) msg.sources = pending.sources
+      if (pending.ragStatus) msg.ragStatus = pending.ragStatus
+      if (pending.degraded) msg.degraded = true
+      if (pending.qualityGrade !== null) msg.qualityGrade = pending.qualityGrade
+      if (pending.rewritten) msg.rewritten = true
+    }
+
     try {
       const events = await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential)
       for (const event of events) {
         if (event.type === 'done') {
+          doneReceived = true
           // A different session may have been selected while fetch was in-flight.
           // Only update the session which *initiated* the request.
           const issuedId = event.session_id || initiatingId
@@ -52,7 +71,7 @@ export const useChatStore = defineStore('chat', () => {
         if (currentSessionId.value !== initiatingId) continue
         if (event.type === 'token') {
           assistantContent += event.content
-          const last = messages.value[messages.value.length - 1]
+          const last = findAssistant()
           if (last?.role === 'assistant') {
             last.content = assistantContent
           } else {
@@ -62,19 +81,57 @@ export const useChatStore = defineStore('chat', () => {
               qualityGrade: null,
               rewritten: false,
             })
+            applyPendingMeta(findAssistant())
           }
         } else if (event.type === 'slots') {
           slots.value = event.data
         } else if (event.type === 'quality') {
-          // Quality grade from SSE stream
-          const last = messages.value[messages.value.length - 1]
-          if (last?.role === 'assistant') {
-            last.qualityGrade = event.grade || null
-            last.rewritten = event.rewritten || false
-          }
+          pending.qualityGrade = event.grade || null
+          pending.rewritten = event.rewritten || false
+          const last = findAssistant()
+          if (last?.role === 'assistant') last.qualityGrade = pending.qualityGrade
+        } else if (event.type === 'sources') {
+          pending.sources = Array.isArray(event.data) ? event.data : []
+          applyPendingMeta(findAssistant())
+        } else if (event.type === 'rag_status') {
+          pending.ragStatus = { state: event.state, reason: event.reason || '' }
+          applyPendingMeta(findAssistant())
+        } else if (event.type === 'degraded') {
+          pending.degraded = true
+          applyPendingMeta(findAssistant())
+        } else if (event.type === 'error') {
+          // A server-declared failure is never a successful turn.
+          lastError.value = event.message || '服务暂时不可用，请稍后重试'
+          messages.value.push({
+            role: 'assistant',
+            content: lastError.value,
+            error: true,
+            qualityGrade: null,
+            rewritten: false,
+          })
         }
       }
-    } catch {
+
+      // The backend always terminates a stream with an explicit `done`. If it
+      // never arrived (connection cut, proxy timeout), do not present the turn
+      // as a completed, persisted answer.
+      if (!doneReceived) {
+        if (!lastError.value) lastError.value = '连接中断，回复可能不完整'
+        const last = findAssistant()
+        if (last?.role === 'assistant') {
+          last.incomplete = true
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: lastError.value,
+            incomplete: true,
+            qualityGrade: null,
+            rewritten: false,
+          })
+        }
+      }
+    } catch (err) {
+      lastError.value = err?.message || '服务暂时不可用'
       if (currentSessionId.value === initiatingId) {
         messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
       }
@@ -90,6 +147,7 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming,
     slots,
     sessionToken,
+    lastError,
     createSession,
     sendMessage,
   }

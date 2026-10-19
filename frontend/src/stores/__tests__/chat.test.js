@@ -65,3 +65,67 @@ describe('chat session ownership', () => {
     expect(store.sessionToken).toBe('token-first')
   })
 })
+
+describe('chat stream integrity', () => {
+  it('flags the turn as failed when the stream ends without a done event', async () => {
+    const store = useChatStore()
+    store.createSession()
+
+    chatAPI.send.mockResolvedValueOnce([{ type: 'token', content: '半截回复' }])
+    await store.sendMessage('你好')
+
+    expect(store.isStreaming).toBe(false)
+    expect(store.lastError).toBeTruthy()
+    const last = store.messages.at(-1)
+    expect(last.role).toBe('assistant')
+    expect(last.incomplete).toBe(true)
+    // No session credential may be minted without a valid done event.
+    expect(store.sessionToken).toBeNull()
+  })
+
+  it('surfaces an error event and does not treat the turn as successful', async () => {
+    const store = useChatStore()
+    store.createSession()
+
+    chatAPI.send.mockResolvedValueOnce([{ type: 'error', code: 'GRAPH_FAILED', message: '服务暂时不可用' }])
+    await store.sendMessage('你好')
+
+    expect(store.lastError).toBe('服务暂时不可用')
+    expect(store.messages.at(-1).error).toBe(true)
+    expect(store.sessionToken).toBeNull()
+  })
+
+  it('attaches degraded, sources and rag_status to the assistant message', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(555)
+    const store = useChatStore()
+    store.createSession()
+
+    chatAPI.send.mockResolvedValueOnce([
+      { type: 'sources', data: [{ source: 'G1_core_method § 投档' }], has_evidence: true },
+      { type: 'token', content: '根据资料……' },
+      { type: 'degraded', message: '未配置 LLM Key' },
+      { type: 'rag_status', state: 'NO_EVIDENCE', reason: '无匹配证据' },
+      { type: 'done', session_id: 'session-meta', session_token: 'tok-meta' },
+    ])
+    await store.sendMessage('平行志愿')
+
+    const last = store.messages.at(-1)
+    expect(last.role).toBe('assistant')
+    expect(last.sources).toHaveLength(1)
+    expect(last.degraded).toBe(true)
+    expect(last.ragStatus).toEqual({ state: 'NO_EVIDENCE', reason: '无匹配证据' })
+    expect(store.lastError).toBeNull()
+  })
+
+  it('records a network failure as lastError instead of silently succeeding', async () => {
+    const store = useChatStore()
+    store.createSession()
+
+    chatAPI.send.mockRejectedValueOnce(new Error('network down'))
+    await store.sendMessage('你好')
+
+    expect(store.lastError).toBeTruthy()
+    expect(store.sessionToken).toBeNull()
+  })
+})
+
