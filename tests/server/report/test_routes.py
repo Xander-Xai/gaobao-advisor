@@ -5,16 +5,23 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from server.auth import create_session_token
 from server.main import app
+
+
+def _bearer(session_id: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_session_token(session_id)}"}
 
 
 @pytest.mark.asyncio
 async def test_generate_report_endpoint():
     """POST /api/v1/report/generate should return 200 and a report_id."""
+    session_id = "test-session-001"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/v1/report/generate",
-            json={"session_id": "test-session-001", "student_name": "张三"},
+            json={"session_id": session_id, "student_name": "张三"},
+            headers=_bearer(session_id),
         )
     assert response.status_code == 200
     data = response.json()
@@ -26,16 +33,18 @@ async def test_generate_report_endpoint():
 @pytest.mark.asyncio
 async def test_get_report_endpoint():
     """GET /api/v1/report/{id} should return report data with province field."""
+    session_id = "test-session-002"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Generate first
         gen_resp = await client.post(
             "/api/v1/report/generate",
-            json={"session_id": "test-session-002", "student_name": "李四"},
+            json={"session_id": session_id, "student_name": "李四"},
+            headers=_bearer(session_id),
         )
         report_id = gen_resp.json()["report_id"]
 
         # Retrieve
-        response = await client.get(f"/api/v1/report/{report_id}")
+        response = await client.get(f"/api/v1/report/{report_id}", headers=_bearer(session_id))
     assert response.status_code == 200
     data = response.json()
     assert "province" in data
@@ -45,16 +54,18 @@ async def test_get_report_endpoint():
 @pytest.mark.asyncio
 async def test_get_report_html_endpoint():
     """GET /api/v1/report/{id}/html should return HTML containing 金榜题名."""
+    session_id = "test-session-003"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Generate first
         gen_resp = await client.post(
             "/api/v1/report/generate",
-            json={"session_id": "test-session-003", "student_name": "王五"},
+            json={"session_id": session_id, "student_name": "王五"},
+            headers=_bearer(session_id),
         )
         report_id = gen_resp.json()["report_id"]
 
         # Retrieve HTML
-        response = await client.get(f"/api/v1/report/{report_id}/html")
+        response = await client.get(f"/api/v1/report/{report_id}/html", headers=_bearer(session_id))
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/html; charset=utf-8"
     assert "金榜题名" in response.text
@@ -62,7 +73,8 @@ async def test_get_report_html_endpoint():
 
 @pytest.mark.asyncio
 async def test_get_nonexistent_report():
-    """GET /api/v1/report/{id} with nonexistent ID should return 404."""
+    """GET /api/v1/report/{id} with nonexistent ID should return 404 for the owner."""
+    session_id = "test-session-missing"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get("/api/v1/report/nonexistent-999")
+        response = await client.get("/api/v1/report/nonexistent-999", headers=_bearer(session_id))
     assert response.status_code == 404

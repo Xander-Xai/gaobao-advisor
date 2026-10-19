@@ -9,7 +9,7 @@ Endpoints:
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from server.auth import verify_session_token
+from server.auth import require_session_auth
 from server.deps import get_soul_query_engine
 from server.soul_query import QueryState
 from server.user_profile import load_profile, save_profile
@@ -19,11 +19,7 @@ router = APIRouter(prefix="/api/v1", tags=["profile"])
 
 def _require_auth(session_id: str, authorization: str | None = None) -> None:
     """Validate session ownership via Bearer token. Raises 401 on failure."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing session token")
-    token = authorization.removeprefix("Bearer ").strip()
-    if not verify_session_token(session_id, token):
-        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+    require_session_auth(session_id, authorization)
 
 
 class ProfileUpdateRequest(BaseModel):

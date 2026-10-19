@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from config.loader import load_llm_config
 from db.database import get_session
 from db.models import Highlight
-from server.auth import create_session_token, verify_session_token
+from server.auth import create_session_token, require_session_auth, verify_session_token
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
 from server.graph.nodes.render import _DISCLAIMER
@@ -154,16 +154,18 @@ async def chat(request: ChatRequest, authorization: str | None = Header(None)):
 class FeedbackRequest(BaseModel):
     """用户反馈请求"""
 
-    session_id: str = Field(..., min_length=4, max_length=64)
-    message_index: int = Field(..., ge=0)
+    session_id: str = Field(..., min_length=4, max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+    message_index: int = Field(..., ge=0, le=10000)
     rating: str = Field(..., pattern=r"^(helpful|not_helpful)$")
-    feedback_text: str | None = None
+    feedback_text: str | None = Field(default=None, max_length=2000)
     quality_score_id: int | None = None
 
 
 @router.post("/chat/feedback")
-async def submit_feedback(request: FeedbackRequest):
-    """提交用户反馈（有帮助/没帮助）"""
+async def submit_feedback(request: FeedbackRequest, authorization: str | None = Header(None)):
+    """提交用户反馈（有帮助/没帮助）— 仅限会话所有者。"""
+    require_session_auth(request.session_id, authorization)
+
     from server.quality.feedback import FeedbackCollector
 
     collector = FeedbackCollector()
@@ -176,20 +178,24 @@ async def submit_feedback(request: FeedbackRequest):
     )
     if ok:
         return {"success": True}
-    return {"success": False, "error": "Failed to save feedback"}
+    # Generic failure detail: never surface storage/exception internals.
+    raise HTTPException(status_code=500, detail="Failed to save feedback")
 
 
 class HighlightExtractRequest(BaseModel):
     """金句提取请求"""
 
-    session_id: str = Field(..., min_length=4, max_length=64)
-    content: str = Field(..., min_length=10)
+    session_id: str = Field(..., min_length=4, max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+    content: str = Field(..., min_length=10, max_length=2000)
     score: int = Field(default=0, ge=0, le=100)
 
 
 @router.post("/chat/highlight")
-async def submit_highlight(request: HighlightExtractRequest):
-    """提取金句"""
+async def submit_highlight(request: HighlightExtractRequest, authorization: str | None = Header(None)):
+    """提取金句 — 仅限会话所有者。"""
+    require_session_auth(request.session_id, authorization)
+
+    db = None
     try:
         hl = Highlight(
             session_id=request.session_id,
@@ -199,8 +205,15 @@ async def submit_highlight(request: HighlightExtractRequest):
         db = get_session()
         db.add(hl)
         db.commit()
-        db.close()
         return {"success": True}
-    except Exception as e:
-        logger.error(f"Highlight error: {e}")
-        return {"success": False, "error": str(e)}
+    except Exception:
+        if db is not None:
+            try:
+                db.rollback()
+            except Exception:  # noqa: BLE001 - rollback best-effort, still fail closed
+                logger.exception("Highlight rollback failed")
+        logger.exception("Highlight save failed")
+        raise HTTPException(status_code=500, detail="Failed to save highlight") from None
+    finally:
+        if db is not None:
+            db.close()

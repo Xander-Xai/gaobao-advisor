@@ -1,5 +1,7 @@
 import tempfile
 
+import pytest
+
 from server.report.models import Report
 from server.report.storage import ReportStorage
 
@@ -48,3 +50,33 @@ def test_list_reports_by_session():
         reports = storage.list_by_session("sess-a")
         assert len(reports) == 2
         assert {r.id for r in reports} == {"r1", "r2"}
+
+
+def test_save_rejects_path_traversal_session_id():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = ReportStorage(base_dir=tmpdir)
+        report = Report(id="r1", session_id="../../escape")
+        with pytest.raises(ValueError):
+            storage.save(report)
+
+
+def test_save_rejects_path_traversal_report_id():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = ReportStorage(base_dir=tmpdir)
+        report = Report(id="../evil", session_id="sess-a")
+        with pytest.raises(ValueError):
+            storage.save(report)
+
+
+def test_load_rejects_unsafe_report_id():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = ReportStorage(base_dir=tmpdir)
+        with pytest.raises(ValueError):
+            storage.load("../../etc/passwd")
+
+
+def test_load_by_session_rejects_unsafe_session_id():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        storage = ReportStorage(base_dir=tmpdir)
+        with pytest.raises(ValueError):
+            storage.load_by_session("r1", "../sess")
