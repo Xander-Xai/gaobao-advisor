@@ -88,6 +88,91 @@ cd frontend && npm ci && npx vitest run && npm run build
 
 可在 [GitHub Actions](https://github.com/Xander-Xai/gaobao-advisor/actions/workflows/ci.yml) 查看最新版 CI 结果。
 
+## 面试演示脚本（可复现，面向 RAG / Agent 岗位）
+
+下面的脚本只依赖标准库，对着无 Key 的本地/Docker 后端运行即可复现「问题 → 槽位抽取 →
+LangGraph 路由 → 结构化查询 / BM25 RAG → 证据组装 → 生成或确定性降级 → SSE → Vue 展示」
+全链路。每一段都能指向源码或测试，不含任何编造指标。
+
+```python
+import json, urllib.request, urllib.error
+
+BASE = "http://localhost:8000/api/v1"
+
+def sse(message, session_id, token=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(
+        f"{BASE}/chat",
+        data=json.dumps({"session_id": session_id, "scene": "gaokao", "message": message}).encode(),
+        headers=headers,
+    )
+    events = []
+    with urllib.request.urlopen(req) as resp:
+        for raw in resp:
+            line = raw.decode().strip()
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+    return events
+
+# ① 完整画像 → data_query + rag_retrieve（结构化查询与知识检索分工）
+full = sse("我是示例省·甲的物理类考生，600分，想报计算机，平行志愿投档规则是什么", "client-id-ignored")
+full_done = next(e for e in full if e["type"] == "done")
+print("events:", [e["type"] for e in full])
+print("has structured card:", any(e["type"] == "structured" for e in full))
+print("has sources:", any(e["type"] == "sources" for e in full))
+
+# ② 不完整画像 → 追问分支（不生成无依据结论）
+incomplete = sse("你好", "client-id-ignored")
+print("incomplete events:", [e["type"] for e in incomplete])
+
+# ③ 会话所有权：首次匿名由服务端签发 session + 令牌
+tok = full_done["session_token"]
+print("server session:", full_done["session_id"])
+
+# ④ 续聊需令牌（合法）；跨会话访问被拒绝（401）
+sse("那计算机专业现在还推荐吗", full_done["session_id"], tok)
+try:
+    urllib.request.urlopen(urllib.request.Request(
+        f"{BASE}/profile/not-this-session", headers={"Authorization": f"Bearer {tok}"}))
+except urllib.error.HTTPError as e:
+    print("cross-session profile status:", e.code)  # 401
+```
+
+```bash
+# ⑤ 有证据 vs 无证据（no match ≠ 检索故障）
+curl -s -X POST http://localhost:8000/api/v1/knowledge/search \
+  -H 'Content-Type: application/json' -d '{"query":"平行志愿的投档规则是什么"}' | python -m json.tool
+curl -s -X POST http://localhost:8000/api/v1/knowledge/search \
+  -H 'Content-Type: application/json' -d '{"query":"量子缠结与超导磁悬浮技术前沿"}' | python -m json.tool
+# 第一条 has_evidence=true 且带 citations；第二条 has_evidence=false（语料健康但无匹配）
+
+# ⑥ 存活 / 就绪 / 能力降级分离
+curl -s http://localhost:8000/api/v1/health/live
+curl -s http://localhost:8000/api/v1/health/ready
+curl -s http://localhost:8000/api/v1/health
+```
+
+可在源码/测试中复核的对应点：
+
+| 演示点 | 证据位置 |
+|---|---|
+| 完整/不完整画像分支 | `server/graph/nodes/route.py`、`server/graph/graph.py`；`tests/test_rag_demo_e2e.py::TestRouting` |
+| SQL 与 RAG 职责划分 | `server/graph/nodes/data_nodes.py`、`server/graph/nodes/rag_node.py` |
+| 有证据 / 无证据差异 | `server/services/kb_retriever.py::_select_evidence`；`tests/test_rag_demo_e2e.py::TestNoEvidenceMeansCannotVerify` |
+| 会话所有权 / 跨会话拒绝 | `server/auth.py::require_session_auth`；`tests/test_report_auth.py`、`tests/test_auth_endpoints.py` |
+| 无 Key 运行 / 模型失败降级 | `server/routes/chat.py`、`server/graph/nodes/llm_node.py`；`tests/test_chat_llm_path.py` |
+| 合成数据与真实录取边界 | `scripts/seed_demo_data.py`、`knowledge/synthetic_demo/manifest.json`；`tests/test_public_demo_acceptance.py` |
+
+## 代码归属与治理边界（如实说明）
+
+本仓库基于上游开源工程（见 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`）演化而来，**不是**从零个人作品。
+可独立指出的后续治理工作集中在：会话/报告/元数据接口的鉴权与存储边界、SSE 流式解析的
+无损化与失败态处理、RAG 语料完整性与离线 Provider 默认值、启动期配置 fail-fast，以及
+相应的回归测试。演示时应区分「继承的既有架构」与「本轮独立改动」，两者都可在 git 历史与
+测试中核对。
+
 ## 使用边界
 
 - 不需要 LLM Key 即可检查健康状态、合成数据 API 与知识库检索；配置模型是可选操作。

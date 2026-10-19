@@ -24,7 +24,7 @@ quality/         → 质量控制模块（emotion/risk/validator/decision/patter
 slots/           → 槽位提取（extractor/patterns）
 skills/          → Gaokao 方法论技能框架（4 份方法论文档 + service）
 config/          → 配置加载（loader + YAML + constants）
-tests/           → 所有测试文件（74 个 test_*.py，939 collected / 938 passed / 1 skipped）
+tests/           → 所有测试文件（78 个 test_*.py，975 collected / 974 passed / 1 skipped）
 frontend/        → Vue 3 SPA（Pinia + Tailwind CSS）
 knowledge/       → 随仓原创 SYNTHETIC_DEMO 语料（G1-G8；无第三方语录）
 scripts/         → 数据导入/工具脚本

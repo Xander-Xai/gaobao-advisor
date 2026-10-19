@@ -81,18 +81,23 @@ def _enabled() -> bool:
 
 
 def _default_provider() -> str:
-    """Pick a default provider based on which API key is available.
+    """Return the offline keyword provider unless an operator opts in.
 
-    With no key configured this returns ``keyword``, which needs no network and
-    no paid API — the offline demo path.
+    The demo must stay fully offline: configuring an *LLM* key (e.g.
+    ``OPENAI_API_KEY``) must not silently switch retrieval onto a network /
+    paid embedding provider. A network embedding provider is used only when
+    ``RAG_EMBEDDING_PROVIDER`` is set explicitly.
     """
-    if os.getenv("SILICONFLOW_API_KEY"):
-        return "siliconflow"
-    if os.getenv("OPENAI_API_KEY"):
-        return "openai"
-    if os.getenv("DASHSCOPE_API_KEY"):
-        return "dashscope"
     return "keyword"
+
+
+def _is_safe_corpus_name(filename: str) -> bool:
+    """True when ``filename`` is a plain basename inside the corpus dir."""
+    if not filename or filename in (".", ".."):
+        return False
+    if os.sep in filename or (os.altsep and os.altsep in filename):
+        return False
+    return filename == os.path.basename(filename)
 
 
 def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[bool, str, dict[str, Any]]:
@@ -134,7 +139,9 @@ def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[
         stats["chunks"] += content.count("\n## ") + (1 if content.startswith("## ") else 0)
     stats["marker"] = CORPUS_MARKER
 
-    if manifest_path and os.path.exists(manifest_path):
+    if manifest_path:
+        if not os.path.exists(manifest_path):
+            return False, f"corpus manifest is missing: {manifest_path}", stats
         try:
             with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
@@ -142,7 +149,10 @@ def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[
             return False, f"corpus manifest unreadable: {exc.__class__.__name__}", stats
         if manifest.get("marker") != CORPUS_MARKER:
             return False, "corpus manifest is missing the SYNTHETIC_DEMO marker", stats
-        for filename, meta in (manifest.get("files") or {}).items():
+        listed = manifest.get("files") or {}
+        for filename, meta in listed.items():
+            if not _is_safe_corpus_name(filename):
+                return False, f"corpus manifest lists an unsafe path: {filename}", stats
             path = os.path.join(groups_dir, filename)
             if not os.path.exists(path):
                 return False, f"corpus manifest lists a missing file: {filename}", stats
@@ -152,6 +162,14 @@ def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[
                     actual = hashlib.sha256(f.read()).hexdigest()
                 if actual != expected:
                     return False, f"corpus file failed its integrity hash: {filename}", stats
+            expected_bytes = (meta or {}).get("bytes") if isinstance(meta, dict) else None
+            if isinstance(expected_bytes, int) and os.path.getsize(path) != expected_bytes:
+                return False, f"corpus file size mismatch vs manifest: {filename}", stats
+        # An added (or renamed) corpus file is itself an integrity failure: the
+        # shipped corpus must be exactly what the manifest declares.
+        extra = [name for name in files if name not in listed]
+        if extra:
+            return False, f"corpus contains file(s) absent from the manifest: {', '.join(sorted(extra))}", stats
 
     return True, "", stats
 

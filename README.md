@@ -163,9 +163,14 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 * 继续会话必须携带与该 `session_id` 匹配的 `Authorization: Bearer <token>`；
 * 令牌为 `HMAC-SHA256(SESSION_SECRET, session_id)`，不匹配即
   `401 Invalid session token`；不同会话不能复用令牌。
+* 报告（`/api/v1/report/*`）与反馈/金句（`/api/v1/chat/feedback`、
+  `/api/v1/chat/highlight`）同样要求与该会话匹配的 Bearer 令牌；报告导出走带
+  `Authorization` 头的 blob 下载流程，令牌不进入 URL。报告/会话标识还会做路径
+  穿越校验，非法标识被拒绝。
 
 > 这是**会话能力令牌**，不是账号体系：没有密码、没有用户注册、没有跨设备
-> 账号恢复。生产环境必须设置强随机 `SESSION_SECRET`。
+> 账号恢复。生产环境必须设置强随机 `SESSION_SECRET`；`APP_ENV=production`
+> 时缺失该变量会在**启动阶段**直接失败，而不是等到用户请求。
 
 ---
 
@@ -246,12 +251,12 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **938 passed / 1 skipped**，覆盖率 **79.69%**（门禁 70%）|
+| `pytest tests` | **974 passed / 1 skipped**，覆盖率 **80.63%**（门禁 70%）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
-| `vitest run`（frontend）| **9 files / 50 tests passed**；`npm run build` 通过 |
+| `vitest run`（frontend）| **11 files / 64 tests passed**；`npm run build` 通过 |
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
 > `docker run` 后 `curl` 的真实健康检查结果。
@@ -298,7 +303,9 @@ tests/                 单元与验收测试（938 passed / 1 skipped）
 * **知识检索**：默认启用随仓**原创合成语料**（`knowledge/synthetic_demo/`），
   可在无 Key 环境下完成 BM25 检索与引用；它是演示语料，**不是真实招生知识**。
   真实语料需自行提供并完成授权与完整性检查后再启用；语料缺失/损坏时返回
-  `RAG_ERROR` 并 fail-closed。
+  `RAG_ERROR` 并 fail-closed。检索默认走离线 `keyword`（BM25）路径；需要网络的
+  Embedding Provider 必须通过 `RAG_EMBEDDING_PROVIDER` 显式开启，配置 LLM Key
+  不会自动切换到付费向量服务。
 * **联网能力**：第三方抓取（`ENABLE_OUTBOUND_FETCH`）与联网搜索（`ENABLE_SEARCH`）
   默认关闭。
 * **身份体系**：只有「会话能力令牌」（HMAC 签名），没有账号、密码、注册、跨设备
@@ -316,6 +323,7 @@ tests/                 单元与验收测试（938 passed / 1 skipped）
 ## 演示和参与
 
 - **初次使用：** [无 Key 演示教程](TUTORIAL.md)；[合成模式演示检查项](examples/demo_conversation.md)。不提供真实院校报考推荐样例。
+- **面试演示：** [TUTORIAL.md 的「面试演示脚本」](TUTORIAL.md#面试演示脚本可复现面向-rag--agent-岗位) 给出从槽位抽取到 SSE 输出、会话鉴权与证据/无证据差异的可复现命令，并注明每一点对应的源码/测试。
 - **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
 - **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 - **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)。

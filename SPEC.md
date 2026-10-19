@@ -46,14 +46,22 @@ See `docs/superpowers/adr/ADR-001-fastapi-migration.md`:
 
 | Method | Path | Description | File |
 |--------|------|-------------|------|
-| GET | `/api/v1/health` | Health check | `server/routes/health.py` |
+| GET | `/api/v1/health` | Health check (liveness + DB + optional capabilities) | `server/routes/health.py` |
+| GET | `/api/v1/health/live` | Liveness probe (dependency-free) | `server/routes/health.py` |
+| GET | `/api/v1/health/ready` | Readiness probe (DB required, RAG optional) | `server/routes/health.py` |
 | POST | `/api/v1/chat` | SSE-streaming chat (LangGraph backed) | `server/routes/chat.py` |
+| POST | `/api/v1/chat/feedback` | Session-owner feedback write (Bearer) | `server/routes/chat.py` |
+| POST | `/api/v1/chat/highlight` | Session-owner highlight write (Bearer) | `server/routes/chat.py` |
 | GET | `/api/v1/data/schools` | School search | `server/routes/data.py` |
 | GET | `/api/v1/data/scores` | Admission scores query | `server/routes/data.py` |
 | GET | `/api/v1/data/plans` | Enrollment plan lookup | `server/routes/data.py` |
 | POST | `/api/v1/knowledge/search` | Knowledge base search (RAG) | `server/routes/knowledge.py` |
 | GET | `/api/v1/knowledge/quotes` | Quote attribution retrieval | `server/routes/knowledge.py` |
 | POST | `/api/v1/onboarding` | User onboarding submission | `server/routes/onboarding.py` |
+| POST | `/api/v1/report/generate` | Generate report (Bearer, session owner) | `server/report/routes.py` |
+| GET | `/api/v1/report/{report_id}` | Fetch report JSON (Bearer, session owner) | `server/report/routes.py` |
+| GET | `/api/v1/report/{report_id}/html` | Fetch report HTML (Bearer, session owner) | `server/report/routes.py` |
+| GET | `/api/v1/report/{report_id}/cover.svg` | Fetch report SVG cover (Bearer, session owner) | `server/report/routes.py` |
 | GET | `/api/v1/profile/{session_id}` | Get user profile | `server/routes/profile.py` |
 | PUT | `/api/v1/profile/{session_id}` | Update user profile | `server/routes/profile.py` |
 | GET | `/api/v1/profile/{session_id}/next-question` | Get next profiling question | `server/routes/profile.py` |
