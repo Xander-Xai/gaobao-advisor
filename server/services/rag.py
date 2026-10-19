@@ -25,6 +25,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from typing import Any
 
 from server.services.rag_cache import RagCache
@@ -41,6 +42,9 @@ DEFAULT_MANIFEST_PATH = os.path.join(DEFAULT_CORPUS_ROOT, "manifest.json")
 
 #: Marker every shipped corpus file and the manifest must carry.
 CORPUS_MARKER = "SYNTHETIC_DEMO"
+
+#: A sha256 digest as recorded in a manifest.
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 _TRUE_VALUES = ("true", "1", "yes", "on")
 
@@ -91,25 +95,113 @@ def _default_provider() -> str:
     return "keyword"
 
 
-def _is_safe_corpus_name(filename: str) -> bool:
-    """True when ``filename`` is a plain basename inside the corpus dir."""
-    if not filename or filename in (".", ".."):
+def _is_safe_corpus_name(filename: Any) -> bool:
+    """True when ``filename`` is a plain basename inside the corpus dir.
+
+    Rejects separators in both flavours (so a name is safe on Linux *and*
+    Windows), NUL bytes, and the ``.``/``..`` components.
+    """
+    if not isinstance(filename, str) or not filename or filename in (".", ".."):
         return False
-    if os.sep in filename or (os.altsep and os.altsep in filename):
+    if any(char in filename for char in ("/", "\\", "\x00")):
         return False
     return filename == os.path.basename(filename)
 
 
-def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[bool, str, dict[str, Any]]:
+def _resolves_inside(path: str, root: str) -> bool:
+    """True when the real (symlink-resolved) path stays under ``root``."""
+    root_real = os.path.realpath(root)
+    path_real = os.path.realpath(path)
+    return path_real == root_real or path_real.startswith(root_real + os.sep)
+
+
+def _is_sha256(value: Any) -> bool:
+    """True for a lowercase/uppercase 64-hex sha256 digest string."""
+    return isinstance(value, str) and bool(_SHA256_RE.match(value))
+
+
+def _is_non_negative_int(value: Any) -> bool:
+    """True for a genuine non-negative int (``bool`` is explicitly excluded)."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _validate_manifest(manifest: Any, groups_dir: str, files: list[str], strict: bool) -> str | None:
+    """Validate a parsed manifest. Returns an error reason, or None if valid.
+
+    ``strict`` additionally requires every entry to carry a valid ``sha256``
+    and a non-negative integer ``bytes``. This is applied to the shipped
+    SYNTHETIC_DEMO corpus (see :func:`initialize_default`); custom / authorised
+    corpora may opt into a looser contract (hash and size optional).
+    """
+    if not isinstance(manifest, dict):
+        return "corpus manifest is not a JSON object"
+    if manifest.get("marker") != CORPUS_MARKER:
+        return "corpus manifest is missing the SYNTHETIC_DEMO marker"
+    listed = manifest.get("files")
+    if not isinstance(listed, dict):
+        return "corpus manifest 'files' must be an object"
+    if not listed:
+        return "corpus manifest lists no files"
+
+    declared_count = manifest.get("group_count")
+    if isinstance(declared_count, int) and not isinstance(declared_count, bool) and declared_count != len(listed):
+        return f"corpus manifest group_count ({declared_count}) does not match listed files ({len(listed)})"
+
+    for filename, meta in listed.items():
+        if not _is_safe_corpus_name(filename):
+            return f"corpus manifest lists an unsafe path: {filename}"
+        path = os.path.join(groups_dir, filename)
+        if not _resolves_inside(path, groups_dir):
+            return f"corpus manifest path escapes the corpus directory: {filename}"
+        if os.path.islink(path):
+            return f"corpus file is a symlink: {filename}"
+        if not os.path.isfile(path):
+            return f"corpus manifest lists a missing file: {filename}"
+        if not isinstance(meta, dict):
+            return f"corpus manifest metadata is not an object: {filename}"
+
+        expected = meta.get("sha256")
+        if strict and not _is_sha256(expected):
+            return f"corpus manifest entry is missing a valid sha256: {filename}"
+        if expected is not None:
+            if not _is_sha256(expected):
+                return f"corpus manifest entry has an invalid sha256: {filename}"
+            with open(path, "rb") as f:
+                actual = hashlib.sha256(f.read()).hexdigest()
+            if actual != expected:
+                return f"corpus file failed its integrity hash: {filename}"
+
+        expected_bytes = meta.get("bytes")
+        if strict and not _is_non_negative_int(expected_bytes):
+            return f"corpus manifest entry is missing a non-negative integer bytes value: {filename}"
+        if expected_bytes is not None:
+            if not _is_non_negative_int(expected_bytes):
+                return f"corpus manifest entry has an invalid bytes value: {filename}"
+            if os.path.getsize(path) != expected_bytes:
+                return f"corpus file size mismatch vs manifest: {filename}"
+
+    extra = [name for name in files if name not in listed]
+    if extra:
+        return f"corpus contains file(s) absent from the manifest: {', '.join(sorted(extra))}"
+    return None
+
+
+def validate_corpus(
+    groups_dir: str, manifest_path: str | None = None, strict: bool = False
+) -> tuple[bool, str, dict[str, Any]]:
     """Check that a corpus directory is present, non-empty and self-labelling.
 
     Returns ``(ok, reason, stats)``. A corpus is accepted only when:
 
     * the directory exists and contains at least one ``.md`` file;
-    * every file is non-empty, carries the ``SYNTHETIC_DEMO`` marker and has at
-      least one ``##`` section (so it can actually be chunked);
+    * every file is non-empty, is not a symlink, carries the ``SYNTHETIC_DEMO``
+      marker and has at least one ``##`` section (so it can actually be chunked);
     * if a manifest is present, it declares the marker and every file it lists
       exists (and matches its recorded sha256 when one is given).
+
+    ``strict=True`` additionally requires, for every manifest entry, a valid
+    ``sha256`` and a non-negative integer ``bytes``. Null/absent hashes and
+    sizes are rejected rather than skipped.
 
     The synthetic marker is mandatory: this is what stops a non-synthetic (or
     rights-unclear) corpus being silently served as demo knowledge.
@@ -123,7 +215,13 @@ def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[
         return False, f"corpus directory has no .md files: {groups_dir}", stats
 
     for filename in files:
+        if not _is_safe_corpus_name(filename):
+            return False, f"corpus contains an unsafe filename: {filename}", stats
         path = os.path.join(groups_dir, filename)
+        if os.path.islink(path):
+            return False, f"corpus file is a symlink: {filename}", stats
+        if not _resolves_inside(path, groups_dir):
+            return False, f"corpus file escapes the corpus directory: {filename}", stats
         try:
             with open(path, encoding="utf-8") as f:
                 content = f.read()
@@ -142,34 +240,16 @@ def validate_corpus(groups_dir: str, manifest_path: str | None = None) -> tuple[
     if manifest_path:
         if not os.path.exists(manifest_path):
             return False, f"corpus manifest is missing: {manifest_path}", stats
+        if os.path.islink(manifest_path):
+            return False, f"corpus manifest is a symlink: {manifest_path}", stats
         try:
             with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
         except (OSError, ValueError) as exc:
             return False, f"corpus manifest unreadable: {exc.__class__.__name__}", stats
-        if manifest.get("marker") != CORPUS_MARKER:
-            return False, "corpus manifest is missing the SYNTHETIC_DEMO marker", stats
-        listed = manifest.get("files") or {}
-        for filename, meta in listed.items():
-            if not _is_safe_corpus_name(filename):
-                return False, f"corpus manifest lists an unsafe path: {filename}", stats
-            path = os.path.join(groups_dir, filename)
-            if not os.path.exists(path):
-                return False, f"corpus manifest lists a missing file: {filename}", stats
-            expected = (meta or {}).get("sha256") if isinstance(meta, dict) else None
-            if expected:
-                with open(path, "rb") as f:
-                    actual = hashlib.sha256(f.read()).hexdigest()
-                if actual != expected:
-                    return False, f"corpus file failed its integrity hash: {filename}", stats
-            expected_bytes = (meta or {}).get("bytes") if isinstance(meta, dict) else None
-            if isinstance(expected_bytes, int) and os.path.getsize(path) != expected_bytes:
-                return False, f"corpus file size mismatch vs manifest: {filename}", stats
-        # An added (or renamed) corpus file is itself an integrity failure: the
-        # shipped corpus must be exactly what the manifest declares.
-        extra = [name for name in files if name not in listed]
-        if extra:
-            return False, f"corpus contains file(s) absent from the manifest: {', '.join(sorted(extra))}", stats
+        reason = _validate_manifest(manifest, groups_dir, files, strict)
+        if reason:
+            return False, reason, stats
 
     return True, "", stats
 
@@ -212,12 +292,23 @@ def is_available() -> bool:
     return status()["state"] == "RAG_ENABLED"
 
 
-def configure(groups_dir: str, quotes_path: str, validate: bool = True, manifest_path: str | None = None) -> None:
+def configure(
+    groups_dir: str,
+    quotes_path: str,
+    validate: bool = True,
+    manifest_path: str | None = None,
+    strict: bool = False,
+) -> None:
     """Configure the RAG knowledge base. Call before first use.
 
     The embedding provider is selected from ``RAG_EMBEDDING_PROVIDER``
     (siliconflow | openai | dashscope | ollama | keyword) and defaults to
     ``keyword`` when no key is present, so the offline demo works.
+
+    Args:
+        strict: when True, every manifest entry must carry a valid ``sha256``
+            and a non-negative integer ``bytes``. Used for the shipped
+            SYNTHETIC_DEMO corpus.
 
     Raises:
         RagDisabledError: if ``ENABLE_RAG_KB=false``.
@@ -231,7 +322,7 @@ def configure(groups_dir: str, quotes_path: str, validate: bool = True, manifest
         raise RagDisabledError("cannot configure a RAG corpus while ENABLE_RAG_KB is false")
 
     if validate:
-        ok, reason, stats = validate_corpus(groups_dir, manifest_path)
+        ok, reason, stats = validate_corpus(groups_dir, manifest_path, strict=strict)
         if not ok:
             _groups_dir = groups_dir
             _quotes_path = quotes_path
@@ -271,7 +362,14 @@ def initialize_default() -> bool:
         return False
     if os.path.isdir(DEFAULT_GROUPS_DIR):
         try:
-            configure(DEFAULT_GROUPS_DIR, DEFAULT_QUOTES_DIR, manifest_path=DEFAULT_MANIFEST_PATH)
+            # Strict: the shipped corpus manifest must pin every file by sha256
+            # and byte length. Authorised custom corpora opt in separately.
+            configure(
+                DEFAULT_GROUPS_DIR,
+                DEFAULT_QUOTES_DIR,
+                manifest_path=DEFAULT_MANIFEST_PATH,
+                strict=True,
+            )
             return True
         except RagCorpusError as exc:
             logger.error("bundled demo corpus failed validation: %s", exc)
