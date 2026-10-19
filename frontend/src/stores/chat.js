@@ -134,14 +134,20 @@ export const useChatStore = defineStore('chat', () => {
 
       // The backend always terminates a stream with an explicit `done`. If it
       // never arrived (connection cut, proxy timeout), do not present the turn
-      // as a completed, persisted answer.
-      if (!doneReceived) {
+      // as a completed, persisted answer. Only the session that initiated the
+      // request may be touched — a request that ends after the user switched
+      // sessions must not mutate the now-selected session's view.
+      if (!doneReceived && currentSessionId.value === initiatingId) {
         if (!lastError.value) lastError.value = '连接中断，回复可能不完整'
         markFailed(lastError.value)
       }
     } catch (err) {
-      lastError.value = err?.message || '服务暂时不可用'
-      if (currentSessionId.value === initiatingId) markFailed(lastError.value)
+      // Same isolation rule as above: a failed background request must never
+      // surface its error or mutate messages/slots of a different session.
+      if (currentSessionId.value === initiatingId) {
+        lastError.value = err?.message || '服务暂时不可用'
+        markFailed(lastError.value)
+      }
     } finally {
       isStreaming.value = false
     }
