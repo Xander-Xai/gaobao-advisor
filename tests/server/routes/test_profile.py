@@ -16,7 +16,7 @@ class TestRequireAuth:
 
     def test_valid_bearer_token(self):
         """Valid Bearer token should pass authentication."""
-        with patch("server.routes.profile.verify_session_token", return_value=True):
+        with patch("server.auth.verify_session_token", return_value=True):
             # Should not raise
             _require_auth("session123", "Bearer valid-token")
 
@@ -35,7 +35,7 @@ class TestRequireAuth:
 
     def test_invalid_token(self):
         """Invalid token should raise 401."""
-        with patch("server.routes.profile.verify_session_token", return_value=False):
+        with patch("server.auth.verify_session_token", return_value=False):
             with pytest.raises(HTTPException) as exc_info:
                 _require_auth("session123", "Bearer invalid-token")
             assert exc_info.value.status_code == 401
@@ -43,7 +43,7 @@ class TestRequireAuth:
 
     def test_token_strip_whitespace(self):
         """Token with extra whitespace should be stripped."""
-        with patch("server.routes.profile.verify_session_token", return_value=True) as mock_verify:
+        with patch("server.auth.verify_session_token", return_value=True) as mock_verify:
             _require_auth("session123", "Bearer  valid-token  ")
             mock_verify.assert_called_once_with("session123", "valid-token")
 

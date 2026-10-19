@@ -139,35 +139,64 @@ describe('profileAPI (Bearer auth)', () => {
 })
 
 describe('reportAPI', () => {
-  it('generate POSTs {session_id, student_name}', async () => {
+  it('generate POSTs {session_id, student_name} with bearer token', async () => {
     const fetchMock = mockFetchResponse({ body: { report_id: 'r1', status: 'completed' } })
     global.fetch = fetchMock
-    const { data } = await reportAPI.generate({ sessionId: 's1', studentName: '小明' })
+    const { data } = await reportAPI.generate({ sessionId: 's1', studentName: '小明' }, 'tok-r')
     expect(data.report_id).toBe('r1')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/v1/report/generate')
     expect(JSON.parse(init.body)).toEqual({ session_id: 's1', student_name: '小明' })
+    expect(init.headers.Authorization).toBe('Bearer tok-r')
+  })
+
+  it('fetch sends bearer token', async () => {
+    const fetchMock = mockFetchResponse({ body: { id: 'r1' } })
+    global.fetch = fetchMock
+    await reportAPI.fetch('r1', 'tok-r')
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers.Authorization).toBe('Bearer tok-r')
+  })
+
+  it('exportHTML fetches with the bearer header and never puts the token in a URL', async () => {
+    const blob = { type: 'text/html' }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: () => Promise.resolve(blob) })
+    global.fetch = fetchMock
+    global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+    global.URL.revokeObjectURL = vi.fn()
+    const openSpy = vi.fn(() => ({}))
+    global.window.open = openSpy
+
+    await reportAPI.exportHTML('r1', 'secret-token')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/report/r1/html')
+    expect(url).not.toContain('secret-token')
+    expect(init.headers.Authorization).toBe('Bearer secret-token')
+    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank')
   })
 })
 
 describe('chat metadata APIs', () => {
-  it('feedbackAPI.submit sends {session_id, message_index, rating, ...}', async () => {
+  it('feedbackAPI.submit sends {session_id, message_index, rating, ...} with token', async () => {
     const fetchMock = mockFetchResponse({ body: { success: true } })
     global.fetch = fetchMock
-    await feedbackAPI.submit({ sessionId: 's1', messageIndex: 2, rating: 'helpful' })
+    await feedbackAPI.submit({ sessionId: 's1', messageIndex: 2, rating: 'helpful', token: 'tok-f' })
     const [, init] = fetchMock.mock.calls[0]
     const body = JSON.parse(init.body)
     expect(body).toMatchObject({ session_id: 's1', message_index: 2, rating: 'helpful' })
+    expect(init.headers.Authorization).toBe('Bearer tok-f')
   })
 
-  it('highlightAPI.submit defaults score to 80', async () => {
+  it('highlightAPI.submit defaults score to 80 and forwards the token', async () => {
     const fetchMock = mockFetchResponse({ body: { success: true } })
     global.fetch = fetchMock
-    await highlightAPI.submit({ sessionId: 's1', content: '一段金句' })
+    await highlightAPI.submit({ sessionId: 's1', content: '一段金句', token: 'tok-h' })
     const [, init] = fetchMock.mock.calls[0]
     const body = JSON.parse(init.body)
     expect(body.score).toBe(80)
     expect(body.content).toBe('一段金句')
+    expect(init.headers.Authorization).toBe('Bearer tok-h')
   })
 })
 

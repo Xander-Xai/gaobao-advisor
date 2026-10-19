@@ -114,7 +114,7 @@ export const onboardingAPI = {
 // ── chat metadata (feedback + highlight) ────────────────────────────
 
 export const feedbackAPI = {
-  async submit({ sessionId, messageIndex, rating, feedbackText, qualityScoreId }) {
+  async submit({ sessionId, messageIndex, rating, feedbackText, qualityScoreId, token }) {
     return _request('/chat/feedback', {
       method: 'POST',
       body: {
@@ -124,6 +124,7 @@ export const feedbackAPI = {
         feedback_text: feedbackText,
         quality_score_id: qualityScoreId,
       },
+      token,
     })
   },
 }
@@ -132,11 +133,14 @@ export const highlightAPI = {
   /**
    * Submit a highlight (金句) extracted from an assistant reply.
    * `score` defaults to 80; UI may allow the user to adjust later.
+   * Requires the session's Bearer token — the backend binds writes to the
+   * owning session.
    */
-  async submit({ sessionId, content, score = 80 }) {
+  async submit({ sessionId, content, score = 80, token }) {
     return _request('/chat/highlight', {
       method: 'POST',
       body: { session_id: sessionId, content, score },
+      token,
     })
   },
 }
@@ -228,21 +232,59 @@ export const profileAPI = {
 
 // ── report — generate / fetch / export ──────────────────────────────
 
+/**
+ * Download an owner-authenticated report asset without leaking the token.
+ *
+ * `window.open` cannot attach an Authorization header, and putting a
+ * long-lived session token in the URL would expose it in history, logs and
+ * Referer headers. Instead we fetch with the Bearer header, turn the response
+ * into a blob URL, and open/download that.
+ */
+async function _authenticatedDownload(url, token, filename) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const response = await fetch(url, { headers })
+  if (!response.ok || !response.blob) {
+    throw new Error(`Export failed: HTTP ${response.status}`)
+  }
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const opened = window.open(objectUrl, '_blank')
+  if (!opened) {
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  }
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000)
+  return objectUrl
+}
+
 export const reportAPI = {
-  async generate({ sessionId, studentName } = {}) {
+  async generate({ sessionId, studentName } = {}, token) {
     return _request('/report/generate', {
       method: 'POST',
       body: { session_id: sessionId, student_name: studentName },
+      token,
     })
   },
-  async fetch(reportId) {
-    return _request(`/report/${encodeURIComponent(reportId)}`)
+  async fetch(reportId, token) {
+    return _request(`/report/${encodeURIComponent(reportId)}`, { token })
   },
-  exportHTML(reportId) {
-    window.open(`${API_BASE}/report/${encodeURIComponent(reportId)}/html`, '_blank')
+  exportHTML(reportId, token) {
+    return _authenticatedDownload(
+      `${API_BASE}/report/${encodeURIComponent(reportId)}/html`,
+      token,
+      `report-${reportId}.html`
+    )
   },
-  exportCover(reportId) {
-    window.open(`${API_BASE}/report/${encodeURIComponent(reportId)}/cover.svg`, '_blank')
+  exportCover(reportId, token) {
+    return _authenticatedDownload(
+      `${API_BASE}/report/${encodeURIComponent(reportId)}/cover.svg`,
+      token,
+      `report-${reportId}.svg`
+    )
   },
 }
 

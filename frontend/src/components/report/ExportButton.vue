@@ -6,10 +6,23 @@
 </template>
 
 <script setup>
-const props = defineProps({ reportId: { type: String, required: true } })
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-function exportHTML() { window.open(`${API_BASE}/report/${props.reportId}/html`, '_blank') }
-function exportCover() { window.open(`${API_BASE}/report/${props.reportId}/cover.svg`, '_blank') }
+import { reportAPI } from '../../api/client'
+
+const props = defineProps({
+  reportId: { type: String, required: true },
+  sessionToken: { type: String, default: null },
+})
+
+function exportHTML() {
+  reportAPI.exportHTML(props.reportId, props.sessionToken).catch(err => {
+    console.error('HTML export failed:', err.message)
+  })
+}
+function exportCover() {
+  reportAPI.exportCover(props.reportId, props.sessionToken).catch(err => {
+    console.error('Cover export failed:', err.message)
+  })
+}
 </script>
 
 <style scoped>

@@ -61,6 +61,7 @@ async function sendFeedback(rating) {
     messageIndex: props.message.messageIndex || 0,
     rating,
     qualityScoreId: props.message.qualityScoreId,
+    token: props.message.sessionToken || null,
   })
   if (error) console.error('Feedback failed:', error.message)
 }
@@ -73,6 +74,7 @@ async function extractHighlight() {
     sessionId: props.message.sessionId || '',
     content,
     score: 80,
+    token: props.message.sessionToken || null,
   })
   if (error) {
     console.error('Highlight failed:', error.message)

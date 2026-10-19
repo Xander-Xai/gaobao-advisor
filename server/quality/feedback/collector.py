@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from db.crud import save_feedback
 from db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -46,44 +45,47 @@ class FeedbackCollector:
     ) -> bool:
         """Persist user feedback to the database.
 
-        Uses the existing ``save_feedback`` CRUD function for the core
-        upsert logic, then updates the extra columns (feedback_text,
-        quality_score_id) that the CRUD function does not cover.
+        The core rating, the free-text note and the optional quality-score link
+        are written in a *single* transaction: either the whole feedback record
+        lands or none of it does. On any failure the transaction is rolled back
+        explicitly and the error is logged — the caller gets a boolean, never a
+        half-written row.
 
         Returns True on success, False on failure.
         """
+        from db.models import Feedback
+
+        db = SessionLocal()
         try:
-            with SessionLocal() as db:
-                ok = save_feedback(db, conversation_id, message_index, rating)
-                if not ok:
-                    return False
-
-                # Update optional columns on the upserted row
-                from db.models import Feedback
-
-                row = (
-                    db.query(Feedback)
-                    .filter(
-                        Feedback.session_id == conversation_id,
-                        Feedback.message_index == message_index,
-                    )
-                    .first()
+            row = (
+                db.query(Feedback)
+                .filter(
+                    Feedback.session_id == conversation_id,
+                    Feedback.message_index == message_index,
                 )
-                if row is not None:
-                    if feedback_text is not None:
-                        row.feedback_text = feedback_text
-                    if quality_score_id is not None:
-                        row.quality_score_id = quality_score_id
-                    db.commit()
-
-                return True
+                .first()
+            )
+            if row is None:
+                row = Feedback(session_id=conversation_id, message_index=message_index, rating=rating)
+                db.add(row)
+            else:
+                row.rating = rating
+            if feedback_text is not None:
+                row.feedback_text = feedback_text
+            if quality_score_id is not None:
+                row.quality_score_id = quality_score_id
+            db.commit()
+            return True
         except Exception:
+            db.rollback()
             logger.exception(
                 "Failed to save feedback for session=%s index=%d",
                 conversation_id,
                 message_index,
             )
             return False
+        finally:
+            db.close()
 
     def detect_implicit_signals(
         self,

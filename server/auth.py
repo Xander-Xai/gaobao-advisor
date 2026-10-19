@@ -88,3 +88,30 @@ def verify_session_token(session_id: str, token: str | None) -> bool:
         return hmac.compare_digest(expected, token)
     except Exception:
         return False
+
+
+def bearer_token(authorization: str | None) -> str | None:
+    """Extract the raw token from an ``Authorization: Bearer <token>`` header.
+
+    Returns ``None`` when the header is absent or malformed, so callers can
+    distinguish "no credential supplied" from "credential supplied but wrong".
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    return authorization.removeprefix("Bearer ").strip() or None
+
+
+def require_session_auth(session_id: str, authorization: str | None) -> None:
+    """Raise HTTP 401 unless the Bearer token proves ownership of ``session_id``.
+
+    Single shared guard used by every endpoint that reads or writes
+    session-scoped data (profile, report, feedback, highlight). Reuses the
+    existing HMAC session-token mechanism — no separate account system.
+    """
+    from fastapi import HTTPException
+
+    token = bearer_token(authorization)
+    if token is None:
+        raise HTTPException(status_code=401, detail="Missing session token")
+    if not verify_session_token(session_id, token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")

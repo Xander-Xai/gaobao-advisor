@@ -11,9 +11,10 @@ from __future__ import annotations
 import logging
 import re
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel
 
+from server.auth import bearer_token, require_session_auth, verify_session_token
 from server.report.cover import CoverGenerator
 from server.report.exporter import ReportExporter
 from server.report.generator import ReportGenerator
@@ -24,6 +25,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["report"])
 
 _storage = ReportStorage()
+
+
+def _load_owned_report(report_id: str, authorization: str | None):
+    """Load a report and prove the caller owns the session that produced it.
+
+    Ordering matters: require a credential *before* touching storage, then
+    distinguish "not found" from "not yours". A caller can only reach a report
+    by presenting the HMAC token bound to its session_id.
+    """
+    token = bearer_token(authorization)
+    if token is None:
+        raise HTTPException(status_code=401, detail="Missing session token")
+    try:
+        report = _storage.load(report_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid report id") from None
+    if report is None:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    if not verify_session_token(report.session_id, token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+    return report
+
 
 # How many recent AI replies to scan for content extraction.
 # Keeps parsing fast even for long conversations while covering enough
@@ -298,14 +321,18 @@ def _parse_next_actions_from_replies(replies: list[str]) -> list[str]:
 
 
 @router.post("/report/generate", response_model=GenerateResponse)
-async def generate_report(body: GenerateRequest):
+async def generate_report(body: GenerateRequest, authorization: str | None = Header(None)):
     """Generate a report from the user's real conversation data.
 
     Reads slots (province, score, subject, interest) for the student
     profile, then scans recent AI replies to accumulate suggestions,
     risks, and action items across multiple turns — not just the last one.
+
+    Requires the Bearer token bound to ``body.session_id`` so a caller cannot
+    read another session's conversation by naming its id.
     """
     session_id = body.session_id
+    require_session_auth(session_id, authorization)
 
     # 1. Load real data from conversation database
     slots = _load_session_slots(session_id)
@@ -359,33 +386,23 @@ async def generate_report(body: GenerateRequest):
 
 
 @router.get("/report/{report_id}")
-async def get_report(report_id: str):
-    """Return report data as a JSON dict."""
-    report = _storage.load(report_id)
-    if report is None:
-        return Response(
-            content='{"error": "报告不存在"}',
-            media_type="application/json",
-            status_code=404,
-        )
+async def get_report(report_id: str, authorization: str | None = Header(None)):
+    """Return report data as a JSON dict (owner only)."""
+    report = _load_owned_report(report_id, authorization)
     return report.to_dict()
 
 
 @router.get("/report/{report_id}/html")
-async def get_report_html(report_id: str):
-    """Return the full HTML report page."""
-    report = _storage.load(report_id)
-    if report is None:
-        return Response(content="报告不存在", status_code=404)
+async def get_report_html(report_id: str, authorization: str | None = Header(None)):
+    """Return the full HTML report page (owner only)."""
+    report = _load_owned_report(report_id, authorization)
     html = ReportExporter.to_html(report)
     return Response(content=html, media_type="text/html")
 
 
 @router.get("/report/{report_id}/cover.svg")
-async def get_report_cover_svg(report_id: str):
-    """Return the SVG cover image for a report."""
-    report = _storage.load(report_id)
-    if report is None:
-        return Response(content="报告不存在", status_code=404)
+async def get_report_cover_svg(report_id: str, authorization: str | None = Header(None)):
+    """Return the SVG cover image for a report (owner only)."""
+    report = _load_owned_report(report_id, authorization)
     svg = CoverGenerator.generate_svg(report)
     return Response(content=svg, media_type="image/svg+xml")

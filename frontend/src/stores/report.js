@@ -17,10 +17,10 @@ export const useReportStore = defineStore('report', () => {
 
   const hasReport = computed(() => !!report.value)
 
-  async function generateReport(sessionId, studentName = '') {
+  async function generateReport(sessionId, studentName = '', token = null) {
     loading.value = true
     error.value = null
-    const { data, error: err } = await reportAPI.generate({ sessionId, studentName })
+    const { data, error: err } = await reportAPI.generate({ sessionId, studentName }, token)
     loading.value = false
     if (err) {
       error.value = err.message || '生成失败'
@@ -33,10 +33,10 @@ export const useReportStore = defineStore('report', () => {
     return data
   }
 
-  async function fetchReport(reportId) {
+  async function fetchReport(reportId, token = null) {
     loading.value = true
     error.value = null
-    const { data, error: err } = await reportAPI.fetch(reportId)
+    const { data, error: err } = await reportAPI.fetch(reportId, token)
     loading.value = false
     if (err) {
       error.value = err.message || '获取失败'
@@ -46,12 +46,12 @@ export const useReportStore = defineStore('report', () => {
     return data
   }
 
-  function exportHTML(reportId) {
-    reportAPI.exportHTML(reportId)
+  function exportHTML(reportId, token = null) {
+    return reportAPI.exportHTML(reportId, token)
   }
 
-  function exportCover(reportId) {
-    reportAPI.exportCover(reportId)
+  function exportCover(reportId, token = null) {
+    return reportAPI.exportCover(reportId, token)
   }
 
   return { report, loading, error, hasReport, generateReport, fetchReport, exportHTML, exportCover }

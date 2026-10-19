@@ -33,7 +33,7 @@
           <h2>📌 建议行动</h2>
           <ol><li v-for="(action, i) in report.next_actions" :key="i">{{ action }}</li></ol>
         </section>
-        <ExportButton :reportId="reportId" />
+        <ExportButton :reportId="reportId" :sessionToken="chatStore.sessionToken" />
       </div>
       <div v-else class="no-report">
         <p>暂无报告数据</p>
@@ -47,6 +47,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useReportStore } from '../stores/report'
+import { useChatStore } from '../stores/chat'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ReportCover from '../components/report/ReportCover.vue'
 import SchoolTable from '../components/report/SchoolTable.vue'
@@ -54,11 +55,12 @@ import ExportButton from '../components/report/ExportButton.vue'
 
 const route = useRoute()
 const reportStore = useReportStore()
+const chatStore = useChatStore()
 const reportId = computed(() => route.params.id)
 const report = computed(() => reportStore.report)
 
 async function loadReport() {
-  if (reportId.value) await reportStore.fetchReport(reportId.value)
+  if (reportId.value) await reportStore.fetchReport(reportId.value, chatStore.sessionToken)
 }
 
 onMounted(loadReport)
