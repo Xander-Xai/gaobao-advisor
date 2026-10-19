@@ -70,11 +70,15 @@ function _toQuery(params) {
 
 export const chatAPI = {
   /**
-   * Send a chat message and yield SSE events one by one.
-   * Returns the list of parsed JSON events collected from the stream.
-   * Caller must read the final `done.session_token` to auth profile/voice.
+   * Send a chat message and stream SSE events.
+   *
+   * Returns the full list of parsed events once the stream ends (unchanged
+   * contract). When `onEvent` is supplied it is invoked *as each event is
+   * decoded*, i.e. before the stream finishes, so callers can render tokens
+   * incrementally instead of waiting for `done`. Caller must read the final
+   * `done.session_token` to auth profile/voice.
    */
-  async send(sessionId, message, slots = {}, scene = 'gaokao', token = null) {
+  async send(sessionId, message, slots = {}, scene = 'gaokao', token = null, { onEvent } = {}) {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -84,21 +88,46 @@ export const chatAPI = {
       throw new Error(`Chat failed: HTTP ${response.status}`)
     }
     const reader = response.body.getReader()
+    // Decode incrementally so a UTF-8 multibyte character split across two
+    // reads is not replaced with U+FFFD. Buffer undecoded text and emit only
+    // complete (`\n`-terminated) frames, so a JSON event split across reads
+    // is reassembled rather than dropped.
     const decoder = new TextDecoder()
     const events = []
+    let buffer = ''
+    const drainLines = (flush = false) => {
+      let newlineIndex
+      while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIndex).replace(/\r$/, '')
+        buffer = buffer.slice(newlineIndex + 1)
+        pushEvent(line)
+      }
+      if (flush && buffer) {
+        pushEvent(buffer.replace(/\r$/, ''))
+        buffer = ''
+      }
+    }
+    const pushEvent = line => {
+      if (!line.startsWith('data:')) return
+      const payload = line.slice(5).trimStart()
+      if (!payload) return
+      let event
+      try {
+        event = JSON.parse(payload)
+      } catch {
+        return // Ignore non-JSON keepalive/heartbeat lines.
+      }
+      events.push(event)
+      if (typeof onEvent === 'function') onEvent(event)
+    }
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      const text = decoder.decode(value)
-      for (const line of text.split('\n')) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          events.push(JSON.parse(line.slice(6)))
-        } catch {
-          // Ignore malformed lines — server may emit heartbeat separators.
-        }
-      }
+      buffer += decoder.decode(value, { stream: true })
+      drainLines()
     }
+    buffer += decoder.decode()
+    drainLines(true)
     return events
   },
 }

@@ -3,8 +3,23 @@
     <div :class="['max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
       message.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm']">
       <div v-html="renderedContent" />
+      <!-- stream metadata: errors, degradation, retrieval sources -->
+      <div
+        v-if="message.error || message.incomplete || message.degraded || (message.sources && message.sources.length) || (message.ragStatus && message.ragStatus.state === 'NO_EVIDENCE')"
+        class="mt-2 pt-2 border-t border-gray-100 text-xs flex flex-wrap items-center gap-2"
+      >
+        <span v-if="message.error || message.incomplete" class="text-red-500">
+          ⚠ {{ message.incomplete ? '连接中断，回复可能不完整' : '生成失败' }}
+        </span>
+        <span v-if="message.degraded" class="text-amber-600">已降级</span>
+        <span v-if="message.ragStatus && message.ragStatus.state === 'NO_EVIDENCE'" class="text-gray-400">无匹配证据</span>
+        <template v-if="message.sources && message.sources.length">
+          <span class="text-gray-400">来源:</span>
+          <span v-for="(s, i) in message.sources" :key="i" class="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">{{ s.source }}</span>
+        </template>
+      </div>
       <!-- feedback -->
-      <div v-if="message.role === 'assistant' && message.messageIndex >= 0" class="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 flex-wrap">
+      <div v-if="message.role === 'assistant' && !message.error && !message.incomplete && message.messageIndex >= 0" class="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 flex-wrap">
         <span class="text-xs text-gray-400">这条回答对你有帮助吗？</span>
         <button @click="sendFeedback('helpful')" :class="['text-xs px-2 py-0.5 rounded transition', feedback === 'helpful' ? 'bg-green-100 text-green-600' : 'text-gray-400 hover:text-green-500']">👍 有帮助</button>
         <button @click="sendFeedback('not_helpful')" :class="['text-xs px-2 py-0.5 rounded transition', feedback === 'not_helpful' ? 'bg-red-100 text-red-500' : 'text-gray-400 hover:text-red-500']">👎 没帮助</button>

@@ -81,9 +81,13 @@ async def _sse_generator(
         yield f"data: {json.dumps({'type': 'structured', 'result': result['structured_result']})}\n\n"
 
     # Emit retrieval evidence/citations so the client can show sources, and
-    # report degraded retrieval explicitly instead of hiding it.
+    # report degraded retrieval explicitly instead of hiding it. A healthy
+    # corpus with no matching chunk is its own state (NO_EVIDENCE) — distinct
+    # from RAG_DISABLED (switched off) and RAG_ERROR (broken/missing corpus).
     if result.get("rag_state") == "RAG_ENABLED" and result.get("rag_sources"):
         yield f"data: {json.dumps({'type': 'sources', 'data': result['rag_sources'], 'has_evidence': True})}\n\n"
+    elif result.get("rag_state") == "RAG_ENABLED":
+        yield f"data: {json.dumps({'type': 'rag_status', 'state': 'NO_EVIDENCE', 'reason': result.get('rag_reason', '')})}\n\n"
     elif result.get("rag_state") in ("RAG_DISABLED", "RAG_ERROR"):
         yield f"data: {json.dumps({'type': 'rag_status', 'state': result['rag_state'], 'reason': result.get('rag_reason', '')})}\n\n"
 

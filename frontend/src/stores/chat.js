@@ -12,6 +12,8 @@ export const useChatStore = defineStore('chat', () => {
   // Required to call /api/v1/profile/* and the /ws/call voice endpoint.
   const sessionToken = ref(null)
   const sessionTokens = ref({}) // Private, in-memory credentials by server-owned session ID.
+  // Last user-visible stream/network error. Cleared at the start of each turn.
+  const lastError = ref(null)
   watch(currentSessionId, id => { sessionToken.value = id ? (sessionTokens.value[id] || null) : null })
 
   function createSession(scene = 'gaokao') {
@@ -30,53 +32,121 @@ export const useChatStore = defineStore('chat', () => {
     const initiatingId = currentSessionId.value
     const credential = sessionTokens.value[initiatingId] || null
     isStreaming.value = true
+    lastError.value = null
     messages.value.push({ role: 'user', content: text })
     let assistantContent = ''
-    try {
-      const events = await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential)
-      for (const event of events) {
-        if (event.type === 'done') {
-          // A different session may have been selected while fetch was in-flight.
-          // Only update the session which *initiated* the request.
-          const issuedId = event.session_id || initiatingId
-          const entry = sessions.value.find(s => s.id === initiatingId)
-          if (entry) entry.id = issuedId
-          if (event.session_token) sessionTokens.value[issuedId] = event.session_token
-          if (currentSessionId.value === initiatingId) {
-            currentSessionId.value = issuedId
-            sessionToken.value = event.session_token || null
-          }
-          continue
+    let doneReceived = false
+    // Metadata may arrive before the first token (sources/rag_status) — buffer
+    // it and fold it onto the assistant message once it exists.
+    const pending = { sources: null, ragStatus: null, degraded: false, qualityGrade: null, rewritten: false }
+
+    const findAssistant = () => messages.value[messages.value.length - 1]
+    const applyPendingMeta = msg => {
+      if (!msg || msg.role !== 'assistant') return
+      if (pending.sources) msg.sources = pending.sources
+      if (pending.ragStatus) msg.ragStatus = pending.ragStatus
+      if (pending.degraded) msg.degraded = true
+      if (pending.qualityGrade !== null) msg.qualityGrade = pending.qualityGrade
+      if (pending.rewritten) msg.rewritten = true
+    }
+
+    const applyEvent = event => {
+      if (event.type === 'done') {
+        doneReceived = true
+        // A different session may have been selected while fetch was in-flight.
+        // Only update the session which *initiated* the request.
+        const issuedId = event.session_id || initiatingId
+        const entry = sessions.value.find(s => s.id === initiatingId)
+        if (entry) entry.id = issuedId
+        if (event.session_token) sessionTokens.value[issuedId] = event.session_token
+        if (currentSessionId.value === initiatingId) {
+          currentSessionId.value = issuedId
+          sessionToken.value = event.session_token || null
         }
-        // Never write one session's reply or slots into a newly selected session.
-        if (currentSessionId.value !== initiatingId) continue
-        if (event.type === 'token') {
-          assistantContent += event.content
-          const last = messages.value[messages.value.length - 1]
-          if (last?.role === 'assistant') {
-            last.content = assistantContent
-          } else {
-            messages.value.push({
-              role: 'assistant',
-              content: assistantContent,
-              qualityGrade: null,
-              rewritten: false,
-            })
-          }
-        } else if (event.type === 'slots') {
-          slots.value = event.data
-        } else if (event.type === 'quality') {
-          // Quality grade from SSE stream
-          const last = messages.value[messages.value.length - 1]
-          if (last?.role === 'assistant') {
-            last.qualityGrade = event.grade || null
-            last.rewritten = event.rewritten || false
-          }
-        }
+        return
       }
-    } catch {
+      // Never write one session's reply or slots into a newly selected session.
+      if (currentSessionId.value !== initiatingId) return
+      if (event.type === 'token') {
+        assistantContent += event.content
+        const last = findAssistant()
+        if (last?.role === 'assistant') {
+          last.content = assistantContent
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: assistantContent,
+            qualityGrade: null,
+            rewritten: false,
+          })
+          applyPendingMeta(findAssistant())
+        }
+      } else if (event.type === 'slots') {
+        slots.value = event.data
+      } else if (event.type === 'quality') {
+        pending.qualityGrade = event.grade || null
+        pending.rewritten = event.rewritten || false
+        const last = findAssistant()
+        if (last?.role === 'assistant') last.qualityGrade = pending.qualityGrade
+      } else if (event.type === 'sources') {
+        pending.sources = Array.isArray(event.data) ? event.data : []
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'rag_status') {
+        pending.ragStatus = { state: event.state, reason: event.reason || '' }
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'degraded') {
+        pending.degraded = true
+        applyPendingMeta(findAssistant())
+      } else if (event.type === 'error') {
+        // A server-declared failure is never a successful turn.
+        lastError.value = event.message || '服务暂时不可用，请稍后重试'
+        messages.value.push({
+          role: 'assistant',
+          content: lastError.value,
+          error: true,
+          qualityGrade: null,
+          rewritten: false,
+        })
+      }
+    }
+
+    // Mark whatever partial answer exists as an error/incomplete reply, without
+    // discarding already-streamed content.
+    const markFailed = fallbackMessage => {
+      const last = findAssistant()
+      if (last?.role === 'assistant') {
+        if (!last.error) last.incomplete = true
+      } else {
+        messages.value.push({
+          role: 'assistant',
+          content: fallbackMessage,
+          error: true,
+          qualityGrade: null,
+          rewritten: false,
+        })
+      }
+    }
+
+    try {
+      // Consume events incrementally: `onEvent` fires as each SSE frame is
+      // decoded, so tokens render before the stream ends.
+      await chatAPI.send(initiatingId, text, slots.value, 'gaokao', credential, { onEvent: applyEvent })
+
+      // The backend always terminates a stream with an explicit `done`. If it
+      // never arrived (connection cut, proxy timeout), do not present the turn
+      // as a completed, persisted answer. Only the session that initiated the
+      // request may be touched — a request that ends after the user switched
+      // sessions must not mutate the now-selected session's view.
+      if (!doneReceived && currentSessionId.value === initiatingId) {
+        if (!lastError.value) lastError.value = '连接中断，回复可能不完整'
+        markFailed(lastError.value)
+      }
+    } catch (err) {
+      // Same isolation rule as above: a failed background request must never
+      // surface its error or mutate messages/slots of a different session.
       if (currentSessionId.value === initiatingId) {
-        messages.value.push({ role: 'assistant', content: '抱歉，服务暂时不可用。', qualityGrade: null, rewritten: false })
+        lastError.value = err?.message || '服务暂时不可用'
+        markFailed(lastError.value)
       }
     } finally {
       isStreaming.value = false
@@ -90,6 +160,7 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming,
     slots,
     sessionToken,
+    lastError,
     createSession,
     sendMessage,
   }

@@ -45,3 +45,38 @@ async def test_chat_sse_emits_structured_card():
             assert "next_actions" in result, "Structured card missing 'next_actions'"
             break
     assert structured_found, "No structured card event found in SSE response"
+
+
+@pytest.mark.asyncio
+async def test_chat_sse_reports_no_evidence_distinctly(monkeypatch):
+    """A healthy corpus with no match must stream rag_status=NO_EVIDENCE.
+
+    NO_EVIDENCE is deliberately distinct from RAG_DISABLED/RAG_ERROR so the
+    client can tell "nothing relevant" apart from "retrieval is broken". The
+    graph is stubbed so the streaming contract is tested independently of
+    intent routing.
+    """
+
+    class _NoEvidenceGraph:
+        def invoke(self, state):
+            return {
+                "session_id": state["session_id"],
+                "reply": "暂无匹配证据。",
+                "reply_source": "template",
+                "rag_state": "RAG_ENABLED",
+                "rag_sources": [],
+                "rag_reason": "corpus is available but holds no matching evidence",
+            }
+
+    monkeypatch.setattr("server.routes.chat.get_advisor_graph", lambda: _NoEvidenceGraph())
+    token = create_session_token("test-sse-noev")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/chat",
+            json={"session_id": "test-sse-noev", "scene": "gaokao", "message": "平行志愿的量子缠结规则"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 200
+    events = [json.loads(line[len("data: ") :]) for line in response.text.split("\n") if line.startswith("data: ")]
+    rag_statuses = [e for e in events if e.get("type") == "rag_status"]
+    assert any(e.get("state") == "NO_EVIDENCE" for e in rag_statuses), rag_statuses
