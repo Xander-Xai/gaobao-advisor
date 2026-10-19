@@ -30,8 +30,8 @@ function createGatedStream() {
     read() {
       if (queue.length) return Promise.resolve({ done: false, value: queue.shift() })
       if (closed) return Promise.resolve({ done: true })
-      return new Promise(resolve => {
-        waiting = resolve
+      return new Promise((resolve, reject) => {
+        waiting = { resolve, reject }
       })
     },
   }
@@ -39,7 +39,7 @@ function createGatedStream() {
     reader,
     push(chunk) {
       if (waiting) {
-        const resolve = waiting
+        const { resolve } = waiting
         waiting = null
         resolve({ done: false, value: chunk })
       } else {
@@ -49,9 +49,17 @@ function createGatedStream() {
     close() {
       closed = true
       if (waiting) {
-        const resolve = waiting
+        const { resolve } = waiting
         waiting = null
         resolve({ done: true })
+      }
+    },
+    fail(error) {
+      closed = true
+      if (waiting) {
+        const { reject } = waiting
+        waiting = null
+        reject(error)
       }
     },
   }
@@ -145,5 +153,62 @@ describe('chat incremental rendering (real client + gated stream)', () => {
     expect(last.content).toContain('开头')
     expect(last.incomplete).toBe(true)
     expect(store.lastError).toBeTruthy()
+  })
+})
+
+describe('chat cross-session isolation on abnormal stream end', () => {
+  function snapshot(store) {
+    return {
+      messages: JSON.parse(JSON.stringify(store.messages)),
+      slots: JSON.parse(JSON.stringify(store.slots)),
+      token: store.sessionToken,
+    }
+  }
+
+  it('a dropped stream from session A cannot pollute the now-selected session B', async () => {
+    const stream = createGatedStream()
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, body: { getReader: () => stream.reader } })
+
+    const store = useChatStore()
+    store.createSession() // session A
+    const pendingA = store.sendMessage('A 的问题')
+    stream.push(frame({ type: 'token', content: 'A 的部分回复' }))
+    await vi.waitFor(() => expect(store.messages.at(-1)?.content).toBe('A 的部分回复'))
+
+    // User switches to a fresh session B while A is still in-flight.
+    store.createSession()
+    const sessionB = store.currentSessionId
+    const before = snapshot(store)
+
+    // A's stream ends abnormally (connection closed, no done).
+    stream.close()
+    await pendingA
+
+    expect(store.currentSessionId).toBe(sessionB)
+    expect(snapshot(store)).toEqual(before) // messages/slots/token untouched by A
+    expect(store.lastError).toBeNull() // A's failure must not surface in B
+  })
+
+  it('a network throw from session A cannot pollute the now-selected session B', async () => {
+    const stream = createGatedStream()
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, body: { getReader: () => stream.reader } })
+
+    const store = useChatStore()
+    store.createSession() // session A
+    const pendingA = store.sendMessage('A 的问题')
+    stream.push(frame({ type: 'token', content: 'A 的部分回复' }))
+    await vi.waitFor(() => expect(store.messages.at(-1)?.content).toBe('A 的部分回复'))
+
+    store.createSession() // switch to B
+    const sessionB = store.currentSessionId
+    const before = snapshot(store)
+
+    stream.fail(new Error('network reset'))
+    await pendingA
+
+    expect(store.currentSessionId).toBe(sessionB)
+    expect(snapshot(store)).toEqual(before)
+    expect(store.lastError).toBeNull()
+    expect(store.messages.every(m => !m.incomplete && !m.error)).toBe(true)
   })
 })
