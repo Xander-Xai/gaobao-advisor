@@ -1,0 +1,29 @@
+# Optional: the legacy Streamlit operations dashboard (`legacy/admin.py`).
+#
+# NOT part of the shipped runtime:
+#   * not installed by `pip install -e ".[dev]"`
+#   * not installed into the Docker image (the image runs `uvicorn` only)
+#   * not exercised by CI
+#
+# Install explicitly when you want the local operator dashboard:
+#
+#   pip install -r requirements-legacy-admin.txt
+#   ADMIN_PASSWORD=... make run
+#
+# Why this file is separate from `requirements.txt`:
+# streamlit pins `pillow<13`, and pillow 13.0.0 is the only release that fixes
+# CVE-2026-112395 / -112397 / -112400 / -112404 / -112895 / -112896 / -112897
+# / -112899. As long as streamlit is a dependency, pillow 12.3.0 is
+# unavoidable. Keeping streamlit out of the runtime set is what allows the
+# shipped runtime to have zero known-vulnerable packages.
+#
+# The dashboard reads `data/analytics.db` and `data/gaokao.db`, which the
+# public demo does not create — it generates `data/demo.db`. It is therefore a
+# local operator tool for a private/authorised data environment, not a public
+# demo feature.
+#
+# `requirements-legacy-admin.lock` pins the resolved set and is audited
+# separately in CI with a documented, explicit exception list — see
+# `docs/dependency-exceptions.md`.
+
+streamlit==1.66.0

@@ -1,7 +1,31 @@
-streamlit>=1.30.0,<2.0.0
+# Runtime dependency set for the public demo.
+#
+# This file defines what actually ships:
+#   * the Docker image installs the compiled `requirements.lock`
+#   * `pip install -e ".[dev]"` installs `pyproject.toml` (not this file)
+#   * CI runs the test suite against `pyproject.toml`, not this file
+#
+# The set below is kept free of packages with known vulnerabilities, and free of
+# packages that are not imported by the shipped code. Two entries were removed
+# on 2026-10-21 — see `docs/dependency-exceptions.md` for the record:
+#
+#   * `streamlit` — only the legacy operations dashboard (`legacy/admin.py`)
+#     needs it. It is not part of the API, the container or CI. It moved to the
+#     optional `requirements-legacy-admin.txt`.
+#   * `reportlab` — no module in this repository imports it; the report export
+#     renders HTML + SVG, not PDF.
+#
+# Both removals matter for security, not only for size: `streamlit` pins
+# `pillow<13` and `reportlab` pulls `pillow` in, while pillow 13.0.0 is the
+# only release that fixes CVE-2026-112395/397/400/404/895/896/897/899.
+# Keeping them out of the runtime set is what lets the shipped runtime have
+# zero known-vulnerable packages.
+#
+# Optional tooling that is not part of the runtime goes in its own file and is
+# audited separately — do not add it back here.
+
 openai>=1.0.0,<3.0.0
 sqlalchemy>=2.0.0,<3.0.0
-reportlab>=4.0
 numpy>=1.24.0,<3.0.0
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0

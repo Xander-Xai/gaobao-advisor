@@ -63,6 +63,23 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit --requirement requirements.lock --progress-spinner off
+      - name: pip-audit (optional legacy admin dependency set)
+        # The runtime lock above must stay at zero known vulnerabilities.
+        # This set is optional, never shipped and never installed by default;
+        # it is audited separately with the explicit exception list recorded in
+        # docs/dependency-exceptions.md (E-001). Any *new* advisory in this set
+        # still fails the build, so the exception cannot silently widen.
+        run: |
+          pip install pip-audit
+          pip-audit --requirement requirements-legacy-admin.lock --progress-spinner off \
+            --ignore-vuln CVE-2026-112395 \
+            --ignore-vuln CVE-2026-112397 \
+            --ignore-vuln CVE-2026-112400 \
+            --ignore-vuln CVE-2026-112404 \
+            --ignore-vuln CVE-2026-112895 \
+            --ignore-vuln CVE-2026-112896 \
+            --ignore-vuln CVE-2026-112897 \
+            --ignore-vuln CVE-2026-112899
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
