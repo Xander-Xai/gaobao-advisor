@@ -11,6 +11,7 @@ has never seen the private original:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -460,4 +461,50 @@ class TestImportIsolation:
         root = str(REPO_ROOT.resolve())
         assert sys.path[0] == root or root in sys.path[:3], (
             f"repo root must be an early sys.path entry, got {sys.path[:3]}"
+        )
+
+
+# ── 6. Distribution scope of SYNTHETIC_DEMO ──────────────────────────────
+class TestPrivateEnvironmentDocsAreMarked:
+    """Documents from the private data environment must say that they are.
+
+    The public repository ships only ``SYNTHETIC_DEMO`` synthetic data. The
+    historical acceptance / import / planning documents were written against a
+    private or authorised data environment and still contain real institution
+    counts, score-row counts, coverage ratios and database-backup references.
+    Read without that context they look like claims about this repository, so
+    every such document must carry a marker near its top.
+    """
+
+    _CLAIM = re.compile(r"条分数线|所学校的分数线|30\s*省|全量导入|70,000|\.sql\.gz|数据库备份")
+
+    _MARKER = re.compile(
+        r"历史文档"
+        r"|历史记录"
+        r"|Historical document"
+        r"|非公开"
+        r"|不代表当前"
+        r"|非当前验证结果"
+        r"|不代表本仓库"
+        r"|虚构数据"
+        r"|合成数据"
+        r"|SYNTHETIC"
+    )
+
+    _HEAD_LINES = 40
+
+    def test_documents_claiming_private_data_scale_are_marked(self) -> None:
+        offenders = []
+        for path in _tracked_files():
+            if not path.endswith(".md"):
+                continue
+            text = (REPO_ROOT / path).read_text(encoding="utf-8", errors="ignore")
+            if not self._CLAIM.search(text):
+                continue
+            head = "\n".join(text.splitlines()[: self._HEAD_LINES])
+            if not self._MARKER.search(head):
+                offenders.append(path)
+        assert offenders == [], (
+            "these documents quote private-environment scale and must state that they are "
+            f"historical / non-public: {offenders}"
         )
