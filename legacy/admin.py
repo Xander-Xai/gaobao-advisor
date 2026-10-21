@@ -2,8 +2,16 @@
 """
 高报Agent · 运营看板 (Admin Dashboard)
 独立 Streamlit 页面，密码保护，展示运营数据。
+
+这是**可选的本地运维工具**，不属于公开 demo 的运行时依赖：
+streamlit 只在 `requirements-legacy-admin.txt` 里，镜像、CI 和 `pip install -e .`
+都不会安装它。安装与启动：
+
+  pip install -r requirements-legacy-admin.txt
+  ADMIN_PASSWORD=your_password make run
+
 Usage:
-  ADMIN_PASSWORD=your_password streamlit run admin.py
+  ADMIN_PASSWORD=your_password streamlit run legacy/admin.py
 """
 
 import hmac

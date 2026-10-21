@@ -35,3 +35,25 @@ Explicitly **not** claimed:
   session id can mint that session's token.
 - Do not expose this service to the public internet as-is. There is no
   multi-tenant isolation and the dataset is synthetic anyway.
+
+## Dependency policy
+
+The **runtime** dependency set (`requirements.txt` → `requirements.lock`) must
+have **zero known vulnerabilities**. CI enforces this with `pip-audit`; the
+job is a hard gate and a red `Security Audit` means the runtime set is not
+acceptable to ship.
+
+Optional tooling that is not part of the runtime lives in its own file
+(`requirements-legacy-admin.txt` → `requirements-legacy-admin.lock`), is never
+installed by default, never enters the container image and is audited
+separately against an explicit, recorded exception list.
+
+The reviewed version pins live in `requirements.lock.constraints`, and the
+current state of the policy — including every exception, its rationale and the
+open decisions — is documented in
+[`docs/dependency-exceptions.md`](docs/dependency-exceptions.md). Regenerate
+the lock with `make lock`; do not hand-edit it and do not re-resolve it
+without the constraints file.
+
+Report a vulnerable dependency the same way as any other issue: privately, not
+in a public issue or pull request.

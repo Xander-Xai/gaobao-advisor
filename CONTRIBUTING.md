@@ -31,5 +31,19 @@ ruff check . && ruff format --check .
 cd frontend && npm ci && npx vitest run && npx vite build
 ```
 
+The runtime dependency set is `requirements.txt` / `requirements.lock`; it must
+have **zero known vulnerabilities** and CI enforces it with `pip-audit`. Do not
+add a dependency to it without running `make audit-deps` — and check
+[`docs/dependency-exceptions.md`](docs/dependency-exceptions.md) first, because
+some packages are deliberately kept out of the runtime (see the policy there).
+
+The optional legacy Streamlit operations dashboard has its own dependency file
+and is never installed by default:
+
+```bash
+make install-legacy-admin   # pip install -r requirements-legacy-admin.txt
+make run                    # streamlit run legacy/admin.py
+```
+
 CI runs on Python 3.10 and 3.11, plus a frontend gate, a secret scan, a
 no-key container smoke test and a redistribution gate.
