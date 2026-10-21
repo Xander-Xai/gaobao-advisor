@@ -1,4 +1,8 @@
 # 高考数据管线扩展 Implementation Plan
+> ⚠️ **历史文档 / 非公开仓库交付内容。** 本文档记录的是私有或已授权数据环境中的
+> 数据导入规划；**当前公开仓库只分发 `SYNTHETIC_DEMO` 合成数据**。下文出现的院校数量、
+> 分数线条数、覆盖率、备份文件等数字属于当时的私有环境，**不代表本仓库当前状态**，
+> 也不构成任何真实招生数据来源。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
