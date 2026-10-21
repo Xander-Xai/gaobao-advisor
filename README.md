@@ -251,7 +251,7 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **974 passed / 1 skipped**，覆盖率 **80.63%**（门禁 70%）|
+| `pytest tests` | **1010 passed / 1 skipped**，覆盖率 **80.69%**（门禁 70%）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
@@ -262,8 +262,9 @@ ruff check . && ruff format --check .
 > `docker run` 后 `curl` 的真实健康检查结果。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
-Secret Scan（gitleaks 全历史）、Security Audit（pip-audit + npm audit）、
-Frontend Quality Gate、No-Key Container Smoke Test、Redistribution Gate。
+Secret Scan（gitleaks 全历史）、Security Audit（pip-audit 审计运行时依赖锁 + 可选
+legacy 依赖集、npm audit）、Frontend Quality Gate、No-Key Container Smoke Test、
+Redistribution Gate。
 门禁失败即红，不通过跳过或降低阈值来「修绿」。
 
 ---
@@ -287,7 +288,7 @@ scrapers/              数据采集器（默认不发起外部请求）
 scripts/               数据导入脚本 + seed_demo_data.py
 knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
 frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
-tests/                 单元与验收测试（938 passed / 1 skipped）
+tests/                 单元与验收测试（1010 passed / 1 skipped）
 ```
 
 ---
@@ -339,6 +340,8 @@ tests/                 单元与验收测试（938 passed / 1 skipped）
 * 来源：本项目基于早期的 **MIT 许可代码**继续开发，并在此基础上独立完成了 LangGraph / FastAPI / Vue 3 / 容器化 / 会话安全 / 自动化测试等工程重构。完整来源、固定版本与后续许可证变更说明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；原始 MIT 版权声明与许可正文见 [`LICENSE`](LICENSE)。
 * 数据：[`DATA_LICENSE.md`](DATA_LICENSE.md) — 合成数据集以 CC0-1.0 提供。
 * 隐私：[`PRIVACY.md`](PRIVACY.md)。安全：[`SECURITY.md`](SECURITY.md)。
+* 依赖：运行时依赖集必须**零已知漏洞**，由 CI 的 `pip-audit` 强制；例外登记与
+  开放决策见 [`docs/dependency-exceptions.md`](docs/dependency-exceptions.md)。
 * 第三方：[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 **商标与人物：** 本项目不包含、也不声称包含任何真实人物的观点、方法论、
