@@ -1,86 +1,99 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
-    <div class="max-w-3xl mx-auto">
-      <header class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-800">⚙️ 管理面板</h1>
-          <p class="text-sm text-gray-500 mt-1">服务健康检查 · 实时反映后端状态</p>
+  <div class="min-h-screen bg-slate-100 text-slate-900">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div class="flex items-center gap-3">
+          <span class="grid h-9 w-9 place-items-center rounded-xl bg-red-700 text-sm font-bold text-white">GB</span>
+          <div>
+            <h1 class="text-sm font-semibold tracking-wide">gaobao-advisor · 运营工作台</h1>
+            <p class="text-[11px] text-slate-400">数据运营 / 质检任务 / 审计 · SYNTHETIC_DEMO</p>
+          </div>
         </div>
+        <div class="flex items-center gap-2 text-xs">
+          <a href="/" class="rounded-md border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-slate-50">返回对话</a>
+          <template v-if="admin.isAuthenticated">
+            <span class="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700" data-testid="admin-user">
+              {{ admin.user?.username }} · {{ roleLabel }}
+            </span>
+            <button class="rounded-md border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-slate-50" data-testid="admin-logout" @click="admin.logout">
+              退出
+            </button>
+          </template>
+        </div>
+      </div>
+    </header>
+
+    <main v-if="!admin.isAuthenticated" class="px-4 pb-10 sm:px-6">
+      <AdminLoginPanel />
+    </main>
+
+    <main v-else class="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
+      <div
+        v-if="admin.actionError && activeTab !== 'quality'"
+        role="alert"
+        data-testid="admin-error"
+        class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+      >{{ admin.actionError }}</div>
+
+      <AdminStatsCards :stats="admin.stats" :system-status="admin.systemStatus" />
+
+      <nav class="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" role="tablist" aria-label="后台模块">
         <button
-          @click="checkNow"
-          :disabled="loading"
-          class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {{ loading ? '检查中...' : '🔄 刷新' }}
-        </button>
-      </header>
+          v-for="tab in visibleTabs"
+          :key="tab.id"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
+          :data-testid="`tab-${tab.id}`"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="activeTab === tab.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'"
+          @click="selectTab(tab.id)"
+        >{{ tab.label }}</button>
+      </nav>
 
-      <div v-if="errorMessage" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-700">
-        ❌ {{ errorMessage }}
-      </div>
-
-      <div v-if="health" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
-          <div class="text-xs text-gray-500 uppercase tracking-wide">服务状态</div>
-          <div class="text-2xl font-bold text-gray-800 mt-2">
-            {{ health.status === 'ok' ? '✅ 正常' : '⚠️ 异常' }}
-          </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-blue-500">
-          <div class="text-xs text-gray-500 uppercase tracking-wide">数据库</div>
-          <div class="text-2xl font-bold text-gray-800 mt-2">
-            {{ health.database === 'connected' ? '🟢 已连接' : '🔴 断开' }}
-          </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-amber-500">
-          <div class="text-xs text-gray-500 uppercase tracking-wide">版本</div>
-          <div class="text-2xl font-mono font-bold text-gray-800 mt-2">
-            v{{ health.version }}
-          </div>
-        </div>
-      </div>
-
-      <div v-else-if="!loading && !errorMessage" class="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400">
-        点击右上角"刷新"获取健康状态
-      </div>
-
-      <div class="mt-8 bg-white rounded-xl shadow-sm p-5">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">已对接后端模块</h2>
-        <ul class="space-y-1 text-sm text-gray-700">
-          <li>📡 <strong>chat</strong> — SSE 流式对话 + 反馈/金句</li>
-          <li>📚 <strong>data</strong> — 院校 / 分数线 / 招生计划</li>
-          <li>🧠 <strong>knowledge</strong> — RAG 搜索 + 专家语录</li>
-          <li>👤 <strong>profile</strong> — 用户画像（7 字段 + 灵魂提问）</li>
-          <li>🎤 <strong>voice</strong> — WebSocket 实时语音 (ASR→Graph→TTS)</li>
-          <li>📄 <strong>report</strong> — 报告生成 / HTML / SVG 封面</li>
-          <li>🚀 <strong>onboarding</strong> — 3 步引导流程</li>
-        </ul>
-        <p class="text-xs text-gray-400 mt-4">数据来源: <code>server/routes/*.py</code></p>
-      </div>
-    </div>
+      <AdminDataPanel v-show="activeTab === 'data'" />
+      <AdminQualityPanel v-show="activeTab === 'quality'" />
+      <AdminAuditPanel v-if="admin.isAdmin" v-show="activeTab === 'audit'" />
+    </main>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { healthAPI } from '../api/client'
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import AdminAuditPanel from '../components/admin/AdminAuditPanel.vue'
+import AdminDataPanel from '../components/admin/AdminDataPanel.vue'
+import AdminLoginPanel from '../components/admin/AdminLoginPanel.vue'
+import AdminQualityPanel from '../components/admin/AdminQualityPanel.vue'
+import AdminStatsCards from '../components/admin/AdminStatsCards.vue'
+import { useAdminStore } from '../stores/admin'
 
-const health = ref(null)
-const loading = ref(false)
-const errorMessage = ref('')
+type TabId = 'data' | 'quality' | 'audit'
 
-async function checkNow() {
-  loading.value = true
-  errorMessage.value = ''
-  const { data, error } = await healthAPI.check()
-  loading.value = false
-  if (error) {
-    errorMessage.value = `健康检查失败: ${error.message}`
-    health.value = null
-    return
-  }
-  health.value = data
+const admin = useAdminStore()
+const activeTab = ref<TabId>('data')
+
+const roleLabel = computed(() => {
+  return { viewer: '只读', operator: '运营', admin: '管理员' }[admin.role ?? 'viewer']
+})
+
+const visibleTabs = computed(() => {
+  const tabs: Array<{ id: TabId; label: string }> = [
+    { id: 'data', label: '招生数据' },
+    { id: 'quality', label: '质检任务' },
+  ]
+  if (admin.isAdmin) tabs.push({ id: 'audit', label: '操作审计' })
+  return tabs
+})
+
+function selectTab(tab: TabId): void {
+  activeTab.value = tab
+  if (tab === 'data') void admin.loadSchools(admin.schoolPage)
+  if (tab === 'quality') void admin.loadJobs(admin.jobsPage)
+  if (tab === 'audit') void admin.loadAudit(admin.auditPage)
 }
 
-onMounted(checkNow)
+onMounted(() => {
+  if (admin.isAuthenticated) void admin.refreshAll()
+})
+
+onUnmounted(() => admin.stopPolling())
 </script>

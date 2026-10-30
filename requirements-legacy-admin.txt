@@ -11,11 +11,10 @@
 #   ADMIN_PASSWORD=... make run
 #
 # Why this file is separate from `requirements.txt`:
-# streamlit pins `pillow<13`, and pillow 13.0.0 is the only release that fixes
-# CVE-2026-112395 / -112397 / -112400 / -112404 / -112895 / -112896 / -112897
-# / -112899. As long as streamlit is a dependency, pillow 12.3.0 is
-# unavoidable. Keeping streamlit out of the runtime set is what allows the
-# shipped runtime to have zero known-vulnerable packages.
+# streamlit 1.66.1 permits `pillow<14`; the legacy lock therefore pins
+# pillow 13.0.0 (Python >= 3.11), which fixes the Pillow image-decoder
+# advisories. Streamlit remains out of the runtime set so the shipped image
+# stays lean and has zero known-vulnerable packages.
 #
 # The dashboard reads `data/analytics.db` and `data/gaokao.db`, which the
 # public demo does not create — it generates `data/demo.db`. It is therefore a
@@ -26,4 +25,4 @@
 # separately in CI with a documented, explicit exception list — see
 # `docs/dependency-exceptions.md`.
 
-streamlit==1.66.0
+streamlit==1.66.1

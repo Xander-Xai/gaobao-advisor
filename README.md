@@ -51,6 +51,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 | 数据导入脚本 | 可用（自行提供数据） | `scripts/import_*.py`；第三方抓取默认关闭 |
 | FastAPI + SSE + WebSocket 语音 | 可用 | 语音默认关闭，需自备 DashScope 凭据 |
 | Vue 3 前端 | 可用 | `frontend/` |
+| **运营后台（数据 / 质检 / 审计）** | **可用** | 独立管理员 RBAC、真实 API 数据、质检任务、乐观锁审核与审计；`/admin` |
 | **知识库检索（RAG）** | **默认可用** | 随仓原创 SYNTHETIC_DEMO 合成语料；BM25 关键词检索为基础，无 Key 也能用；带来源引用与 fail-closed |
 | 联网搜索 | 关闭 | 无第三方检索授权 |
 
@@ -143,6 +144,107 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 
 ---
 
+## 运营后台（数据运营 / 质检 / 审计）
+
+`/admin` 不是健康检查面板，而是一条贯穿前后端的真实运营闭环：
+
+1. 管理员登录（独立于匿名聊天 session token）；
+2. 查看合成招生数据，按关键词/省份/层次筛选、排序、分页；
+3. 查看院校详情（录取分数 + 招生计划）；
+4. 发起数据质检任务，按 `PENDING → RUNNING → SUCCEEDED / FAILED` 查看状态；
+5. 审核质检结果（`APPROVED / REJECTED`，带乐观锁 `expected_version`）；
+6. 查看统计指标与操作审计（主体、角色、资源、请求关联 ID）。
+
+**本地启动：**
+
+```bash
+python scripts/setup_admin_env.py          # 生成 .env.admin.local（0600，已 gitignore）
+set -a; . ./.env.admin.local; set +a
+uvicorn server.main:app --reload
+cd frontend && npm run dev                 # http://localhost:3080/admin
+```
+
+脚本会打印一次性用户名/密码；不要把 `.env.admin.local` 提交到仓库。
+
+**鉴权边界：**
+
+* 管理员 token 使用独立的 `ADMIN_TOKEN_SECRET` 签名，载荷包含 `sub/role/exp/aud=gaobao-admin`；
+* 匿名聊天 token 无法访问 `/api/v1/admin/*`；管理员 token 也无法读取聊天 session 数据；
+* 角色层级 `viewer < operator < admin`：只读 / 创建任务 / 审核 + 审计；
+* 生产环境配置了管理员但缺少 `ADMIN_TOKEN_SECRET` 时**启动失败**；未配置管理员则后台拒绝所有请求（fail-closed）；禁止在 production 使用明文 `ADMIN_PASSWORD`；
+* 审计详情落库前会脱敏手机号、身份证、邮箱、姓名与 token。
+
+**质检任务模式：** `QUALITY_TASK_MODE=auto|async|inline|disabled`。`auto` 优先 Redis + Worker；开发环境 Redis 不可用时显式内联执行并标记 `execution_mode=inline_degraded`。`async` 模式下 Redis 不可用会返回 `202 + PENDING + warning`，不会伪造成功。
+
+---
+
+### 可选 MySQL / Redis / Worker（full profile）
+
+默认 `docker compose up` 仍只使用 SQLite，不需要 MySQL/Redis。需要展示异步质检和双数据库时：
+
+```bash
+python scripts/setup_full_env.py          # 生成 .env.full（0600，gitignore）
+docker compose --env-file .env.full \
+  -f docker-compose.yml -f docker-compose.full.yml --profile full up --build
+```
+
+Compose 演示使用命名卷 `gaobao_data` 和 HTTP-only `nginx.demo.conf`；生产 TLS 仍使用
+`nginx.conf` + `./certs`。直接访问 `http://localhost/admin` 可进入运营工作台。
+
+启动内容：FastAPI（MySQL + Alembic）、MySQL 8.4、Redis 7、数据质检 Worker、Vue 前端、Nginx。
+API/MySQL/Redis/Frontend 都有 healthcheck；API 使用 `/api/v1/health/ready`（DB 断开返回 503）。
+MySQL 和 Redis **不发布宿主机端口**，API/Worker 通过 Compose 网络内的 `mysql:3306` /
+`redis:6379` 通信；本地检查用 `docker compose exec mysql ...` / `exec redis redis-cli`。
+本机已实测该 profile 全部服务 healthy，并通过“登录 → 异步质检 → SUCCEEDED → 审核 → 审计”链路；
+Redis 停机时创建任务返回 `202 + PENDING + UNAVAILABLE`，恢复后 Worker 从 Outbox 补投并完成；
+真实 BRPOP 丢消息故障注入后，Worker 启动补偿扫描恢复并完成任务。
+
+```bash
+# 迁移（SQLite 也可以跑，用于验证版本表）
+DATABASE_URL=sqlite:///data/demo.db python -m db.migrate
+
+# 可选集成测试（一次性启动 MySQL 8.4 + Redis 7，自动清理）
+# 先安装可选 extras：pip install -e ".[dev,mysql,worker]"
+make test-integration
+
+# 也可以分别指定已有服务
+REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py -q
+MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
+  pytest tests/test_admin_mysql.py -q
+```
+
+### 生产 Compose 凭据（fail-closed）
+
+`docker-compose.prod.yml` 不再把 `.env.production` 挂到 `/app/.env`（应用不会自动读取该文件），
+而是使用 Compose `env_file` 把 `SESSION_SECRET`、`ADMIN_TOKEN_SECRET` 等真正注入进程。
+`env_file` 标记为 required；文件缺失、生产环境缺 `SESSION_SECRET`、启用管理员却缺
+`ADMIN_TOKEN_SECRET` 时容器启动失败，不会生成临时密钥或静默放行。
+
+```bash
+# 只使用临时测试凭据，不读取/提交真实 .env.production
+PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
+```
+
+**迁移范围（重要）：** Alembic 初始 revision 只覆盖本轮新增的 4 张运营表
+（`data_quality_jobs` / `data_quality_issues` / `operation_audit_logs` /
+`quality_task_outbox`）。14 张历史表的 MySQL 生产迁移不在本轮承诺内；full profile
+的演示数据由 `scripts/seed_demo_data.py --database-url ...` 引导创建。详见
+[ADR-008](docs/superpowers/adr/ADR-008-mysql-redis-worker.md)。
+
+**队列语义：** 创建任务时 DB + Outbox + 审计同事务；Redis 不可用时 `async` 模式返回
+`202 + PENDING + warning`，不会伪造成功；开发环境 `auto` 才显式内联降级并标记
+`execution_mode=inline_degraded`。
+
+**Worker 可靠性：** `claim_job` 返回 `attempts` 作为 fencing token；完成/失败使用
+`WHERE status='RUNNING' AND attempts=?` 条件更新，过期 Worker 不能覆盖新执行。
+Worker 启动及运行期每 30 秒有界扫描（`limit=50`）恢复过期 RUNNING 与孤儿
+PENDING/DISPATCHED；次数耗尽转 FAILED。可配置：
+`WORKER_LEASE_SECONDS`（默认 600）、`WORKER_DELIVERY_LEASE_SECONDS`（默认 60）、
+`WORKER_RECOVERY_INTERVAL_SECONDS`（默认 30）。投递语义为 at-least-once，不是 exactly-once；
+重复投递由原子 claim、fencing 和唯一问题约束吸收。
+
+---
+
 ## 安全规则资产（fail-closed）
 
 `safety_rules.md` 是原创编写的通用咨询安全约束（不编造数据、标注来源、
@@ -192,12 +294,13 @@ flowchart LR
 
 | 层 | 技术 |
 |---|---|
-| 前端 | Vue 3 + Pinia + Vue Router + Tailwind CSS + Vite |
+| 前端 | Vue 3 + **TypeScript（新后台模块）** + Pinia + Vue Router + Tailwind CSS + Vite |
 | API | FastAPI + Pydantic + SSE + WebSocket |
 | Agent 编排 | LangGraph StateGraph |
-| 数据库 | SQLite + SQLAlchemy |
+| 数据库 | SQLite（默认）+ MySQL 8（可选，Alembic 迁移）+ SQLAlchemy |
 | 知识检索 | BM25 关键词 + 可选 Dense Embedding 混合检索（随仓合成语料默认启用） |
 | LLM | OpenAI Compatible API（DeepSeek / Qwen / GLM / Moonshot / GPT / Ollama） |
+| 异步任务 | Redis List + 事务 Outbox + 独立 Worker（可选）|
 | 可观测性 | Prometheus + Sentry + Analytics |
 | 部署 | Docker / Docker Compose + Nginx |
 
@@ -251,20 +354,33 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1010 passed / 1 skipped**，覆盖率 **80.69%**（门禁 70%）|
+| `pytest tests` | **1085 passed / 14 skipped**，覆盖率 **81.11%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
-| `vitest run`（frontend）| **11 files / 64 tests passed**；`npm run build` 通过 |
+| `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
+| `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
+| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5）|
+| `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
+| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；MySQL/Redis 无宿主机端口；异步任务、审核、审计、Redis 故障恢复通过 |
+| 真实 BRPOP 丢消息注入（Redis+MySQL） | job PENDING/DISPATCHED → Worker 启动日志 `requeued 1 orphaned dispatched job(s)` → **SUCCEEDED** |
+| 真实双 Worker 并发（3 jobs / 2 processes） | issues 15 = SUM(issue_count)，success 审计每 job 1 次，无重复 |
+| 租约/Fencing/耗尽 | 旧 Worker `EXECUTION_FENCED`；max_attempts=1/3 均正确终态 |
+| `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 缺失 env 文件 / 缺 SESSION_SECRET / 缺 ADMIN_TOKEN_SECRET 均 fail-closed；有效配置启动并 admin 登录成功 |
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
+| `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
+| gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
 
-> 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
-> `docker run` 后 `curl` 的真实健康检查结果。
+> 上述数字来自本机实际运行输出。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
+> 生产 Compose 测试只使用临时生成且已删除的测试凭据。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
-Secret Scan（gitleaks 全历史）、Security Audit（pip-audit 审计运行时依赖锁 + 可选
-legacy 依赖集、npm audit）、Frontend Quality Gate、No-Key Container Smoke Test、
-Redistribution Gate。
+MySQL 8.4 + Redis 7 集成测试、双 Worker/恢复回归、Admin Smoke、Secret Scan（gitleaks 全历史）、
+Security Audit（pip-audit 审计运行时锁 + legacy 锁、npm audit）、Frontend Quality Gate、
+No-Key Container Smoke Test、Redistribution Gate。
 门禁失败即红，不通过跳过或降低阈值来「修绿」。
 
 ---
@@ -279,16 +395,18 @@ server/
   report/              报告生成路由
   graph/               LangGraph 编排与 17 个节点
   services/            rag / kb_retriever / quality / llm_router ...
-  middleware/          CSP、限流、注入检测
-db/                    SQLAlchemy 模型与会话
+  middleware/          CSP、限流、注入检测、请求关联 ID
+  admin/               管理员鉴权/RBAC、运营查询、质检任务、审计、Worker
+db/                    SQLAlchemy 模型、会话与迁移入口（db/migrate.py）
+migrations/            Alembic 版本目录
 skills/gaokao/         SkillService（fail-closed）+ 原创安全规则与启发式
 quality/               质量与幻觉检查
 legacy/                数据查询适配层
 scrapers/              数据采集器（默认不发起外部请求）
-scripts/               数据导入脚本 + seed_demo_data.py
+scripts/               数据导入脚本 + seed_demo_data.py + 管理员凭据生成
 knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
-frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
-tests/                 单元与验收测试（1010 passed / 1 skipped）
+frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin；后台模块使用 TypeScript）
+tests/                 单元与验收测试（1059 passed / 1 skipped）
 ```
 
 ---
@@ -327,6 +445,7 @@ tests/                 单元与验收测试（1010 passed / 1 skipped）
 - **面试演示：** [TUTORIAL.md 的「面试演示脚本」](TUTORIAL.md#面试演示脚本可复现面向-rag--agent-岗位) 给出从槽位抽取到 SSE 输出、会话鉴权与证据/无证据差异的可复现命令，并注明每一点对应的源码/测试。
 - **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
 - **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+- **面试/验收材料：** [3 分钟演示与 10 个追问](docs/interview-readiness/haibote-fullstack-demo.md) · [JD 能力矩阵](docs/interview-readiness/haibote-gap-matrix.md) · [性能与恢复](docs/interview-readiness/performance.md) · [AI 开发证据](docs/interview-readiness/ai-coding-evidence.md)。
 - **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)。
 - **RAG 演示与健康检查：** [docs/rag-demo.md](docs/rag-demo.md)。
 

@@ -43,6 +43,15 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.4.0",
+    "alembic>=1.13,<2",
+]
+mysql = [
+    "PyMySQL>=1.1,<2",
+    "cryptography>=42",
+    "alembic>=1.13,<2",
+]
+worker = [
+    "redis>=5.0.0",
 ]
 
 [project.urls]
@@ -86,6 +95,8 @@ filterwarnings = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests requiring external services",
+    "mysql: integration tests requiring MYSQL_TEST_URL",
+    "redis: integration tests requiring REDIS_TEST_URL",
 ]
 
 [tool.ruff]
@@ -113,6 +124,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*.py" = ["E402", "B007", "F841", "I001"]
+"migrations/*.py" = ["E402", "I001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agent", "db", "quality", "scrapers", "analytics"]

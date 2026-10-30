@@ -185,3 +185,56 @@ def record_judge_score(dimension: str, score: float):
 def record_hallucination(hallucination_type: str):
     """Record a hallucination detection event."""
     QUALITY_HALLUCINATION_DETECTED.labels(hallucination_type=hallucination_type).inc()
+
+
+# === Admin operations ===
+
+ADMIN_QUALITY_JOBS = Counter(
+    "admin_quality_jobs_total",
+    "Data-quality jobs by terminal state and execution mode",
+    ["status", "execution_mode"],
+)
+
+ADMIN_QUEUE_UNAVAILABLE = Counter(
+    "admin_quality_queue_unavailable_total",
+    "Quality-job publishes that could not reach Redis",
+)
+
+ADMIN_WORKER_RECOVERY_RUNS = Counter(
+    "admin_worker_recovery_runs_total",
+    "Worker recovery scans by outcome",
+    ["outcome"],
+)
+
+ADMIN_WORKER_RECOVERY_JOBS = Counter(
+    "admin_worker_recovery_jobs_total",
+    "Jobs recovered by recovery kind",
+    ["kind"],
+)
+
+ADMIN_WORKER_RECOVERY_DURATION = Histogram(
+    "admin_worker_recovery_duration_seconds",
+    "Worker recovery scan duration",
+    ["kind"],
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+)
+
+
+def record_admin_job_finished(status: str, execution_mode: str) -> None:
+    ADMIN_QUALITY_JOBS.labels(status=status, execution_mode=execution_mode or "unknown").inc()
+
+
+def record_admin_queue_unavailable() -> None:
+    ADMIN_QUEUE_UNAVAILABLE.inc()
+
+
+def record_admin_worker_recovery(
+    kind: str,
+    recovered: int,
+    duration_seconds: float,
+    *,
+    failed: bool = False,
+) -> None:
+    ADMIN_WORKER_RECOVERY_RUNS.labels(outcome="failed" if failed else "ok").inc()
+    ADMIN_WORKER_RECOVERY_JOBS.labels(kind=kind).inc(max(0, recovered))
+    ADMIN_WORKER_RECOVERY_DURATION.labels(kind=kind).observe(max(0.0, duration_seconds))

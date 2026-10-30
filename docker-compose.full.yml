@@ -1,0 +1,88 @@
+# Optional full profile: MySQL + Redis + quality worker.
+#
+#   python scripts/setup_full_env.py
+#   docker compose -f docker-compose.yml -f docker-compose.full.yml --profile full up --build
+#
+# The default `docker compose up` (without this overlay) still uses SQLite and
+# needs neither MySQL nor Redis.
+
+services:
+  mysql:
+    image: mysql:8.4
+    profiles: ["full"]
+    container_name: gaokao-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gaobao}
+      MYSQL_USER: ${MYSQL_USER:-gaobao}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD (python scripts/setup_full_env.py)}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    # No host port: API/worker use mysql:3306 on the Compose network.
+    # Use `docker compose exec mysql ...` for local inspection.
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["full"]
+    container_name: gaokao-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    # No host port: API/worker use redis:6379 on the Compose network.
+    # Use `docker compose exec redis redis-cli` for local inspection.
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    env_file: .env.full
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    profiles: ["full"]
+    container_name: gaokao-worker
+    restart: unless-stopped
+    command: python -m server.admin.worker
+    env_file: .env.full
+    environment:
+      # The API owns schema migration + demo seeding; the worker only consumes
+      # the queue. Start it after the API is actually ready to avoid two
+      # concurrent seeders racing on the same empty MySQL database.
+      AUTO_SEED_DEMO: "false"
+    depends_on:
+      api:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Readiness includes both the database and the queue; a Redis-only check
+      # would report healthy while the worker cannot persist job state.
+      test: ["CMD-SHELL", "python -c \"import os,redis; from sqlalchemy import create_engine,text; e=create_engine(os.environ['DATABASE_URL']); e.connect().execute(text('SELECT 1')); redis.from_url(os.environ['REDIS_URL']).ping()\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mysql_data:
+  redis_data:

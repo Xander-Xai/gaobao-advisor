@@ -7,9 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server import __version__
+from server.admin.errors import AdminExceptionMiddleware, register_admin_error_handlers
+from server.admin.routes import router as admin_router
 from server.metrics import metrics_app, metrics_middleware
 from server.middleware.csp import CSPMiddleware
 from server.middleware.ratelimit import RateLimitMiddleware
+from server.middleware.request_id import RequestIDMiddleware
 from server.middleware.security import SecurityMiddleware
 from server.monitoring import init_sentry
 from server.report.routes import router as report_router
@@ -27,13 +30,20 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     # Fail fast: in production a missing SESSION_SECRET raises here rather than
     # later as broken session verification on the first request.
+    from server.admin.auth import ensure_admin_ready
     from server.auth import ensure_secret_ready
 
     ensure_secret_ready()
+    ensure_admin_ready()
 
     init_sentry()
 
-    from db.database import init_db
+    from db.database import IS_SQLITE, init_db
+
+    if not IS_SQLITE and os.getenv("AUTO_MIGRATE", "true").strip().lower() not in {"0", "false", "no", "off"}:
+        from db.migrate import upgrade_head
+
+        upgrade_head()
 
     init_db()
 
@@ -61,6 +71,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+register_admin_error_handlers(app)
 
 # ── CORS Configuration ────────────────────────────────────
 cors_origins_str = os.getenv("CORS_ORIGINS", "")
@@ -90,6 +102,12 @@ app.add_middleware(RateLimitMiddleware)
 # ── Prometheus Metrics Middleware ─────────────────────────
 app.middleware("http")(metrics_middleware)
 
+# ── Admin error envelope (only /api/v1/admin) ─────────────
+app.add_middleware(AdminExceptionMiddleware)
+
+# ── Request correlation ID (outermost so error bodies carry it) ──
+app.add_middleware(RequestIDMiddleware)
+
 # ── Mount Prometheus Metrics Endpoint ─────────────────────
 app.mount("/metrics", metrics_app)
 
@@ -102,6 +120,7 @@ app.include_router(data_router)
 app.include_router(knowledge_router)
 app.include_router(voice_router)
 app.include_router(report_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

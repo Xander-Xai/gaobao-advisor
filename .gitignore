@@ -12,6 +12,7 @@ logs/
 .env.production
 .env.staging
 .env.*.local
+.env.full
 .streamlit/secrets.toml
 
 # Claude Code 工作目录（含临时 worktree）

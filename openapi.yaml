@@ -1,5 +1,196 @@
 components:
   schemas:
+    AdminLoginRequest:
+      additionalProperties: false
+      properties:
+        password:
+          maxLength: 256
+          minLength: 8
+          title: Password
+          type: string
+        username:
+          maxLength: 64
+          minLength: 3
+          title: Username
+          type: string
+      required:
+      - username
+      - password
+      title: AdminLoginRequest
+      type: object
+    AdminTokenOut:
+      properties:
+        access_token:
+          title: Access Token
+          type: string
+        expires_in:
+          title: Expires In
+          type: integer
+        token_type:
+          const: bearer
+          default: bearer
+          title: Token Type
+          type: string
+        user:
+          $ref: '#/components/schemas/AdminUserOut'
+      required:
+      - access_token
+      - expires_in
+      - user
+      title: AdminTokenOut
+      type: object
+    AdminUserOut:
+      properties:
+        role:
+          enum:
+          - viewer
+          - operator
+          - admin
+          title: Role
+          type: string
+        username:
+          title: Username
+          type: string
+      required:
+      - username
+      - role
+      title: AdminUserOut
+      type: object
+    AdmissionScoreOut:
+      properties:
+        avg_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Score
+        batch:
+          title: Batch
+          type: string
+        id:
+          title: Id
+          type: integer
+        major_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Major Name
+        max_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Score
+        min_rank:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Rank
+        min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Score
+        plan_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Plan Count
+        province:
+          title: Province
+          type: string
+        subject_type:
+          title: Subject Type
+          type: string
+        year:
+          title: Year
+          type: integer
+      required:
+      - id
+      - major_name
+      - province
+      - year
+      - batch
+      - subject_type
+      - min_score
+      - avg_score
+      - max_score
+      - min_rank
+      - plan_count
+      title: AdmissionScoreOut
+      type: object
+    AuditLogOut:
+      properties:
+        action:
+          title: Action
+          type: string
+        actor:
+          title: Actor
+          type: string
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        detail:
+          additionalProperties: true
+          title: Detail
+          type: object
+        id:
+          title: Id
+          type: integer
+        outcome:
+          title: Outcome
+          type: string
+        request_id:
+          title: Request Id
+          type: string
+        resource_id:
+          title: Resource Id
+          type: string
+        resource_type:
+          title: Resource Type
+          type: string
+        role:
+          title: Role
+          type: string
+      required:
+      - id
+      - request_id
+      - actor
+      - role
+      - action
+      - resource_type
+      - resource_id
+      - outcome
+      - detail
+      - created_at
+      title: AuditLogOut
+      type: object
+    AuditPageOut:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AuditLogOut'
+          title: Items
+          type: array
+        page:
+          title: Page
+          type: integer
+        page_size:
+          title: Page Size
+          type: integer
+        pages:
+          title: Pages
+          type: integer
+        total:
+          title: Total
+          type: integer
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - pages
+      title: AuditPageOut
+      type: object
     ChatRequest:
       properties:
         message:
@@ -20,13 +211,129 @@ components:
           type: string
         slots:
           anyOf:
-          - type: object
+          - additionalProperties: true
+            type: object
           - type: 'null'
           title: Slots
       required:
       - session_id
       - message
       title: ChatRequest
+      type: object
+    EnrollmentPlanOut:
+      properties:
+        batch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Batch
+        id:
+          title: Id
+          type: integer
+        major_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Major Name
+        plan_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Plan Count
+        province:
+          title: Province
+          type: string
+        subject_requirement:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subject Requirement
+        tuition:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Tuition
+        year:
+          title: Year
+          type: integer
+      required:
+      - id
+      - major_name
+      - province
+      - year
+      - plan_count
+      - subject_requirement
+      - batch
+      - tuition
+      title: EnrollmentPlanOut
+      type: object
+    FeedbackRequest:
+      description: 用户反馈请求
+      properties:
+        feedback_text:
+          anyOf:
+          - maxLength: 2000
+            type: string
+          - type: 'null'
+          title: Feedback Text
+        message_index:
+          maximum: 10000.0
+          minimum: 0.0
+          title: Message Index
+          type: integer
+        quality_score_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Quality Score Id
+        rating:
+          pattern: ^(helpful|not_helpful)$
+          title: Rating
+          type: string
+        session_id:
+          maxLength: 64
+          minLength: 4
+          pattern: ^[a-zA-Z0-9_\-]+$
+          title: Session Id
+          type: string
+      required:
+      - session_id
+      - message_index
+      - rating
+      title: FeedbackRequest
+      type: object
+    GenerateRequest:
+      description: Request body for report generation.
+      properties:
+        session_id:
+          title: Session Id
+          type: string
+        student_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Name
+      required:
+      - session_id
+      title: GenerateRequest
+      type: object
+    GenerateResponse:
+      description: Response body for report generation.
+      properties:
+        message:
+          title: Message
+          type: string
+        report_id:
+          title: Report Id
+          type: string
+        status:
+          title: Status
+          type: string
+      required:
+      - report_id
+      - status
+      - message
+      title: GenerateResponse
       type: object
     HTTPValidationError:
       properties:
@@ -36,6 +343,31 @@ components:
           title: Detail
           type: array
       title: HTTPValidationError
+      type: object
+    HighlightExtractRequest:
+      description: 金句提取请求
+      properties:
+        content:
+          maxLength: 2000
+          minLength: 10
+          title: Content
+          type: string
+        score:
+          default: 0
+          maximum: 100.0
+          minimum: 0.0
+          title: Score
+          type: integer
+        session_id:
+          maxLength: 64
+          minLength: 4
+          pattern: ^[a-zA-Z0-9_\-]+$
+          title: Session Id
+          type: string
+      required:
+      - session_id
+      - content
+      title: HighlightExtractRequest
       type: object
     KnowledgeSearchRequest:
       properties:
@@ -83,6 +415,7 @@ components:
     OnboardingRequest:
       properties:
         data:
+          additionalProperties: true
           title: Data
           type: object
         step:
@@ -104,6 +437,7 @@ components:
           title: Missing Fields
           type: array
         profile:
+          additionalProperties: true
           title: Profile
           type: object
         session_id:
@@ -133,6 +467,517 @@ components:
       - value
       title: ProfileUpdateRequest
       type: object
+    QualityIssueOut:
+      properties:
+        entity_id:
+          title: Entity Id
+          type: integer
+        entity_type:
+          title: Entity Type
+          type: string
+        field_name:
+          title: Field Name
+          type: string
+        id:
+          title: Id
+          type: integer
+        message:
+          title: Message
+          type: string
+        rule_code:
+          title: Rule Code
+          type: string
+        severity:
+          enum:
+          - ERROR
+          - WARNING
+          - INFO
+          title: Severity
+          type: string
+        suggestion:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Suggestion
+      required:
+      - id
+      - rule_code
+      - severity
+      - entity_type
+      - entity_id
+      - field_name
+      - message
+      - suggestion
+      title: QualityIssueOut
+      type: object
+    QualityJobCreateOut:
+      properties:
+        job:
+          $ref: '#/components/schemas/QualityJobOut'
+        queue_state:
+          enum:
+          - DISPATCHED
+          - INLINE
+          - UNAVAILABLE
+          - DISABLED
+          title: Queue State
+          type: string
+        replayed:
+          default: false
+          title: Replayed
+          type: boolean
+        warning:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Warning
+      required:
+      - job
+      - queue_state
+      title: QualityJobCreateOut
+      type: object
+    QualityJobCreateRequest:
+      additionalProperties: false
+      properties:
+        filters:
+          $ref: '#/components/schemas/QualityJobFilters'
+      title: QualityJobCreateRequest
+      type: object
+    QualityJobDetailOut:
+      properties:
+        issues:
+          items:
+            $ref: '#/components/schemas/QualityIssueOut'
+          title: Issues
+          type: array
+        job:
+          $ref: '#/components/schemas/QualityJobOut'
+      required:
+      - job
+      - issues
+      title: QualityJobDetailOut
+      type: object
+    QualityJobFilters:
+      additionalProperties: false
+      properties:
+        level:
+          anyOf:
+          - maxLength: 20
+            type: string
+          - type: 'null'
+          title: Level
+        province:
+          anyOf:
+          - maxLength: 20
+            type: string
+          - type: 'null'
+          title: Province
+        school_id:
+          anyOf:
+          - minimum: 1.0
+            type: integer
+          - type: 'null'
+          title: School Id
+        subject_type:
+          anyOf:
+          - maxLength: 10
+            type: string
+          - type: 'null'
+          title: Subject Type
+        year:
+          anyOf:
+          - maximum: 2100.0
+            minimum: 2000.0
+            type: integer
+          - type: 'null'
+          title: Year
+      title: QualityJobFilters
+      type: object
+    QualityJobOut:
+      properties:
+        attempts:
+          title: Attempts
+          type: integer
+        checked_rows:
+          title: Checked Rows
+          type: integer
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+        execution_mode:
+          title: Execution Mode
+          type: string
+        filters:
+          additionalProperties: true
+          title: Filters
+          type: object
+        finished_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Finished At
+        id:
+          title: Id
+          type: integer
+        idempotency_key:
+          title: Idempotency Key
+          type: string
+        issue_count:
+          title: Issue Count
+          type: integer
+        job_type:
+          title: Job Type
+          type: string
+        max_attempts:
+          title: Max Attempts
+          type: integer
+        requested_by:
+          title: Requested By
+          type: string
+        review_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Note
+        review_status:
+          enum:
+          - PENDING_REVIEW
+          - APPROVED
+          - REJECTED
+          title: Review Status
+          type: string
+        reviewed_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Reviewed At
+        reviewed_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reviewed By
+        source_marker:
+          title: Source Marker
+          type: string
+        started_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Started At
+        status:
+          enum:
+          - PENDING
+          - RUNNING
+          - SUCCEEDED
+          - FAILED
+          title: Status
+          type: string
+        updated_at:
+          format: date-time
+          title: Updated At
+          type: string
+        version:
+          title: Version
+          type: integer
+      required:
+      - id
+      - job_type
+      - status
+      - review_status
+      - idempotency_key
+      - filters
+      - requested_by
+      - execution_mode
+      - source_marker
+      - attempts
+      - max_attempts
+      - version
+      - checked_rows
+      - issue_count
+      - error_code
+      - error_message
+      - review_note
+      - reviewed_by
+      - created_at
+      - updated_at
+      - started_at
+      - finished_at
+      - reviewed_at
+      title: QualityJobOut
+      type: object
+    QualityJobPageOut:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/QualityJobOut'
+          title: Items
+          type: array
+        page:
+          title: Page
+          type: integer
+        page_size:
+          title: Page Size
+          type: integer
+        pages:
+          title: Pages
+          type: integer
+        total:
+          title: Total
+          type: integer
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - pages
+      title: QualityJobPageOut
+      type: object
+    ReviewRequest:
+      additionalProperties: false
+      properties:
+        decision:
+          enum:
+          - APPROVED
+          - REJECTED
+          title: Decision
+          type: string
+        expected_version:
+          minimum: 0.0
+          title: Expected Version
+          type: integer
+        note:
+          default: ''
+          maxLength: 500
+          title: Note
+          type: string
+      required:
+      - decision
+      - expected_version
+      title: ReviewRequest
+      type: object
+    SchoolDetailOut:
+      properties:
+        city:
+          title: City
+          type: string
+        data_source_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Data Source Note
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        id:
+          title: Id
+          type: integer
+        is_211:
+          title: Is 211
+          type: integer
+        is_985:
+          title: Is 985
+          type: integer
+        is_double_first_class:
+          title: Is Double First Class
+          type: integer
+        latest_min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Min Score
+        latest_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Year
+        level:
+          title: Level
+          type: string
+        name:
+          title: Name
+          type: string
+        plan_count:
+          title: Plan Count
+          type: integer
+        plans:
+          items:
+            $ref: '#/components/schemas/EnrollmentPlanOut'
+          title: Plans
+          type: array
+        province:
+          title: Province
+          type: string
+        ranking:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ranking
+        school_type:
+          title: School Type
+          type: string
+        score_count:
+          title: Score Count
+          type: integer
+        scores:
+          items:
+            $ref: '#/components/schemas/AdmissionScoreOut'
+          title: Scores
+          type: array
+        special_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Special Type
+        website:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Website
+      required:
+      - id
+      - name
+      - province
+      - city
+      - level
+      - school_type
+      - ranking
+      - is_985
+      - is_211
+      - is_double_first_class
+      - special_type
+      - data_source_note
+      - score_count
+      - plan_count
+      - latest_year
+      - latest_min_score
+      - website
+      - description
+      - scores
+      - plans
+      title: SchoolDetailOut
+      type: object
+    SchoolListItem:
+      properties:
+        city:
+          title: City
+          type: string
+        data_source_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Data Source Note
+        id:
+          title: Id
+          type: integer
+        is_211:
+          title: Is 211
+          type: integer
+        is_985:
+          title: Is 985
+          type: integer
+        is_double_first_class:
+          title: Is Double First Class
+          type: integer
+        latest_min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Min Score
+        latest_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Year
+        level:
+          title: Level
+          type: string
+        name:
+          title: Name
+          type: string
+        plan_count:
+          title: Plan Count
+          type: integer
+        province:
+          title: Province
+          type: string
+        ranking:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ranking
+        school_type:
+          title: School Type
+          type: string
+        score_count:
+          title: Score Count
+          type: integer
+        special_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Special Type
+      required:
+      - id
+      - name
+      - province
+      - city
+      - level
+      - school_type
+      - ranking
+      - is_985
+      - is_211
+      - is_double_first_class
+      - special_type
+      - data_source_note
+      - score_count
+      - plan_count
+      - latest_year
+      - latest_min_score
+      title: SchoolListItem
+      type: object
+    SchoolPageOut:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/SchoolListItem'
+          title: Items
+          type: array
+        page:
+          title: Page
+          type: integer
+        page_size:
+          title: Page Size
+          type: integer
+        pages:
+          title: Pages
+          type: integer
+        total:
+          title: Total
+          type: integer
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - pages
+      title: SchoolPageOut
+      type: object
     SkipFieldRequest:
       properties:
         field:
@@ -143,6 +988,101 @@ components:
       required:
       - field
       title: SkipFieldRequest
+      type: object
+    StatsOut:
+      properties:
+        admission_scores:
+          title: Admission Scores
+          type: integer
+        audit_events:
+          title: Audit Events
+          type: integer
+        data_profile:
+          title: Data Profile
+          type: string
+        enrollment_plans:
+          title: Enrollment Plans
+          type: integer
+        issues_by_severity:
+          additionalProperties:
+            type: integer
+          title: Issues By Severity
+          type: object
+        jobs_by_status:
+          additionalProperties:
+            type: integer
+          title: Jobs By Status
+          type: object
+        jobs_total:
+          title: Jobs Total
+          type: integer
+        last_job_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Last Job At
+        majors:
+          title: Majors
+          type: integer
+        pending_review:
+          title: Pending Review
+          type: integer
+        schools:
+          title: Schools
+          type: integer
+        schools_by_level:
+          additionalProperties:
+            type: integer
+          title: Schools By Level
+          type: object
+      required:
+      - data_profile
+      - schools
+      - majors
+      - admission_scores
+      - enrollment_plans
+      - jobs_total
+      - jobs_by_status
+      - issues_by_severity
+      - schools_by_level
+      - pending_review
+      - audit_events
+      - last_job_at
+      title: StatsOut
+      type: object
+    SystemStatusOut:
+      properties:
+        admin_enabled:
+          title: Admin Enabled
+          type: boolean
+        config_source:
+          title: Config Source
+          type: string
+        database_dialect:
+          title: Database Dialect
+          type: string
+        queue_state:
+          enum:
+          - READY
+          - UNAVAILABLE
+          - DISABLED
+          title: Queue State
+          type: string
+        task_mode:
+          title: Task Mode
+          type: string
+        worker_hint:
+          title: Worker Hint
+          type: string
+      required:
+      - admin_enabled
+      - config_source
+      - database_dialect
+      - task_mode
+      - queue_state
+      - worker_hint
+      title: SystemStatusOut
       type: object
     ValidationError:
       properties:
@@ -187,9 +1127,585 @@ paths:
               schema: {}
           description: Successful Response
       summary: Root
+  /api/v1/admin/audit-logs:
+    get:
+      operationId: audit_logs_api_v1_admin_audit_logs_get
+      parameters:
+      - in: query
+        name: action
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 64
+            type: string
+          - type: 'null'
+          title: Action
+      - in: query
+        name: actor
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 64
+            type: string
+          - type: 'null'
+          title: Actor
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 100000
+          minimum: 1
+          title: Page
+          type: integer
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          title: Page Size
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditPageOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Audit Logs
+      tags:
+      - admin
+  /api/v1/admin/auth/login:
+    post:
+      operationId: login_api_v1_admin_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTokenOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Login
+      tags:
+      - admin
+  /api/v1/admin/auth/me:
+    get:
+      operationId: me_api_v1_admin_auth_me_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Me
+      tags:
+      - admin
+  /api/v1/admin/quality/jobs:
+    get:
+      operationId: quality_jobs_api_v1_admin_quality_jobs_get
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - PENDING
+            - RUNNING
+            - SUCCEEDED
+            - FAILED
+            type: string
+          - type: 'null'
+          title: Status
+      - in: query
+        name: review_status
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - PENDING_REVIEW
+            - APPROVED
+            - REJECTED
+            type: string
+          - type: 'null'
+          title: Review Status
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 100000
+          minimum: 1
+          title: Page
+          type: integer
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          title: Page Size
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityJobPageOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Quality Jobs
+      tags:
+      - admin
+    post:
+      operationId: create_quality_job_api_v1_admin_quality_jobs_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityJobCreateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityJobCreateOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Quality Job
+      tags:
+      - admin
+  /api/v1/admin/quality/jobs/{job_id}:
+    get:
+      operationId: quality_job_detail_api_v1_admin_quality_jobs__job_id__get
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema:
+          title: Job Id
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityJobDetailOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Quality Job Detail
+      tags:
+      - admin
+  /api/v1/admin/quality/jobs/{job_id}/review:
+    post:
+      operationId: review_quality_job_api_v1_admin_quality_jobs__job_id__review_post
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema:
+          title: Job Id
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityJobOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Review Quality Job
+      tags:
+      - admin
+  /api/v1/admin/schools:
+    get:
+      operationId: schools_api_v1_admin_schools_get
+      parameters:
+      - in: query
+        name: q
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 64
+            type: string
+          - type: 'null'
+          title: Q
+      - in: query
+        name: province
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 20
+            type: string
+          - type: 'null'
+          title: Province
+      - in: query
+        name: level
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 20
+            type: string
+          - type: 'null'
+          title: Level
+      - in: query
+        name: school_type
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 20
+            type: string
+          - type: 'null'
+          title: School Type
+      - in: query
+        name: has_scores
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Has Scores
+      - in: query
+        name: min_ranking
+        required: false
+        schema:
+          anyOf:
+          - maximum: 100000
+            minimum: 1
+            type: integer
+          - type: 'null'
+          title: Min Ranking
+      - in: query
+        name: max_ranking
+        required: false
+        schema:
+          anyOf:
+          - maximum: 100000
+            minimum: 1
+            type: integer
+          - type: 'null'
+          title: Max Ranking
+      - in: query
+        name: sort
+        required: false
+        schema:
+          default: id
+          enum:
+          - id
+          - name
+          - province
+          - level
+          - ranking
+          - score_count
+          title: Sort
+          type: string
+      - in: query
+        name: order
+        required: false
+        schema:
+          default: asc
+          enum:
+          - asc
+          - desc
+          title: Order
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 100000
+          minimum: 1
+          title: Page
+          type: integer
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          title: Page Size
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolPageOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Schools
+      tags:
+      - admin
+  /api/v1/admin/schools/filters:
+    get:
+      operationId: school_filters_api_v1_admin_schools_filters_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                title: Response School Filters Api V1 Admin Schools Filters Get
+                type: object
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: School Filters
+      tags:
+      - admin
+  /api/v1/admin/schools/{school_id}:
+    get:
+      operationId: school_detail_api_v1_admin_schools__school_id__get
+      parameters:
+      - in: path
+        name: school_id
+        required: true
+        schema:
+          title: School Id
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolDetailOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: School Detail
+      tags:
+      - admin
+  /api/v1/admin/stats:
+    get:
+      operationId: stats_api_v1_admin_stats_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Stats
+      tags:
+      - admin
+  /api/v1/admin/system/status:
+    get:
+      operationId: system_status_api_v1_admin_system_status_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: System Status
+      tags:
+      - admin
   /api/v1/chat:
     post:
+      description: 'Anonymous clients get a *new server-owned* session; existing sessions
+        need proof.
+
+
+        Never mint a bearer credential for an unauthenticated, caller-selected ID:
+
+        that would turn knowledge of a session ID into access to its profile.'
       operationId: chat_api_v1_chat_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
       requestBody:
         content:
           application/json:
@@ -211,9 +1727,77 @@ paths:
       summary: Chat
       tags:
       - chat
+  /api/v1/chat/feedback:
+    post:
+      description: 提交用户反馈（有帮助/没帮助）— 仅限会话所有者。
+      operationId: submit_feedback_api_v1_chat_feedback_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit Feedback
+      tags:
+      - chat
+  /api/v1/chat/highlight:
+    post:
+      description: 提取金句 — 仅限会话所有者。
+      operationId: submit_highlight_api_v1_chat_highlight_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightExtractRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit Highlight
+      tags:
+      - chat
   /api/v1/data/plans:
     get:
-      description: Query enrollment plans for a school.
+      description: Query enrollment plans for a school with cursor-based pagination.
       operationId: get_plans_api_v1_data_plans_get
       parameters:
       - description: 学校名称
@@ -244,6 +1828,27 @@ paths:
           - type: 'null'
           description: 年份
           title: Year
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -261,7 +1866,7 @@ paths:
       - data
   /api/v1/data/schools:
     get:
-      description: Search schools by name, province, or level.
+      description: Search schools by name, province, or level with cursor-based pagination.
       operationId: get_schools_api_v1_data_schools_get
       parameters:
       - description: 学校名称关键词
@@ -294,6 +1899,27 @@ paths:
           - type: 'null'
           description: 学校层次
           title: Level
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -311,7 +1937,7 @@ paths:
       - data
   /api/v1/data/scores:
     get:
-      description: Query admission scores for a school.
+      description: Query admission scores for a school with cursor-based pagination.
       operationId: get_scores_api_v1_data_scores_get
       parameters:
       - description: 学校名称
@@ -350,6 +1976,27 @@ paths:
           - type: 'null'
           description: 专业
           title: Major
+      - description: 每页数量
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          description: 每页数量
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      - description: 游标（上一页的 next_cursor）
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 游标（上一页的 next_cursor）
+          title: Cursor
       responses:
         '200':
           content:
@@ -367,7 +2014,14 @@ paths:
       - data
   /api/v1/health:
     get:
-      description: Basic liveness probe with DB status.
+      description: 'Liveness probe with DB status and optional-subsystem state.
+
+
+        ``status`` is ``ok`` only when required dependencies are healthy.
+
+        ``optional_services`` reports each optional subsystem separately so a
+
+        caller can tell "working" apart from "degraded".'
       operationId: health_check_api_v1_health_get
       responses:
         '200':
@@ -378,12 +2032,52 @@ paths:
       summary: Health Check
       tags:
       - health
+  /api/v1/health/live:
+    get:
+      description: 'Liveness probe — the process is up and serving requests.
+
+
+        Deliberately dependency-free: it must not fail because a downstream
+
+        subsystem is degraded (that is what readiness is for).'
+      operationId: liveness_api_v1_health_live_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Liveness
+      tags:
+      - health
+  /api/v1/health/ready:
+    get:
+      description: 'Readiness probe — required dependencies are usable.
+
+
+        The database is required: if it is unreachable the service is not ready
+
+        (HTTP 503). RAG is optional and reported as a degraded capability rather
+
+        than blocking readiness.'
+      operationId: readiness_api_v1_health_ready_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Readiness
+      tags:
+      - health
   /api/v1/knowledge/quotes:
     get:
-      description: 'Get expert quotes, optionally filtered by major.
+      description: 'Get knowledge quotes, optionally filtered by major.
 
 
-        Returns empty results when RAG is not configured (e.g. during tests).'
+        The public demo ships no attributed-quote corpus, so this normally returns
+
+        an empty list; that is "no quotes available", not an error.'
       operationId: get_quotes_api_v1_knowledge_quotes_get
       parameters:
       - description: 专业名称
@@ -425,7 +2119,11 @@ paths:
       description: 'Search the knowledge base for relevant content.
 
 
-        Returns empty results when RAG is not configured (e.g. during tests).'
+        Returns ``has_evidence=false`` with an empty result when the corpus is
+
+        healthy but holds nothing relevant. Returns HTTP 503 when retrieval is
+
+        disabled or broken, so a caller cannot mistake "unavailable" for "no match".'
       operationId: search_knowledge_api_v1_knowledge_search_post
       requestBody:
         content:
@@ -622,3 +2320,152 @@ paths:
       summary: Skip Field
       tags:
       - profile
+  /api/v1/report/generate:
+    post:
+      description: 'Generate a report from the user''s real conversation data.
+
+
+        Reads slots (province, score, subject, interest) for the student
+
+        profile, then scans recent AI replies to accumulate suggestions,
+
+        risks, and action items across multiple turns — not just the last one.
+
+
+        Requires the Bearer token bound to ``body.session_id`` so a caller cannot
+
+        read another session''s conversation by naming its id.'
+      operationId: generate_report_api_v1_report_generate_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Generate Report
+      tags:
+      - report
+  /api/v1/report/{report_id}:
+    get:
+      description: Return report data as a JSON dict (owner only).
+      operationId: get_report_api_v1_report__report_id__get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report
+      tags:
+      - report
+  /api/v1/report/{report_id}/cover.svg:
+    get:
+      description: Return the SVG cover image for a report (owner only).
+      operationId: get_report_cover_svg_api_v1_report__report_id__cover_svg_get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report Cover Svg
+      tags:
+      - report
+  /api/v1/report/{report_id}/html:
+    get:
+      description: Return the full HTML report page (owner only).
+      operationId: get_report_html_api_v1_report__report_id__html_get
+      parameters:
+      - in: path
+        name: report_id
+        required: true
+        schema:
+          title: Report Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Report Html
+      tags:
+      - report
