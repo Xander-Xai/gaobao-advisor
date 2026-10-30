@@ -16,12 +16,16 @@ posture is scoped accordingly.
 
 Protected:
 - Session identity (server-issued ids, HMAC-bound bearer tokens)
+- Administrator access: separate HMAC-signed tokens, role hierarchy
+  (`viewer < operator < admin`), environment-injected PBKDF2 password hashes,
+  optimistic-lock review, and redacted operation audit logs
 - Prompt-injection detection on user input
 - Output boundary rules (no fabricated data, source marking)
 - Absence of real data and credentials
 
 Explicitly **not** claimed:
-- No account system, no authentication of humans, no authorization model
+- No end-user account system; the admin surface is a small, separate RBAC
+  layer, not a full IAM/MFA product
 - No rate limiting that survives a determined attacker at scale
 - No availability or durability guarantees
 - No multi-tenant isolation guarantees
@@ -35,6 +39,11 @@ Explicitly **not** claimed:
   session id can mint that session's token.
 - Do not expose this service to the public internet as-is. There is no
   multi-tenant isolation and the dataset is synthetic anyway.
+- Generate admin credentials with `python scripts/setup_admin_env.py`; never
+  commit `.env.admin.local`. Production must set `ADMIN_TOKEN_SECRET` and must
+  not use plaintext `ADMIN_PASSWORD`.
+- The in-process login/job limiter is per-worker. A multi-worker deployment
+  should move counters to Redis; this is documented rather than claimed.
 
 ## Dependency policy
 

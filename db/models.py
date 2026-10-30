@@ -10,6 +10,16 @@ from sqlalchemy.orm import relationship
 from db.database import Base
 
 
+def _utcnow() -> datetime.datetime:
+    """Naive UTC timestamp.
+
+    SQLite stores ISO strings and MySQL DATETIME has no timezone; keeping the
+    values naive-but-UTC avoids driver-specific tz behaviour while remaining
+    unambiguous in the API layer.
+    """
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 class School(Base):
     """院校表"""
 
@@ -339,3 +349,137 @@ class CareerTrend(Base):
 
     def __repr__(self):
         return f"<CareerTrend({self.major_name}, {self.job_title}, {self.salary_median})>"
+
+
+# ── 运营后台：数据质检 / 审计 / 事务 Outbox ──
+
+
+class DataQualityJob(Base):
+    """数据质检任务 — 状态机 PENDING → RUNNING → SUCCEEDED / FAILED。"""
+
+    __tablename__ = "data_quality_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_type = Column(String(32), nullable=False, default="admission_data_quality")
+    status = Column(String(16), nullable=False, default="PENDING", index=True)
+    review_status = Column(String(24), nullable=False, default="PENDING_REVIEW", index=True)
+    idempotency_key = Column(String(80), nullable=False, unique=True)
+    filters_json = Column(Text, nullable=False, default="{}")
+    requested_by = Column(String(64), nullable=False)
+    execution_mode = Column(String(24), nullable=False, default="pending")
+    source_marker = Column(String(32), nullable=False, default="SYNTHETIC_DEMO_DATA")
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=3)
+    version = Column(Integer, nullable=False, default=0)
+    checked_rows = Column(Integer, nullable=False, default=0)
+    issue_count = Column(Integer, nullable=False, default=0)
+    error_code = Column(String(64), nullable=True)
+    error_message = Column(String(500), nullable=True)
+    review_note = Column(String(500), nullable=True)
+    reviewed_by = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    issues = relationship(
+        "DataQualityIssue",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="DataQualityIssue.id",
+    )
+
+    __table_args__ = (
+        Index("ix_dq_jobs_status_created", "status", "created_at"),
+        Index("ix_dq_jobs_review", "review_status", "created_at"),
+        Index("ix_dq_jobs_actor", "requested_by", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DataQualityJob({self.id}, {self.status}, {self.issue_count} issues)>"
+
+
+class DataQualityIssue(Base):
+    """质检任务发现的一条问题。"""
+
+    __tablename__ = "data_quality_issues"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("data_quality_jobs.id"), nullable=False, index=True)
+    rule_code = Column(String(40), nullable=False)
+    severity = Column(String(12), nullable=False, default="WARNING")
+    entity_type = Column(String(32), nullable=False)
+    entity_id = Column(Integer, nullable=False, default=0)
+    field_name = Column(String(48), nullable=False, default="")
+    message = Column(String(300), nullable=False)
+    suggestion = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
+
+    job = relationship("DataQualityJob", back_populates="issues")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "job_id",
+            "rule_code",
+            "entity_type",
+            "entity_id",
+            "field_name",
+            name="uq_quality_issue_dedup",
+        ),
+        Index("ix_dq_issues_job_severity", "job_id", "severity"),
+        Index("ix_dq_issues_rule", "job_id", "rule_code"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DataQualityIssue({self.rule_code}, {self.severity}, {self.entity_type}:{self.entity_id})>"
+
+
+class OperationAuditLog(Base):
+    """运营操作审计 — 只记录主体、动作、资源与脱敏后的上下文。"""
+
+    __tablename__ = "operation_audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(String(64), nullable=False, default="")
+    actor = Column(String(64), nullable=False)
+    role = Column(String(24), nullable=False)
+    action = Column(String(64), nullable=False)
+    resource_type = Column(String(40), nullable=False)
+    resource_id = Column(String(64), nullable=False, default="")
+    outcome = Column(String(16), nullable=False, default="SUCCESS")
+    detail_json = Column(Text, nullable=True)
+    ip_hash = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_audit_actor_created", "actor", "created_at"),
+        Index("ix_audit_action_created", "action", "created_at"),
+        Index("ix_audit_request", "request_id"),
+        Index("ix_audit_resource", "resource_type", "resource_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<OperationAuditLog({self.actor}, {self.action}, {self.outcome})>"
+
+
+class QualityTaskOutbox(Base):
+    """事务 Outbox：任务落库与投递解耦，Worker/Dispatcher 可重试。"""
+
+    __tablename__ = "quality_task_outbox"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("data_quality_jobs.id"), nullable=False, unique=True)
+    topic = Column(String(64), nullable=False, default="quality.jobs")
+    payload_json = Column(Text, nullable=False, default="{}")
+    status = Column(String(16), nullable=False, default="PENDING", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    next_attempt_at = Column(DateTime, nullable=False, default=_utcnow)
+    last_error = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
+    dispatched_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (Index("ix_outbox_status_next", "status", "next_attempt_at"),)
+
+    def __repr__(self) -> str:
+        return f"<QualityTaskOutbox(job={self.job_id}, {self.status})>"

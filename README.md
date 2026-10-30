@@ -51,6 +51,7 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 | 数据导入脚本 | 可用（自行提供数据） | `scripts/import_*.py`；第三方抓取默认关闭 |
 | FastAPI + SSE + WebSocket 语音 | 可用 | 语音默认关闭，需自备 DashScope 凭据 |
 | Vue 3 前端 | 可用 | `frontend/` |
+| **运营后台（数据 / 质检 / 审计）** | **可用** | 独立管理员 RBAC、真实 API 数据、质检任务、乐观锁审核与审计；`/admin` |
 | **知识库检索（RAG）** | **默认可用** | 随仓原创 SYNTHETIC_DEMO 合成语料；BM25 关键词检索为基础，无 Key 也能用；带来源引用与 fail-closed |
 | 联网搜索 | 关闭 | 无第三方检索授权 |
 
@@ -143,6 +144,40 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 
 ---
 
+## 运营后台（数据运营 / 质检 / 审计）
+
+`/admin` 不是健康检查面板，而是一条贯穿前后端的真实运营闭环：
+
+1. 管理员登录（独立于匿名聊天 session token）；
+2. 查看合成招生数据，按关键词/省份/层次筛选、排序、分页；
+3. 查看院校详情（录取分数 + 招生计划）；
+4. 发起数据质检任务，按 `PENDING → RUNNING → SUCCEEDED / FAILED` 查看状态；
+5. 审核质检结果（`APPROVED / REJECTED`，带乐观锁 `expected_version`）；
+6. 查看统计指标与操作审计（主体、角色、资源、请求关联 ID）。
+
+**本地启动：**
+
+```bash
+python scripts/setup_admin_env.py          # 生成 .env.admin.local（0600，已 gitignore）
+set -a; . ./.env.admin.local; set +a
+uvicorn server.main:app --reload
+cd frontend && npm run dev                 # http://localhost:3080/admin
+```
+
+脚本会打印一次性用户名/密码；不要把 `.env.admin.local` 提交到仓库。
+
+**鉴权边界：**
+
+* 管理员 token 使用独立的 `ADMIN_TOKEN_SECRET` 签名，载荷包含 `sub/role/exp/aud=gaobao-admin`；
+* 匿名聊天 token 无法访问 `/api/v1/admin/*`；管理员 token 也无法读取聊天 session 数据；
+* 角色层级 `viewer < operator < admin`：只读 / 创建任务 / 审核 + 审计；
+* 生产环境配置了管理员但缺少 `ADMIN_TOKEN_SECRET` 时**启动失败**；未配置管理员则后台拒绝所有请求（fail-closed）；禁止在 production 使用明文 `ADMIN_PASSWORD`；
+* 审计详情落库前会脱敏手机号、身份证、邮箱、姓名与 token。
+
+**质检任务模式：** `QUALITY_TASK_MODE=auto|async|inline|disabled`。`auto` 优先 Redis + Worker；开发环境 Redis 不可用时显式内联执行并标记 `execution_mode=inline_degraded`。`async` 模式下 Redis 不可用会返回 `202 + PENDING + warning`，不会伪造成功。
+
+---
+
 ## 安全规则资产（fail-closed）
 
 `safety_rules.md` 是原创编写的通用咨询安全约束（不编造数据、标注来源、
@@ -192,7 +227,7 @@ flowchart LR
 
 | 层 | 技术 |
 |---|---|
-| 前端 | Vue 3 + Pinia + Vue Router + Tailwind CSS + Vite |
+| 前端 | Vue 3 + **TypeScript（新后台模块）** + Pinia + Vue Router + Tailwind CSS + Vite |
 | API | FastAPI + Pydantic + SSE + WebSocket |
 | Agent 编排 | LangGraph StateGraph |
 | 数据库 | SQLite + SQLAlchemy |
@@ -251,12 +286,13 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1010 passed / 1 skipped**，覆盖率 **80.69%**（门禁 70%）|
+| `pytest tests` | **1059 passed / 1 skipped**，覆盖率 **80.68%**（门禁 70%）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
-| `vitest run`（frontend）| **11 files / 64 tests passed**；`npm run build` 通过 |
+| `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
+| `vitest run`（frontend）| **14 files / 85 tests passed**；`npm run build` 通过 |
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
 > `docker run` 后 `curl` 的真实健康检查结果。
@@ -279,7 +315,8 @@ server/
   report/              报告生成路由
   graph/               LangGraph 编排与 17 个节点
   services/            rag / kb_retriever / quality / llm_router ...
-  middleware/          CSP、限流、注入检测
+  middleware/          CSP、限流、注入检测、请求关联 ID
+  admin/               管理员鉴权/RBAC、运营查询、质检任务、审计、Worker
 db/                    SQLAlchemy 模型与会话
 skills/gaokao/         SkillService（fail-closed）+ 原创安全规则与启发式
 quality/               质量与幻觉检查
@@ -287,8 +324,8 @@ legacy/                数据查询适配层
 scrapers/              数据采集器（默认不发起外部请求）
 scripts/               数据导入脚本 + seed_demo_data.py
 knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
-frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin 四个视图）
-tests/                 单元与验收测试（1010 passed / 1 skipped）
+frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin；后台模块使用 TypeScript）
+tests/                 单元与验收测试（1059 passed / 1 skipped）
 ```
 
 ---
