@@ -1,0 +1,198 @@
+# 海博特全栈演示与源码讲解手册
+
+> 目标：3 分钟能演示，5 分钟能讲源码，10 个追问能各用 60 秒回答。
+> 数据全部为 `SYNTHETIC_DEMO`，不用于真实志愿决策。
+
+## 0. 环境与分支
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `https://github.com/Xander-Xai/gaobao-advisor` |
+| 基线 | `master@65bdb40` |
+| Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
+| Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
+| Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
+| 本地实测 | Python 3.11 / SQLite；`pytest` 1072 passed / 8 skipped；`vitest` 85 tests |
+
+## 1. 三分钟演示路径
+
+### 1.1 启动（无 Key、无外部服务）
+
+```bash
+python scripts/setup_admin_env.py          # 打印一次密码，写 .env.admin.local（0600）
+set -a; . ./.env.admin.local; set +a
+python -m scripts.seed_demo_data --db data/demo.db --reset
+uvicorn server.main:app --reload
+# 另一个终端
+cd frontend && npm run dev                 # http://localhost:3080/admin
+```
+
+### 1.2 演示动作（按顺序）
+
+1. 打开 `/admin`，用脚本打印的 `operator` 登录 → 顶部显示角色、统计卡片。
+2. “招生数据”页：关键词/省份/层次筛选，切换排序与分页 → 数据来自
+   `GET /api/v1/admin/schools`，不是 Mock。
+3. 点“详情” → 看录取分数与招生计划（`/schools/{id}`）。
+4. 切“质检任务” → 选择省份 → “创建质检任务” → 当前无 Redis 时显式内联执行，
+   页面显示 `SUCCEEDED` 与问题清单；若 Redis 异步模式则显示 `PENDING/RUNNING` 并轮询。
+5. 用 `admin` 账号登录（或把 `.env.admin.local` 的角色改为 admin）→ 打开任务详情 →
+   填写审核备注 → “审核通过” → 审计页出现 `quality_job.reviewed`。
+6. 数据库验证：
+
+```bash
+sqlite3 data/demo.db "select id,status,review_status,issue_count from data_quality_jobs;"
+sqlite3 data/demo.db "select actor,action,resource_id from operation_audit_logs order by id desc limit 5;"
+```
+
+7. 讲一句边界：这是会话能力令牌之外的独立管理员 RBAC；生产缺
+   `ADMIN_TOKEN_SECRET` 会启动失败；Redis 不可用不会返回假成功。
+
+## 2. 五分钟源码讲解路径
+
+| 顺序 | 文件 | 讲什么 |
+|---|---|---|
+| 1 | `server/main.py` | 8+1 路由挂载、lifespan 中 `ensure_secret_ready` / `ensure_admin_ready` / MySQL 迁移、错误信封、RequestID 中间件 |
+| 2 | `server/admin/auth.py` | 独立 token 域（`aud=gaobao-admin`）、PBKDF2、角色层级、生产 fail-closed、聊天 token 不可互换 |
+| 3 | `server/admin/routes.py` | 依赖注入执行 RBAC、Pydantic 入参、登录/任务限流、HTTP 状态码（201/202/200/409/503） |
+| 4 | `server/admin/service.py` | 业务编排：模式选择、Outbox 投递、内联降级、真实状态，不把逻辑塞进路由 |
+| 5 | `server/admin/repository.py` | 查询/分页/事务/审计；`create_job_with_outbox` 同事务；`claim_job` 原子抢占；`review_job` 乐观锁 |
+| 6 | `db/models.py` | 4 张新表、索引、唯一约束、状态字段、外键 |
+| 7 | `server/admin/queue.py` + `worker.py` | Redis List、Outbox 重试、幂等 claim、失败/重试/租约恢复 |
+| 8 | `db/database.py` + `db/migrate.py` + `migrations/` | SQLite/MySQL 方言隔离、URL 白名单、Alembic 版本化 |
+| 9 | `frontend/src/stores/admin.ts` + `api/admin.ts` + `types/admin.ts` | 类型化 DTO、`{data,error}` 错误映射、状态机、轮询 |
+| 10 | `frontend/src/views/AdminView.vue` + `components/admin/*` | 登录/数据/质检/审计四块、Loading/Empty/Error/Retry、可访问性 |
+| 11 | `tests/test_admin_*.py` / `frontend/**/__tests__/admin*` | 401/403/404/409/422、幂等、回滚、Worker、漂移测试 |
+
+## 3. 十个可能追问（每个 60 秒口述）
+
+### Q1. 为什么不直接复用聊天 session token 做管理员鉴权？
+
+聊天 token 是 `HMAC(SESSION_SECRET, session_id)`，只证明“你拥有这个匿名会话”，
+没有账号、角色、过期时间。复用会造成权限提升。我们新增 `ADMIN_TOKEN_SECRET`，
+token 载荷带 `aud=gaobao-admin/sub/role/iat/exp/jti`，签名输入不同，二者不可互换；
+`ADMIN_USERS_JSON` 从环境注入，密码 PBKDF2。测试见
+`tests/test_admin_auth.py::test_chat_session_token_is_not_an_admin_token`。
+代码：`server/admin/auth.py`。
+
+### Q2. RBAC 和 fail-closed 具体怎么落地？
+
+角色层级 `viewer < operator < admin`：读接口 viewer+，创建任务 operator+，审核/审计
+admin。FastAPI 依赖 `require_role(minimum)` 在后端执行，前端隐藏按钮只是 UX。
+未配置管理员时后台返回 503；生产显式启用但缺 `ADMIN_TOKEN_SECRET` 或使用明文
+`ADMIN_PASSWORD` 时启动失败。测试：`test_production_requires_separate_token_secret`、
+`test_operator_cannot_review`、`test_viewer_cannot_create_quality_job`。
+
+### Q3. 创建任务和入队如何保证一致性？
+
+先把 `data_quality_jobs`、`quality_task_outbox`、`operation_audit_logs` 放在同一事务
+提交，提交后再投递 Redis；投递失败不会丢任务，Outbox 保持 PENDING 并退避重试。
+Worker 也会周期性 dispatch Outbox。这样避免“队列成功、数据库失败”的孤儿任务。
+代码：`server/admin/repository.py::create_job_with_outbox`、
+`server/admin/service.py::_publish_with_session`、`server/admin/queue.py::dispatch_outbox`。
+测试：`TestOutboxDispatch`、`test_unexpected_error_rolls_back_and_returns_envelope`。
+
+### Q4. 重复提交和并发审核怎么处理？
+
+创建任务要求 `Idempotency-Key`，数据库唯一约束；同 key 同过滤条件回放 200，不同过滤
+条件返回 409 `IDEMPOTENCY_CONFLICT`。审核用 `expected_version` 做乐观锁，条件
+`UPDATE ... WHERE version=? AND status='SUCCEEDED' AND review_status='PENDING_REVIEW'`，
+rowcount=0 返回 409，避免后写覆盖先写。测试：
+`test_same_idempotency_key_replays_same_job`、`test_stale_version_conflicts`。
+代码：`repository.py::review_job`。
+
+### Q5. Redis 不可用时会不会假成功？
+
+不会。`QUALITY_TASK_MODE=async` 且无 Redis 时返回 `202 + PENDING + warning`，
+任务真实状态是 PENDING，不返回 SUCCEEDED；`auto` 模式在开发环境显式内联执行并标记
+`execution_mode=inline_degraded`；`disabled` 返回 503。测试：
+`test_async_mode_without_redis_does_not_fake_success`、
+`test_queue_failure_keeps_job_pending`。代码：`server/admin/service.py`。
+
+### Q6. Worker 的重试、幂等和崩溃恢复怎么做？
+
+Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原子 claim，
+重复消息因状态守卫被跳过；可重试错误回到 PENDING 并重新武装 Outbox，最多 3 次；
+永久错误立即 FAILED。RUNNING 超过租约由 `requeue_stale_running` 回收并记录
+`WORKER_LEASE_EXPIRED`。测试：`TestWorker` 全部用例，真实 Redis 见
+`tests/test_redis_worker.py`。代码：`server/admin/worker.py`、`repository.claim_job`。
+
+### Q7. MySQL 支持和 SQLite 怎么隔离？迁移范围是什么？
+
+`DATABASE_URL` 白名单只允许 sqlite/mysql/mysql+pymysql，非法 scheme 直接失败；
+`mysql://` 规范化为 PyMySQL。WAL PRAGMA、`check_same_thread`、文件权限只对 SQLite
+执行；MySQL 用 `pool_pre_ping/pool_recycle/utf8mb4/connect_timeout`。迁移用 Alembic，
+`python -m db.migrate`，初始 revision 只覆盖新增 4 表；14 张历史表的生产迁移不在本轮
+范围，full profile 的演示数据由 seed 的 create_all 引导，文档明确标注。代码：
+`db/database.py`、`db/migrate.py`、`migrations/`；测试：`test_database_modes.py`、
+`test_migrations.py`。MySQL 真实运行测试因本机镜像拉取超时 BLOCKED。
+
+### Q8. TypeScript 是渐进式还是重写？
+
+渐进式。没有重写聊天/SSE/报告模块；新增 `tsconfig.json`、`env.d.ts` 和
+`vue-tsc --noEmit`，只把后台模块改成 `<script setup lang="ts">`，DTO 放在
+`types/admin.ts`，API 错误映射在 `api/admin.ts`。`npm test` 先跑 typecheck，现有 CI
+无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 85 tests。
+
+### Q9. 审计和隐私怎么保证不泄漏凭据？
+
+审计只写主体、角色、动作、资源、request_id、结果和脱敏后的 detail；写入前递归处理
+姓名、手机号、身份证、邮箱、token、`sk-` key；请求头 `X-Request-ID` 与审计关联。
+密码/密钥不进入审计；错误消息也做 URL 密码脱敏。测试：`test_admin_privacy.py`、
+`test_unexpected_error_rolls_back_and_returns_envelope`。代码：
+`server/admin/privacy.py`、`repository.record_audit`。
+
+### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
+
+Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/422、幂等、
+回滚、乐观锁、Worker 重试/租约、Alembic、MySQL DDL/URL、真实 Redis；前端 85 tests
+覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。未做到：MySQL 真实运行
+（镜像拉取 BLOCKED）、full compose 运行（依赖 MySQL）、workflow 文件修改（gh token 缺
+`workflow` scope）、生产容量/SLA。CI 现有 lint/test/secret/security/frontend/container
+门禁仍保留。
+
+## 4. 设计取舍（ADR）
+
+- `ADR-007`：独立管理员 token 而非复用 session；Bearer 而非 Cookie；进程内限流的
+  代价；审计脱敏。
+- `ADR-008`：SQLite 默认 + MySQL opt-in；Alembic 只覆盖新表；Redis List + Outbox；
+  Worker 失败语义；full compose 边界。
+
+## 5. 未实现边界（必须能说出口）
+
+1. MySQL 14 张历史表的生产级迁移未完成；只保证新增 4 表 + 演示查询路径。
+2. MySQL 真实运行测试 BLOCKED（本机 Docker Hub 拉取超时），不能声称 PASS。
+3. full compose 未在本机端到端启动（缺 MySQL 镜像）；Redis + Worker 已用真实 Redis 验证。
+4. GitHub Actions 未新增 MySQL/Redis/admin smoke job（token 缺 `workflow` scope）；
+   现有 CI 仍执行 pytest/vitest/typecheck/build/安全/容器门禁。
+5. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
+6. 前端 token 存在 `sessionStorage`，仍受 XSS 影响；未引入 CSP 之外的更强隔离。
+7. 没有 OCR、GCP、临床方案、医疗文本经验；这些标记 `NOT_APPLICABLE`，不在高考项目伪造。
+8. 没有生产容量、并发、SLA、真实 RAG 质量结论。
+
+## 6. 最终 JD 验收表
+
+| JD 能力 | 原仓能力 | 新增实现 | 代码证据 | 测试证据 | 验收状态 |
+|---|---|---|---|---|---|
+| Vue 3 / 组件化 | 四视图 + Pinia + Router | 运营后台四块组件 | `frontend/src/components/admin/*` | `AdminView.spec.ts` | **PASS** |
+| TypeScript | 无 | `tsconfig` + `vue-tsc` + 类型化后台 | `frontend/tsconfig.json`、`types/admin.ts`、`api/admin.ts` | `npm test`（含 typecheck） | **PASS** |
+| 管理/运营后台 | 仅健康检查 | 数据筛选/分页/详情/任务/审核/审计/统计 | `AdminView.vue`、`server/admin/routes.py` | pytest + vitest | **PASS** |
+| 数据可视化 | 无 | 状态/严重度/学历层次 CSS 柱状图 | `AdminStatsCards.vue` | AdminView.spec | **PASS** |
+| Python/FastAPI | 已有 | 分层 admin API + 错误码 + RequestID | `server/admin/*`、`server/main.py` | `test_admin_*.py` | **PASS** |
+| MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`；运行测试 4 skipped | **PARTIAL**（运行 BLOCKED） |
+| Redis / 消息队列 | 仅 RAG 缓存 | Redis List + Outbox + Worker | `server/admin/queue.py`、`worker.py` | 真实 Redis 3 passed + 单元测试 | **PASS** |
+| 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、租约 | `worker.py`、`repository.py` | `TestWorker` | **PASS** |
+| 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | compose config + Redis 集成 | **PARTIAL**（full compose 未跑通） |
+| 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
+| 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
+| 隐私脱敏 | 无 | 姓名/手机/证件/邮箱/token 脱敏 | `server/admin/privacy.py` | `test_admin_privacy.py` | **PASS** |
+| 测试/CI | 已有 1010 pytest | 新增 61+ pytest、85 vitest、typecheck | `tests/`、`frontend/**/__tests__` | 全量运行 | **PASS**（新增集成 job BLOCKED） |
+| 性能优化 | cursor 分页 | 质检 N+1 批量化 7.1× + 索引验证 | `quality.py`、`benchmark_admin_queries.py` | `performance.md` | **PASS**（本机测量） |
+| AI Coding 证据 | 无 | 需求→失败→修复→Review→验证记录 | `ai-coding-evidence.md` | 文档内命令 | **PASS** |
+| OCR / 医疗 GCP | 无 | 不在本项目伪造 | — | — | **NOT_APPLICABLE** |
+| 生产 SLA/容量 | 未做 | 明确不声称 | `performance.md` | — | **NOT_RUN** |
+
+## 7. 一句话总结
+
+这条演示的价值不是“页面很多”，而是：**一个写操作如何穿过 Vue 类型层、FastAPI
+鉴权、业务服务、ORM 事务、Outbox、Redis/Worker、乐观锁审核和审计，并且在 Redis/
+MySQL/凭据缺失时都不撒谎。**

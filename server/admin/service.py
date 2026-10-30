@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from server.admin import repository
 from server.admin.errors import AdminError
 from server.admin.queue import QueueUnavailable, get_queue, queue_state
+from server.metrics import record_admin_queue_unavailable
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ def _publish_with_session(session: Session, job_id: int, queue) -> bool:
         queue.enqueue(job_id)
     except QueueUnavailable as exc:
         repository.mark_outbox_failed(session, job_id, str(exc))
+        record_admin_queue_unavailable()
         return False
     repository.mark_outbox_dispatched(session, job_id)
     return True
@@ -82,6 +84,7 @@ def create_quality_job(
     if mode == "async":
         queue = get_queue()
         if queue is None:
+            record_admin_queue_unavailable()
             return {
                 "job": repository.serialize_job(job),
                 "replayed": False,

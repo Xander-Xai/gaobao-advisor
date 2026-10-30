@@ -1,7 +1,7 @@
 PYTHON ?= $(shell command -v python3 || command -v python)
 
 .PHONY: install install-dev install-legacy-admin test test-cov test-admin lint lint-fix format \
-        typecheck run run-api run-worker admin-env audit-deps lock clean help
+        typecheck smoke-admin run run-api run-worker admin-env audit-deps lock clean help
 
 help:  ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -29,6 +29,9 @@ typecheck:  ## 前端 TypeScript 类型检查
 
 admin-env:  ## 生成本地管理员凭据（.env.admin.local，已 gitignore）
 	$(PYTHON) scripts/setup_admin_env.py
+
+smoke-admin:  ## 一键验证后台登录/查询/质检/审核/审计（临时 SQLite）
+	$(PYTHON) scripts/admin_smoke.py
 
 lint:  ## 检查代码质量
 	ruff check .

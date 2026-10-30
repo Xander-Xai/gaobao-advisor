@@ -322,7 +322,7 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1071 passed / 8 skipped**，覆盖率 **80.71%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1072 passed / 8 skipped**，覆盖率 **80.78%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
@@ -402,6 +402,7 @@ tests/                 单元与验收测试（1059 passed / 1 skipped）
 - **面试演示：** [TUTORIAL.md 的「面试演示脚本」](TUTORIAL.md#面试演示脚本可复现面向-rag--agent-岗位) 给出从槽位抽取到 SSE 输出、会话鉴权与证据/无证据差异的可复现命令，并注明每一点对应的源码/测试。
 - **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
 - **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+- **面试/验收材料：** [3 分钟演示与 10 个追问](docs/interview-readiness/haibote-fullstack-demo.md) · [JD 能力矩阵](docs/interview-readiness/haibote-gap-matrix.md) · [性能与恢复](docs/interview-readiness/performance.md) · [AI 开发证据](docs/interview-readiness/ai-coding-evidence.md)。
 - **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)。
 - **RAG 演示与健康检查：** [docs/rag-demo.md](docs/rag-demo.md)。
 
