@@ -38,7 +38,12 @@ async def lifespan(app: FastAPI):
 
     init_sentry()
 
-    from db.database import init_db
+    from db.database import IS_SQLITE, init_db
+
+    if not IS_SQLITE and os.getenv("AUTO_MIGRATE", "true").strip().lower() not in {"0", "false", "no", "off"}:
+        from db.migrate import upgrade_head
+
+        upgrade_head()
 
     init_db()
 
