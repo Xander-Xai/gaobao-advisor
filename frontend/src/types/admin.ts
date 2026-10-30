@@ -1,0 +1,195 @@
+export type AdminRole = 'viewer' | 'operator' | 'admin'
+
+export type JobStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+export type ReviewStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+export type Severity = 'ERROR' | 'WARNING' | 'INFO'
+export type QueueState = 'READY' | 'UNAVAILABLE' | 'DISABLED'
+export type CreateQueueState = 'DISPATCHED' | 'INLINE' | 'UNAVAILABLE' | 'DISABLED'
+
+export interface AdminUser {
+  username: string
+  role: AdminRole
+}
+
+export interface AdminTokenResponse {
+  access_token: string
+  token_type: 'bearer'
+  expires_in: number
+  user: AdminUser
+}
+
+export interface Page<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface SchoolListItem {
+  id: number
+  name: string
+  province: string
+  city: string
+  level: string
+  school_type: string
+  ranking: number | null
+  is_985: number
+  is_211: number
+  is_double_first_class: number
+  special_type: string | null
+  data_source_note: string | null
+  score_count: number
+  plan_count: number
+  latest_year: number | null
+  latest_min_score: number | null
+}
+
+export interface AdmissionScoreItem {
+  id: number
+  major_name: string | null
+  province: string
+  year: number
+  batch: string
+  subject_type: string
+  min_score: number | null
+  avg_score: number | null
+  max_score: number | null
+  min_rank: number | null
+  plan_count: number | null
+}
+
+export interface EnrollmentPlanItem {
+  id: number
+  major_name: string | null
+  province: string
+  year: number
+  plan_count: number | null
+  subject_requirement: string | null
+  batch: string | null
+  tuition: number | null
+}
+
+export interface SchoolDetail extends SchoolListItem {
+  website: string | null
+  description: string | null
+  scores: AdmissionScoreItem[]
+  plans: EnrollmentPlanItem[]
+}
+
+export interface FilterOptions {
+  provinces: string[]
+  levels: string[]
+  school_types: string[]
+}
+
+export interface SchoolQuery {
+  q?: string
+  province?: string
+  level?: string
+  school_type?: string
+  has_scores?: boolean
+  sort?: 'id' | 'name' | 'province' | 'level' | 'ranking' | 'score_count'
+  order?: 'asc' | 'desc'
+  page?: number
+  page_size?: number
+}
+
+export interface QualityIssue {
+  id: number
+  rule_code: string
+  severity: Severity
+  entity_type: string
+  entity_id: number
+  field_name: string
+  message: string
+  suggestion: string | null
+}
+
+export interface QualityJob {
+  id: number
+  job_type: string
+  status: JobStatus
+  review_status: ReviewStatus
+  idempotency_key: string
+  filters: Record<string, string | number | boolean | null>
+  requested_by: string
+  execution_mode: string
+  source_marker: string
+  attempts: number
+  max_attempts: number
+  version: number
+  checked_rows: number
+  issue_count: number
+  error_code: string | null
+  error_message: string | null
+  review_note: string | null
+  reviewed_by: string | null
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  finished_at: string | null
+  reviewed_at: string | null
+}
+
+export interface QualityJobDetail {
+  job: QualityJob
+  issues: QualityIssue[]
+}
+
+export interface QualityJobCreateResult {
+  job: QualityJob
+  replayed: boolean
+  queue_state: CreateQueueState
+  warning: string | null
+}
+
+export interface JobQuery {
+  status?: JobStatus
+  review_status?: ReviewStatus
+  page?: number
+  page_size?: number
+}
+
+export interface AuditLog {
+  id: number
+  request_id: string
+  actor: string
+  role: string
+  action: string
+  resource_type: string
+  resource_id: string
+  outcome: string
+  detail: Record<string, unknown>
+  created_at: string
+}
+
+export interface Stats {
+  data_profile: string
+  schools: number
+  majors: number
+  admission_scores: number
+  enrollment_plans: number
+  jobs_total: number
+  jobs_by_status: Record<string, number>
+  issues_by_severity: Record<string, number>
+  schools_by_level: Record<string, number>
+  pending_review: number
+  audit_events: number
+  last_job_at: string | null
+}
+
+export interface SystemStatus {
+  admin_enabled: boolean
+  config_source: string
+  database_dialect: string
+  task_mode: string
+  queue_state: QueueState
+  worker_hint: string
+}
+
+export interface ReviewPayload {
+  decision: 'APPROVED' | 'REJECTED'
+  note: string
+  expected_version: number
+}
