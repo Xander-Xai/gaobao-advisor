@@ -14,7 +14,7 @@ decided it, why, and what would close it.
 |---|---|---|---|
 | **Runtime** | `requirements.txt` → `requirements.lock` | what the Docker image installs and what the public demo runs | **zero known vulnerabilities** — `pip-audit` must report "No known vulnerabilities found" |
 | **Reviewed pins** | `requirements.lock.constraints` | the exact versions of the runtime set that were installed, tested and audited | changes only on purpose, never by a plain re-resolve |
-| **Optional / legacy** | `requirements-legacy-admin.txt` → `requirements-legacy-admin.lock` | the local operator dashboard (`legacy/admin.py`), which needs Streamlit | not shipped, not in CI, not installed by `pip install -e .`; audited separately with the explicit exception list in §3 |
+| **Optional / legacy** | `requirements-legacy-admin.txt` → `requirements-legacy-admin.lock` | the local operator dashboard (`legacy/admin.py`), which needs Streamlit | not shipped, not installed by `pip install -e .`; audited separately. E-001 is closed (pillow 13.0.0), so the audit has no ignore list. |
 
 Regenerate the runtime lock with:
 
@@ -94,21 +94,21 @@ keeps the lock installable on the whole supported Python range.
 
 ## 3. Exception register
 
-### E-001 — `pillow` in the optional legacy admin dependency set
+### E-001 — `pillow` in the optional legacy admin dependency set — **CLOSED 2026-10-31**
 
 | Field | Value |
 |---|---|
 | Scope | `requirements-legacy-admin.lock` only. **Not** in `requirements.lock`, **not** in the image, **not** in CI's test job. |
-| Package | `pillow` 12.3.0 (pulled in by `streamlit==1.66.0`) |
-| Advisories | `CVE-2026-112395`, `CVE-2026-112397`, `CVE-2026-112400`, `CVE-2026-112404`, `CVE-2026-112895`, `CVE-2026-112896`, `CVE-2026-112897`, `CVE-2026-112899` |
-| Why not fixed | Streamlit pins `pillow<13`; `pillow` 13.0.0 is the only fixed release and requires Python ≥ 3.11. There is no released Streamlit that permits it. |
-| Why acceptable | The set is optional, never installed by default, never in the image, never in CI, and the dashboard is a local operator tool for a private data environment. All eight advisories are image-parsing issues (OOB read / DoS in GIF, TIFF and PDF decoders); the dashboard renders HTML/SVG charts from local SQLite tables and accepts no user-supplied images. |
-| Enforcement | CI audits `requirements-legacy-admin.lock` with exactly these eight IDs ignored. **Any new advisory in that set fails the build**, so the exception cannot silently widen. |
-| Closes when | Streamlit releases a version that permits `pillow>=13`, **or** the legacy dashboard is removed (see `OWNER_DECISION` D-1 below). |
+| Before | `pillow` 12.3.0 (pulled in by `streamlit==1.66.0`, which pinned `pillow<13`) |
+| Resolution | `streamlit==1.66.1` permits `pillow<14`; the legacy lock now pins **`pillow==13.0.0`**. |
+| Advisories closed | `CVE-2026-112395`, `-112397`, `-112400`, `-112404`, `-112895`, `-112896`, `-112897`, `-112899`, plus the later Pillow 12.3.0 advisories reported by `pip-audit` (31 total, fix version 13.0.0). |
+| Enforcement | CI audits `requirements-legacy-admin.lock` with **no ignore list**. Any advisory fails the build. |
+| Python floor | Pillow 13 requires Python ≥ 3.11; the legacy operator set therefore needs Python 3.11+. The runtime/test matrix is unchanged. |
 | Owner | repository maintainer |
 
-The ignore list lives in `.github/workflows/ci.yml` next to the step that uses
-it, so it is visible in the same place as the decision.
+The legacy set remains optional and is not installed by default or shipped in
+the image. `streamlit==1.66.1` is the only lock change; all other legacy pins
+are unchanged.
 
 ---
 
@@ -133,12 +133,10 @@ Option B removes a local operator capability, so it is a product decision and is
 
 ### D-2 — Python 3.10 support
 
-`pillow` 13.0.0 requires Python ≥ 3.11, so any future dependency that needs it
-on Python 3.10 will force a floor change. Today nothing in the runtime set
-does, and `requirements.lock` was already a Python 3.11 set before this change
-(it pins `numpy==2.4.6`, which requires ≥ 3.11). `pyproject.toml` still
-declares `requires-python = ">=3.10"`, and the CI test matrix still runs
-3.10 and 3.11 — that path installs from `pyproject.toml`, not from the lock.
+`pillow` 13.0.0 requires Python ≥ 3.11. The **legacy admin** set now requires
+Python 3.11+; the runtime and test matrix are unchanged. `pyproject.toml` still
+declares `requires-python = ">=3.10"`, and CI still tests 3.10 and 3.11 from
+`pyproject.toml`, not from the lock.
 
-If the maintainer wants the lock usable on Python 3.10, that is a separate
-decision with its own compatibility check.
+If the maintainer wants the legacy lock usable on Python 3.10, that is a
+separate decision with its own compatibility check.

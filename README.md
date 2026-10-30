@@ -342,6 +342,7 @@ ruff check . && ruff format --check .
 | `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；异步任务、审核、审计、Redis 故障恢复通过 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
 | gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key

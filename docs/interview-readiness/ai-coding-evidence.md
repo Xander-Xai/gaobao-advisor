@@ -125,6 +125,16 @@ cd frontend && npm test -- --run && npm run build
 - 证据：`npm audit --omit=dev --audit-level=high` → **0 vulnerabilities**；
   `vue-tsc` + 86 tests + build 仍通过。
 
+### Bug 11：可选 legacy admin 依赖集触发 Pillow 公告
+
+- 现象：CI Security Audit 在 `requirements-legacy-admin.lock` 上报 Pillow 12.3.0
+  的 31 个公告（旧 workflow 仅忽略 8 个）。
+- 定位：Streamlit 1.66.0 固定 `pillow<13`；但 1.66.1 已放宽为 `pillow<14`。
+- 修复：升级 `streamlit==1.66.1` + `pillow==13.0.0`，移除历史 ignore 列表；
+  legacy 集要求 Python 3.11+，运行时集不变。
+- 证据：`pip-audit -r requirements-legacy-admin.lock` → **No known vulnerabilities**；
+  CI Security Audit 重新运行通过。
+
 ### 未解决/环境阻塞
 
 - GitHub Actions 新增 MySQL/Redis service job：当前 `gh` token 缺 `workflow` scope，
@@ -162,6 +172,7 @@ cd frontend && npm test -- --run && npm run build
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
 | gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
 | GitHub Actions | 现有门禁保留；未新增 MySQL/Redis service job（token 缺 workflow scope） |
 
