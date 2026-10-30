@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": [
+    "src/api/admin.ts",
+    "src/api/__tests__/admin.test.ts",
+    "src/views/AdminView.vue",
+    "src/views/__tests__/AdminView.spec.ts"
+  ]
+}
