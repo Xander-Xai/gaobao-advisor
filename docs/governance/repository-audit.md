@@ -16,8 +16,8 @@
 | Closed issues | #10, #22, #24 |
 | Remote branches | 1 (`master`) + archive tag |
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
-| Branch protection | **none** (`GET /branches/master/protection` → 404) |
-| Required checks | **none configured** (no branch protection) |
+| Branch protection | **ENABLED** on `master` (required checks, no force/delete, admins enforced) |
+| Required checks | 9: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution |
 | Latest master CI | **SUCCESS** (`4d05916`, run 41120768687) |
 | PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
 | PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
@@ -95,9 +95,9 @@ re-verified and commented with current master evidence; they remain closed.
 - PR #35 branch already contains `streamlit 1.66.1 + pillow 13.0.0`,
   `dompurify 3.4.17`, production Compose credential tests, MySQL/Redis/admin
   integration job, and the earlier reliability compensation.
-- Required checks/branch protection: **none** (verified 404). This remains a
-  governance gap; CI success is the only merge gate. No protection rule was
-  bypassed.
+- Required checks/branch protection: **ENABLED** on 2026-10-31 with the 9 CI
+  jobs, `strict=true`, `enforce_admins=true`, no force push, no branch deletion,
+  conversation resolution required. No protection rule was bypassed.
 - No real secrets are committed; `.env*` production files are gitignored.
 
 ## 5. Action log
@@ -112,6 +112,7 @@ re-verified and commented with current master evidence; they remain closed.
 | Phase 4 | branch cleanup | 6 remote branches deleted; archive tag pushed; only `master` remains |
 | Phase 5 | issue governance | #36–#40 created; #10/#22/#24 re-verified/commented |
 | Phase 7 | final master verification | pytest 1085/14, coverage 81.11%; frontend 86; integration 13; CI success 41120768687 |
+| Phase 7 | branch protection | enabled on `master`: 9 required checks, strict, enforce admins, no force/delete |
 
 ## 6. Rollback and safety
 
