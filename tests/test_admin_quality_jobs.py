@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import uuid
 
 import pytest
@@ -352,6 +353,70 @@ class TestReviewAndAudit:
             assert session.query(DataQualityJob).count() == 0
             assert session.query(QualityTaskOutbox).count() == 0
             assert session.query(OperationAuditLog).count() == 0
+        finally:
+            session.close()
+
+
+class TestDeliveryCrashWindow:
+    """BRPOP removes the message before claim_job; recover that lost-delivery state."""
+
+    def _create_dispatched_but_unclaimed(self, session, key: str) -> int:
+        job, _ = repository.create_job_with_outbox(
+            session,
+            filters={},
+            idempotency_key=key,
+            actor="operator",
+            role="operator",
+            request_id="req-crash-window",
+            ip_hash=None,
+        )
+        job_id = job.id
+        repository.mark_outbox_dispatched(session, job_id)
+        job = session.get(DataQualityJob, job_id)
+        job.updated_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+            seconds=120
+        )
+        session.commit()
+        return job_id
+
+    def test_orphaned_pending_dispatched_job_is_rearmed(self, admin_factory):
+        session = admin_factory()
+        try:
+            job_id = self._create_dispatched_but_unclaimed(session, "crash-window-key-001")
+            outbox = session.query(QualityTaskOutbox).filter_by(job_id=job_id).one()
+            assert outbox.status == "DISPATCHED"
+
+            assert repository.requeue_orphaned_dispatched(session, older_than_seconds=60) == 1
+            session.refresh(outbox)
+            job = session.get(DataQualityJob, job_id)
+            assert job.status == "PENDING"
+            assert outbox.status == "PENDING"
+            assert outbox.attempts == 1
+            assert outbox.dispatched_at is None
+            assert "delivery lease" in (outbox.last_error or "")
+
+            # A recent dispatch is not re-armed, so the normal in-flight window
+            # is not disturbed.
+            repository.mark_outbox_dispatched(session, job_id)
+            assert repository.requeue_orphaned_dispatched(session, older_than_seconds=60) == 0
+        finally:
+            session.close()
+
+    def test_recovered_job_is_redelivered_and_processed(self, admin_factory, monkeypatch):
+        session = admin_factory()
+        try:
+            job_id = self._create_dispatched_but_unclaimed(session, "crash-window-key-002")
+            assert repository.requeue_orphaned_dispatched(session, older_than_seconds=60) == 1
+
+            monkeypatch.setattr("db.database.SessionLocal", admin_factory)
+            fake = FakeQueue()
+            result = run_once(queue=fake, db=session)
+            assert result["job_id"] == job_id
+            assert result["status"] == "SUCCEEDED"
+            job = session.get(DataQualityJob, job_id)
+            outbox = session.query(QualityTaskOutbox).filter_by(job_id=job_id).one()
+            assert job.status == "SUCCEEDED"
+            assert outbox.status == "DISPATCHED"
         finally:
             session.close()
 

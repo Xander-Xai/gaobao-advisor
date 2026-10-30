@@ -63,6 +63,9 @@
 | Worker 瞬时失败 | `TestWorker::test_transient_failures_retry_then_fail` | PENDING→PENDING→FAILED（3 次上限） |
 | Worker 永久失败 | `TestWorker::test_permanent_failure_marks_failed` | 立即 FAILED，错误码可见 |
 | Worker 崩溃后租约过期 | `TestWorker::test_stale_running_job_is_requeued` | RUNNING→PENDING + `WORKER_LEASE_EXPIRED` |
+| BRPOP 后、claim 前崩溃 | `TestDeliveryCrashWindow::test_orphaned_pending_dispatched_job_is_rearmed` | PENDING+DISPATCHED → Outbox 重新 PENDING，attempts+1 |
+| 崩溃窗口恢复后重投 | `TestDeliveryCrashWindow::test_recovered_job_is_redelivered_and_processed` | 补偿后 Worker 处理成功，不重复产生问题 |
+| 真实 Redis+MySQL 丢消息 | full profile：`redis-cli BRPOP` 取走消息、停 Worker、回拨 `updated_at`、重启 Worker | 日志 `requeued 1 orphaned dispatched job(s)`；job **SUCCEEDED** |
 | 真实 Redis 端到端 | `tests/test_redis_worker.py`（`REDIS_TEST_URL`） | 3 passed：入队/出队、Outbox→Worker、不可达 Redis 显式失败 |
 
 ```bash
@@ -74,20 +77,29 @@ REDIS_TEST_URL=redis://127.0.0.1:6379/0 \
 ## 6. MySQL 与 full compose 实测
 
 - **已完成并从 BLOCKED 转为 PASS**：本机拉取 `mysql:8.4` 成功，启动真实 MySQL 8.4
-  后运行 `tests/test_admin_mysql.py`：**4 passed**（列表/详情、质检+审核事务、
+  后运行 `tests/test_admin_mysql.py`：**5 passed**（列表/详情、质检+审核事务、崩溃窗口补偿、
   异常回滚、dialect 断言）。
 - **迁移 + seed 实测**：fresh MySQL 上 `python -m db.migrate upgrade` 创建 4 张运营表
   和 `alembic_version`；`seed_demo_data --database-url` 引导 14 张历史表演示表，
   共 8 校 / 128 分数 / 48 计划。
 - **full compose 实测**：MySQL 8.4 + Redis 7 + API + Worker + Frontend + Nginx
-  全部 healthy；异步质检 `PENDING → RUNNING → SUCCEEDED`，审核写审计。
+  全部 healthy；MySQL/Redis 无宿主机端口，容器间通过服务名通信；异步质检
+  `PENDING → RUNNING → SUCCEEDED`，审核写审计。
 - **故障注入**：停止 Redis 后创建任务返回 `202 + PENDING + queue_state=UNAVAILABLE`；
   恢复 Redis 后 Worker 从 Outbox 自动补投并完成，未出现假成功或丢任务。
+- **真实 BRPOP 丢消息**：停 Worker → 创建任务 → `redis-cli BRPOP` 取走消息并丢弃 →
+  回拨 DB `updated_at` → 启动 Worker；启动日志出现
+  `requeued 1 orphaned dispatched job(s)`，任务最终 **SUCCEEDED**。
+- **生产 Compose 凭据**：`scripts/verify_prod_compose_env.sh` 用临时 env 文件验证：
+  缺失 env 文件、缺 `SESSION_SECRET`、启用管理员缺 `ADMIN_TOKEN_SECRET` 均 fail-closed；
+  有效配置启动并完成 admin 登录。
 - 复现命令：
 
 ```bash
 MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
   .venv/bin/python -m pytest tests/test_admin_mysql.py -q
+
+PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
 
 python scripts/setup_full_env.py
 docker compose --env-file .env.full \
@@ -107,5 +119,5 @@ docker compose --env-file .env.full \
 - 没有生产容量/并发/SLA 测试；
 - 没有慢查询日志采集或 APM 链路追踪；
 - MySQL 只验证了新增运营表 + 演示查询路径，14 张历史表无生产级迁移；
-- Redis 单实例，没有集群/高可用；
+- Redis 单实例，没有集群/高可用；BRPOP 丢消息靠补偿扫描，不是 Redis 消费组确认；
 - 所有数字来自本机临时 SQLite，不代表真实招生数据规模。

@@ -135,6 +135,36 @@ cd frontend && npm test -- --run && npm run build
 - 证据：`pip-audit -r requirements-legacy-admin.lock` → **No known vulnerabilities**；
   CI Security Audit 重新运行通过。
 
+### Bug 12：生产 Compose 挂载 `.env.production` 但应用不读取
+
+- 现象：`docker-compose.prod.yml` 只把 `.env.production` 挂到 `/app/.env`，代码没有
+  dotenv 加载逻辑，`SESSION_SECRET` / `ADMIN_TOKEN_SECRET` 实际不可见。
+- 修复：改为 required Compose `env_file`，真实注入进程；新增
+  `scripts/verify_prod_compose_env.sh` 做真实启动正/负控制。
+- 证据：缺 env 文件、缺 SESSION_SECRET、缺 ADMIN_TOKEN_SECRET 均 fail-closed；
+  有效配置健康启动且 admin 登录成功。
+
+### Bug 13：BRPOP 后、claim 前崩溃造成 PENDING+DISPATCHED 孤儿
+
+- 现象：真实 Redis+MySQL 注入中，Worker 用 BRPOP 取走消息后被停止，任务停在
+  PENDING、Outbox 为 DISPATCHED，RUNNING 租约恢复找不到它。
+- 修复：新增 `requeue_orphaned_dispatched`，Worker 启动和每 30 秒扫描超过 60 秒的
+  该状态并重新武装 Outbox；重复投递由原子 claim 吸收。
+- 证据：SQLite `TestDeliveryCrashWindow` 2 条、MySQL 1 条；真实 full profile 注入后
+  Worker 日志 `requeued 1 orphaned dispatched job(s)`，任务最终 SUCCEEDED。
+
+### Bug 14：full Compose 把 MySQL/Redis 暴露到宿主机
+
+- 现象：`3306:3306` / `6379:6379` 使数据库和队列可从宿主机直连。
+- 修复：删除 host ports；API/Worker 通过 Compose 网络 `mysql:3306` / `redis:6379` 通信。
+- 证据：`docker port` 对两者为空；full profile 异步任务、容器间 MySQL/Redis 连接均通过。
+
+### 文档修正：回滚范围反向
+
+- 原 PR 文案 `git revert de9f3d1..8ed4c2a` 是 newer..older，可能得到空范围。
+- 修正为 `1622c3f..de9f3d1`，并补充 squash merge / 普通 merge / rebase merge 的验证流程；
+  本轮不执行真实回滚。
+
 ### 过程阻塞：OAuth token 缺 workflow scope
 
 - 现象：`git push` 被拒绝（OAuth App 不能更新 `.github/workflows/ci.yml`）。
@@ -148,7 +178,7 @@ cd frontend && npm test -- --run && npm run build
 | 聊天 token 是否可当管理员 token | 否；独立 secret + `aud=gaobao-admin`，有测试 |
 | 前端隐藏按钮是否被当权限 | 否；后端 `require_role` 真实返回 401/403 |
 | 生产缺凭据是否放行 | 否；显式启用但缺 secret 时启动失败 |
-| 创建任务与入队是否可能丢消息 | 否；DB + Outbox + 审计同事务，投递失败保留 PENDING |
+| 创建任务与入队是否可能丢消息 | 同事务 + Outbox；BRPOP 丢消息由 `requeue_orphaned_dispatched` 补偿，原子 claim 吸收重复 |
 | 重复提交 | 唯一幂等键 + 冲突 409 + 回放 200 |
 | 并发审核 | `expected_version` + 条件 UPDATE；冲突 409 |
 | 审计是否包含密钥 | 递归脱敏；有 `test_admin_privacy.py` |
@@ -160,20 +190,23 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1073 passed, 8 skipped**，覆盖率 **80.81%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1075 passed, 9 skipped**，覆盖率 **80.77%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
-| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **4 passed**（真实 MySQL 8.4） |
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
 | `pytest tests/test_database_modes.py` | **7 passed** |
 | `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 86 tests passed** |
 | `cd frontend && npm run build` | 通过 |
 | `ruff check .` / `ruff format --check .` | 通过 |
-| `docker compose ... --profile full up` | 全部服务 healthy；异步任务/审核/审计/Redis 故障恢复通过 |
+| `docker compose ... --profile full up` | 全部服务 healthy；MySQL/Redis 无宿主机端口；异步任务/审核/审计/Redis 故障恢复通过 |
+| 真实 BRPOP 丢消息注入（Redis+MySQL） | Worker 启动恢复孤儿；job **SUCCEEDED** |
+| `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
+| `make test-integration` | **8 passed**（MySQL 5 + Redis 3） |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
-| gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
+| gitleaks v8.30.1（full history） | **476 commits scanned / no leaks found** |
 | GitHub Actions（PR #35） | **全部通过**：Lint、Test 3.10/3.11、MySQL+Redis+Admin Smoke、Security、Secret、Frontend、Container、Redistribution |
 
 ## 6. 可现场讲解的案例

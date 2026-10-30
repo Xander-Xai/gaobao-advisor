@@ -5,13 +5,19 @@
 services:
   api:
     build: .
-    container_name: gaokao-api-prod
+    image: ${PROD_API_IMAGE:-gaobao-advisor-api:prod}
+    container_name: ${PROD_API_CONTAINER_NAME:-gaokao-api-prod}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${PROD_API_PORT:-8000}:8000"
     volumes:
       - gaobao_prod_data:/app/data  # SQLite 持久化（命名卷，避免宿主机 UID 权限差异）
-      - ./.env.production:/app/.env:ro  # 生产环境变量（只读挂载）
+    # The application does not load /app/.env itself. Compose must inject the
+    # file as environment variables so SESSION_SECRET / ADMIN_TOKEN_SECRET are
+    # actually visible to the process. Missing file fails closed at startup.
+    env_file:
+      - path: ${PROD_ENV_FILE:-.env.production}
+        required: true
     environment:
       - APP_ENV=production
       - UVICORN_HOST=0.0.0.0

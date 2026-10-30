@@ -36,6 +36,11 @@
 - 失败策略：可重试错误回到 `PENDING` 并重新武装 Outbox，最多 `max_attempts`
   （默认 3）；永久/耗尽失败进入 `FAILED`，错误码/错误信息可见。
 - Worker 崩溃留下的 `RUNNING` 超过租约会被 `requeue_stale_running` 回收。
+- **BRPOP 丢消息窗口**：`BRPOP` 在 DB claim 前就把消息从 Redis 移除。若 Worker 恰在此窗口崩溃，
+  任务会停在 `PENDING` 而 Outbox 已是 `DISPATCHED`。`requeue_orphaned_dispatched`
+  将超过 60 秒的该状态视为投递租约过期，重新把 Outbox 置为 `PENDING`；Worker 启动时和
+  运行期每 30 秒扫描一次。重复投递由原子 `claim_job` 吸收，因此语义从 at-most-once
+  提升为至少一次（at-least-once）。
 - 队列不可用时：
   - `async`：返回 `202 + PENDING + warning`，绝不返回成功；
   - `auto`：开发环境显式内联执行并标记 `execution_mode=inline_degraded`；
@@ -57,6 +62,11 @@
 - 默认/演示 Compose 使用 HTTP-only `nginx.demo.conf`；生产 `nginx.conf` 继续负责 TLS，
   由 `docker-compose.prod.yml` 挂载 `./certs`。
 - 凭据由 `.env.full`（`scripts/setup_full_env.py` 生成，0600，gitignore）注入，不提交。
+- full profile 的 MySQL/Redis **不发布宿主机端口**；API/Worker 只通过 Compose 网络访问
+  `mysql:3306` / `redis:6379`，避免把数据库/队列暴露到宿主机。
+- 生产 `docker-compose.prod.yml` 使用 required `env_file` 注入 `.env.production`，因为应用
+  不会自动读取 `/app/.env`；缺失文件、缺 `SESSION_SECRET`、启用管理员却缺
+  `ADMIN_TOKEN_SECRET` 时 fail-closed。验证脚本：`scripts/verify_prod_compose_env.sh`。
 
 ## 备选方案
 
@@ -72,10 +82,10 @@
 
 - 正面：默认演示零依赖；MySQL/Redis 可按需启用；任务状态、审计、失败语义可测试。
 - 负面：MySQL 全量历史表迁移未完成；Worker 租约/重试是应用层实现，不是企业级调度；
-  Outbox 由 Worker 轮询而不是 CDC。
+  Outbox 由 Worker 轮询而不是 CDC；BRPOP 丢消息靠补偿扫描而非 Redis 消费组确认。
 - 边界：不承诺生产 SLA、不承诺 MySQL 所有历史查询路径完全等价；实际运行证据见
   `docs/interview-readiness/performance.md` 与最终报告。
-- 2026-10-31 复核：真实 MySQL 8.4 集成测试 4 passed；full profile 全部服务 healthy，
+- 2026-10-31 复核：真实 MySQL 8.4 集成测试 5 passed；full profile 全部服务 healthy，
   异步任务、审核、审计、Redis 停机/恢复均实测通过；CI 新增 MySQL 8.4 + Redis 7
   service job 与 admin smoke。剩余边界仅是 14 张历史表的生产级迁移与完整 Compose
   未放进 CI（构建成本高，本机已实测）。

@@ -193,8 +193,11 @@ Compose 演示使用命名卷 `gaobao_data` 和 HTTP-only `nginx.demo.conf`；�
 
 启动内容：FastAPI（MySQL + Alembic）、MySQL 8.4、Redis 7、数据质检 Worker、Vue 前端、Nginx。
 API/MySQL/Redis/Frontend 都有 healthcheck；API 使用 `/api/v1/health/ready`（DB 断开返回 503）。
+MySQL 和 Redis **不发布宿主机端口**，API/Worker 通过 Compose 网络内的 `mysql:3306` /
+`redis:6379` 通信；本地检查用 `docker compose exec mysql ...` / `exec redis redis-cli`。
 本机已实测该 profile 全部服务 healthy，并通过“登录 → 异步质检 → SUCCEEDED → 审核 → 审计”链路；
-Redis 停机时创建任务返回 `202 + PENDING + UNAVAILABLE`，恢复后 Worker 从 Outbox 补投并完成。
+Redis 停机时创建任务返回 `202 + PENDING + UNAVAILABLE`，恢复后 Worker 从 Outbox 补投并完成；
+真实 BRPOP 丢消息故障注入后，Worker 启动补偿扫描恢复并完成任务。
 
 ```bash
 # 迁移（SQLite 也可以跑，用于验证版本表）
@@ -208,6 +211,18 @@ make test-integration
 REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py -q
 MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
   pytest tests/test_admin_mysql.py -q
+```
+
+### 生产 Compose 凭据（fail-closed）
+
+`docker-compose.prod.yml` 不再把 `.env.production` 挂到 `/app/.env`（应用不会自动读取该文件），
+而是使用 Compose `env_file` 把 `SESSION_SECRET`、`ADMIN_TOKEN_SECRET` 等真正注入进程。
+`env_file` 标记为 required；文件缺失、生产环境缺 `SESSION_SECRET`、启用管理员却缺
+`ADMIN_TOKEN_SECRET` 时容器启动失败，不会生成临时密钥或静默放行。
+
+```bash
+# 只使用临时测试凭据，不读取/提交真实 .env.production
+PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
 ```
 
 **迁移范围（重要）：** Alembic 初始 revision 只覆盖本轮新增的 4 张运营表
@@ -331,7 +346,7 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1073 passed / 8 skipped**，覆盖率 **80.81%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1075 passed / 9 skipped**，覆盖率 **80.77%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
@@ -339,15 +354,17 @@ ruff check . && ruff format --check .
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
 | `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
-| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 4 passed（真实 MySQL 8.4）|
-| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；异步任务、审核、审计、Redis 故障恢复通过 |
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
+| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；MySQL/Redis 无宿主机端口；异步任务、审核、审计、Redis 故障恢复通过 |
+| 真实 BRPOP 丢消息注入（Redis+MySQL） | job PENDING/DISPATCHED → Worker 启动日志 `requeued 1 orphaned dispatched job(s)` → **SUCCEEDED** |
+| `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 缺失 env 文件 / 缺 SESSION_SECRET / 缺 ADMIN_TOKEN_SECRET 均 fail-closed；有效配置启动并 admin 登录成功 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
-| gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
+| gitleaks v8.30.1（full history） | **476 commits scanned / no leaks found** |
 
-> 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
-> `docker run` 后 `curl` 的真实健康检查结果。
+> 上述数字来自本机实际运行输出。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
+> 生产 Compose 测试只使用临时生成且已删除的测试凭据。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
 MySQL 8.4 + Redis 7 集成测试、Admin Smoke、Secret Scan（gitleaks 全历史）、

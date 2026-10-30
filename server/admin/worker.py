@@ -183,18 +183,33 @@ def run_forever(*, timeout: int = 2) -> None:
     if queue is None:
         raise QueueUnavailable("REDIS_URL is not configured; refusing to start a worker without a queue")
 
-    # Recover jobs left RUNNING by a crashed worker before consuming new work.
+    # Recover both crash windows before consuming new work:
+    #   * RUNNING rows left by a worker that died during execution;
+    #   * PENDING+DISPATCHED rows whose BRPOP delivery was lost before claim.
     session = SessionLocal()
     try:
         recovered = repository.requeue_stale_running(session)
         if recovered:
             logger.warning("requeued %d stale RUNNING job(s)", recovered)
+        orphaned = repository.requeue_orphaned_dispatched(session)
+        if orphaned:
+            logger.warning("requeued %d orphaned dispatched job(s)", orphaned)
     finally:
         session.close()
 
+    last_delivery_scan = time.monotonic()
     logger.info("quality worker started, queue=%s key=%s", queue.url, queue.key)
     while not stop["flag"]:
         try:
+            if time.monotonic() - last_delivery_scan >= 30:
+                session = SessionLocal()
+                try:
+                    orphaned = repository.requeue_orphaned_dispatched(session)
+                finally:
+                    session.close()
+                if orphaned:
+                    logger.warning("requeued %d orphaned dispatched job(s)", orphaned)
+                last_delivery_scan = time.monotonic()
             result = run_once(timeout=timeout, queue=queue)
             if result.get("job_id"):
                 log_event("worker.processed", **result)

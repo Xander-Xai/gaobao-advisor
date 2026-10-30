@@ -14,6 +14,7 @@ non-test schema.
 
 from __future__ import annotations
 
+import datetime
 import os
 
 import pytest
@@ -22,6 +23,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from db.database import Base
+from db.models import DataQualityJob, QualityTaskOutbox
+from server.admin import repository
 from server.deps import get_db
 from server.main import app
 from tests.conftest import _seed, auth_header, login
@@ -154,3 +157,33 @@ def test_mysql_uses_mysql_dialect(mysql_client):
     assert response.status_code == 200
     assert response.json()["database_dialect"] == "mysql"
     assert response.json()["admin_enabled"] is True
+
+
+def test_mysql_orphaned_dispatched_job_is_recovered(mysql_factory):
+    """The PENDING+DISPATCHED compensation scan must work on MySQL too."""
+    session = mysql_factory()
+    try:
+        job, _ = repository.create_job_with_outbox(
+            session,
+            filters={},
+            idempotency_key="mysql-crash-window-key-01",
+            actor="operator",
+            role="operator",
+            request_id="req-mysql-crash",
+            ip_hash=None,
+        )
+        job_id = job.id
+        repository.mark_outbox_dispatched(session, job_id)
+        job = session.get(DataQualityJob, job_id)
+        job.updated_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+            seconds=120
+        )
+        session.commit()
+
+        assert repository.requeue_orphaned_dispatched(session, older_than_seconds=60) == 1
+        outbox = session.query(QualityTaskOutbox).filter_by(job_id=job_id).one()
+        assert outbox.status == "PENDING"
+        assert outbox.attempts == 1
+        assert outbox.dispatched_at is None
+    finally:
+        session.close()

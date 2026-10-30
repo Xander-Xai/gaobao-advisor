@@ -788,6 +788,47 @@ def list_audit_logs(
     }
 
 
+def requeue_orphaned_dispatched(
+    session: Session,
+    *,
+    older_than_seconds: int = 60,
+    limit: int = 50,
+) -> int:
+    """Re-arm jobs whose Redis message was lost before the DB claim.
+
+    ``BRPOP`` removes the message from Redis before the worker performs the
+    atomic ``PENDING -> RUNNING`` claim. If the worker dies in that window the
+    job remains PENDING while its outbox row is already DISPATCHED, so neither
+    the outbox dispatcher nor the RUNNING lease recovery can find it.
+
+    Treat that state as an expired delivery lease and put the outbox row back
+    to PENDING. Duplicate delivery is safe because ``claim_job`` is atomic and
+    skips jobs that are no longer PENDING.
+    """
+    threshold = _utcnow() - datetime.timedelta(seconds=older_than_seconds)
+    rows = (
+        session.query(DataQualityJob, QualityTaskOutbox)
+        .join(QualityTaskOutbox, QualityTaskOutbox.job_id == DataQualityJob.id)
+        .filter(
+            DataQualityJob.status == "PENDING",
+            QualityTaskOutbox.status == "DISPATCHED",
+            DataQualityJob.updated_at < threshold,
+        )
+        .limit(limit)
+        .all()
+    )
+    now = _utcnow()
+    for _job, outbox in rows:
+        outbox.status = "PENDING"
+        outbox.attempts += 1
+        outbox.next_attempt_at = now
+        outbox.dispatched_at = None
+        outbox.last_error = "delivery lease expired before DB claim"
+    if rows:
+        session.commit()
+    return len(rows)
+
+
 def requeue_stale_running(session: Session, *, older_than_seconds: int = 600) -> int:
     """Recover jobs whose worker died after claiming them.
 

@@ -193,6 +193,10 @@ jobs:
           assert d["citations"] and all(c.get("source") for c in d["citations"]), d
           print("rag evidence ok:", d["count"], d["citations"][0]["source"])
           PY
+      - name: Production Compose credential fail-closed + positive startup
+        env:
+          PROD_API_IMAGE: gb-advisor:ci
+        run: bash scripts/verify_prod_compose_env.sh
       - if: always()
         run: docker logs gb-advisor || true
 

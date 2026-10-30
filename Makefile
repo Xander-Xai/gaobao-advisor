@@ -1,7 +1,7 @@
 PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python3 || command -v python; fi)
 
 .PHONY: install install-dev install-legacy-admin test test-cov test-admin test-integration lint lint-fix \
-        format typecheck smoke-admin run run-api run-worker admin-env audit-deps lock clean help
+        format typecheck smoke-admin verify-prod-compose run run-api run-worker admin-env audit-deps lock clean help
 
 help:  ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ admin-env:  ## 生成本地管理员凭据（.env.admin.local，已 gitignore）
 
 smoke-admin:  ## 一键验证后台登录/查询/质检/审核/审计（临时 SQLite）
 	$(PYTHON) scripts/admin_smoke.py
+
+verify-prod-compose:  ## 用临时测试凭据验证生产 Compose 的 fail-closed 与正常启动
+	bash scripts/verify_prod_compose_env.sh
 
 lint:  ## 检查代码质量
 	ruff check .
