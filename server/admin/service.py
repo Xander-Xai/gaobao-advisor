@@ -134,9 +134,22 @@ def create_quality_job(
         request_id=request_id,
         execution_mode="inline_degraded",
     )
-    repository.mark_outbox_dispatched(session, job.id)
     refreshed = repository.get_job(session, job.id)
     assert refreshed is not None
+    repository.mark_inline_execution(session, job.id)
+
+    if refreshed.status == "PENDING":
+        # A retryable failure was persisted. Keep the outbox PENDING so a
+        # worker/dispatcher can retry; marking it DISPATCHED here would strand
+        # the job forever when no Redis queue exists.
+        return {
+            "job": repository.serialize_job(refreshed),
+            "replayed": False,
+            "queue_state": "INLINE",
+            "warning": "内联执行遇到可重试错误，任务保持 PENDING；配置 Redis/Worker 后会由 Outbox 重试",
+        }
+
+    repository.mark_outbox_dispatched(session, job.id)
     return {
         "job": repository.serialize_job(refreshed),
         "replayed": False,

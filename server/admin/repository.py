@@ -515,6 +515,16 @@ def list_jobs(
     }
 
 
+def mark_inline_execution(session: Session, job_id: int, *, execution_mode: str = "inline_degraded") -> None:
+    """Record that a job ran in-request instead of through the Redis worker."""
+    job = session.get(DataQualityJob, job_id)
+    if job is None or job.execution_mode == execution_mode:
+        return
+    job.execution_mode = execution_mode
+    job.updated_at = _utcnow()
+    session.commit()
+
+
 def mark_outbox_dispatched(session: Session, job_id: int) -> None:
     row = session.query(QualityTaskOutbox).filter(QualityTaskOutbox.job_id == job_id).first()
     if row is None:

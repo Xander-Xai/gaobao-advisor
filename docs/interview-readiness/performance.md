@@ -71,17 +71,27 @@ REDIS_TEST_URL=redis://127.0.0.1:6379/0 \
 # 3 passed
 ```
 
-## 6. MySQL 验证状态
+## 6. MySQL 与 full compose 实测
 
-- **已完成**：URL 白名单/规范化、密码脱敏、SQLite PRAGMA 隔离、MySQL 连接池参数、
-  Alembic migration、MySQL dialect DDL 编译测试、MySQL API/事务集成测试代码。
-- **未完成（BLOCKED）**：本机 Docker Hub 拉取 `mysql:8.4` 超时，无法启动真实 MySQL；
-  因此 `tests/test_admin_mysql.py` 在本机是 **4 skipped**，不能标记 PASS。
-- 复现命令（有 MySQL 时）：
+- **已完成并从 BLOCKED 转为 PASS**：本机拉取 `mysql:8.4` 成功，启动真实 MySQL 8.4
+  后运行 `tests/test_admin_mysql.py`：**4 passed**（列表/详情、质检+审核事务、
+  异常回滚、dialect 断言）。
+- **迁移 + seed 实测**：fresh MySQL 上 `python -m db.migrate upgrade` 创建 4 张运营表
+  和 `alembic_version`；`seed_demo_data --database-url` 引导 14 张历史表演示表，
+  共 8 校 / 128 分数 / 48 计划。
+- **full compose 实测**：MySQL 8.4 + Redis 7 + API + Worker + Frontend + Nginx
+  全部 healthy；异步质检 `PENDING → RUNNING → SUCCEEDED`，审核写审计。
+- **故障注入**：停止 Redis 后创建任务返回 `202 + PENDING + queue_state=UNAVAILABLE`；
+  恢复 Redis 后 Worker 从 Outbox 自动补投并完成，未出现假成功或丢任务。
+- 复现命令：
 
 ```bash
 MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
   .venv/bin/python -m pytest tests/test_admin_mysql.py -q
+
+python scripts/setup_full_env.py
+docker compose --env-file .env.full \
+  -f docker-compose.yml -f docker-compose.full.yml --profile full up --build
 ```
 
 ## 7. 监控与审计
@@ -96,6 +106,6 @@ MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset
 
 - 没有生产容量/并发/SLA 测试；
 - 没有慢查询日志采集或 APM 链路追踪；
-- MySQL 无真实运行验证；
+- MySQL 只验证了新增运营表 + 演示查询路径，14 张历史表无生产级迁移；
 - Redis 单实例，没有集群/高可用；
 - 所有数字来自本机临时 SQLite，不代表真实招生数据规模。

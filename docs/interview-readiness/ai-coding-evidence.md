@@ -7,6 +7,7 @@
 
 - 仓库：`Xander-Xai/gaobao-advisor`，`master@65bdb406db3b2cb26dae0398c3dec83349ef5eaa`
 - 基线实测：`pytest` 1010 passed / 1 skipped；`vitest` 12 files / 70 tests；`ruff`、`vite build` 通过。
+- 2026-10-31 复核基线：`master@1622c3f`，`pytest` 1072 passed / 8 skipped；`vitest` 85 tests。
 - 审计结论：`AdminView.vue` 只是健康检查；前端无 TS；`DATABASE_URL` 仅允许 SQLite；
   Redis 只做 RAG 缓存；无 admin RBAC；无任务/审计表。
 
@@ -86,12 +87,49 @@ cd frontend && npm test -- --run && npm run build
 - 结果：median **58.352 ms**，约 7.1×；新增 `tests/test_admin_quality_batching.py` 防回归。
 - 证据：`docs/interview-readiness/performance.md`。
 
+### Bug 6：内联降级失败后 Outbox 被错误标记为 DISPATCHED
+
+- 现象：`QUALITY_TASK_MODE=inline` 下注入可重试异常，任务回到 PENDING，但 Outbox
+  变成 DISPATCHED，任务永久卡住。
+- 定位：`service.create_quality_job` 在内联执行后无条件调用
+  `mark_outbox_dispatched`，没有区分“终态”和“等待重试”。
+- 修复：新增 `mark_inline_execution`；仅终态标记 Outbox DISPATCHED；PENDING 保留
+  Outbox 并返回 202 + warning。
+- 证据：`test_inline_retry_does_not_mark_outbox_dispatched`（先失败后通过）。
+
+### Bug 7：Compose bind mount 权限导致 API 启动失败
+
+- 现象：full compose 中 API 重启，日志 `PermissionError: data/.session_secret`。
+- 原因：宿主机 UID 1001 / 容器 appuser UID 1000，`./data:/app/data` 不可写。
+- 修复：改为命名卷 `gaobao_data:/app/data`；full profile 注入 `SESSION_SECRET`。
+- 证据：默认与 full compose 均实际启动，API/Frontend healthcheck 通过。
+
+### Bug 8：演示环境 Nginx 强制 TLS 导致无限重启
+
+- 现象：`nginx: [emerg] cannot load certificate /etc/nginx/ssl/fullchain.pem`。
+- 原因：`nginx.conf` 是生产 TLS 配置，默认 compose 没有证书。
+- 修复：新增 HTTP-only `nginx.demo.conf` 并仅供 Compose 演示使用；生产仍挂载
+  `nginx.conf` + `./certs`。
+- 证据：`GET /healthz` = 200，`GET /api/v1/health` 经 Nginx 返回 200。
+
+### Bug 9：前端 `/admin` 深链接 404
+
+- 现象：Vue Router 使用 history mode，但前端 Nginx 没有 SPA fallback。
+- 修复：`try_files $uri $uri/ /index.html`，并为 hashed assets 增加缓存头。
+- 证据：Docker 内 `GET /admin` 返回 200；Vitest 详情重试用例通过。
+
+### Bug 10：DOMPurify critical advisory 触发前端安全门禁
+
+- 现象：`npm audit --omit=dev` 报告 `dompurify <=3.4.16` 1 个 critical advisory。
+- 修复：升级到 `dompurify@3.4.17`，同步 `package-lock.json`；不添加 ignore。
+- 证据：`npm audit --omit=dev --audit-level=high` → **0 vulnerabilities**；
+  `vue-tsc` + 86 tests + build 仍通过。
+
 ### 未解决/环境阻塞
 
-- MySQL 真实运行测试：Docker Hub 拉取 `mysql:8.4` 超时 → `tests/test_admin_mysql.py` 4 skipped。
-  未标记 PASS；提供了 DDL 编译测试和可复现命令。
-- GitHub workflow 修改：当前 `gh` token 缺 `workflow` scope，推送 `.github/workflows/*`
-  被拒绝。通过把 `vue-tsc` 加入 `npm test` 脚本绕过，现有 CI 仍执行类型检查。
+- GitHub Actions 新增 MySQL/Redis service job：当前 `gh` token 缺 `workflow` scope，
+  无法推送 `.github/workflows/*`。真实 MySQL/Redis 测试已在本机服务上运行通过，
+  但最终报告会区分“本地实测”与“CI 未覆盖”。
 
 ## 4. Code Review 检查项
 
@@ -112,16 +150,20 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header` | **1072 passed, 8 skipped**，覆盖率 **80.78%** |
-| `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis） |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1073 passed, 8 skipped**，覆盖率 **80.81%** |
+| `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **4 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
 | `pytest tests/test_database_modes.py` | **7 passed** |
-| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 85 tests passed** |
+| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 86 tests passed** |
 | `cd frontend && npm run build` | 通过 |
 | `ruff check .` / `ruff format --check .` | 通过 |
-| `docker compose ... config` | 通过（`--env-file .env.full`） |
-| `docker build` | 本机拉取依赖超时，未完成；CI container job 会执行 |
-| MySQL 运行测试 | **BLOCKED**（镜像拉取超时） |
+| `docker compose ... --profile full up` | 全部服务 healthy；异步任务/审核/审计/Redis 故障恢复通过 |
+| 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
+| `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
+| GitHub Actions | 现有门禁保留；未新增 MySQL/Redis service job（token 缺 workflow scope） |
 
 ## 6. 可现场讲解的案例
 

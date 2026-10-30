@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11 / SQLite；`pytest` 1072 passed / 8 skipped；`vitest` 85 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1073 passed / 8 skipped；`vitest` 86 tests |
 
 ## 1. 三分钟演示路径
 
@@ -124,14 +124,15 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 `python -m db.migrate`，初始 revision 只覆盖新增 4 表；14 张历史表的生产迁移不在本轮
 范围，full profile 的演示数据由 seed 的 create_all 引导，文档明确标注。代码：
 `db/database.py`、`db/migrate.py`、`migrations/`；测试：`test_database_modes.py`、
-`test_migrations.py`。MySQL 真实运行测试因本机镜像拉取超时 BLOCKED。
+`test_migrations.py`。真实 MySQL 8.4 上 `test_admin_mysql.py` **4 passed**，full profile
+的 MySQL+Redis+Worker 已实际启动并完成异步任务。
 
 ### Q8. TypeScript 是渐进式还是重写？
 
 渐进式。没有重写聊天/SSE/报告模块；新增 `tsconfig.json`、`env.d.ts` 和
 `vue-tsc --noEmit`，只把后台模块改成 `<script setup lang="ts">`，DTO 放在
 `types/admin.ts`，API 错误映射在 `api/admin.ts`。`npm test` 先跑 typecheck，现有 CI
-无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 85 tests。
+无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 86 tests。
 
 ### Q9. 审计和隐私怎么保证不泄漏凭据？
 
@@ -143,12 +144,14 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/422、幂等、
-回滚、乐观锁、Worker 重试/租约、Alembic、MySQL DDL/URL、真实 Redis；前端 85 tests
-覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。未做到：MySQL 真实运行
-（镜像拉取 BLOCKED）、full compose 运行（依赖 MySQL）、workflow 文件修改（gh token 缺
-`workflow` scope）、生产容量/SLA。CI 现有 lint/test/secret/security/frontend/container
-门禁仍保留。
+Python 1073 passed / 8 skipped（覆盖率 80.81%），覆盖 401/403/404/409/422、幂等、
+回滚、乐观锁、Worker 重试/租约、Alembic、MySQL DDL/URL、真实 MySQL 8.4 与 Redis 7；
+前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。full compose
+已实际启动并验证异步任务与 Redis 故障恢复。未做到：workflow 文件新增 MySQL/Redis
+service job（gh token 缺 `workflow` scope；同样的测试已在本机真实服务上运行）、
+14 张历史表的 MySQL 生产迁移、生产容量/SLA。真实集成测试可用
+`make test-integration` 一键复现（MySQL 4 + Redis 3 = 7 passed）；CI 现有
+lint/test/secret/security/frontend/container 门禁仍保留。
 
 ## 4. 设计取舍（ADR）
 
@@ -160,10 +163,10 @@ Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/42
 ## 5. 未实现边界（必须能说出口）
 
 1. MySQL 14 张历史表的生产级迁移未完成；只保证新增 4 表 + 演示查询路径。
-2. MySQL 真实运行测试 BLOCKED（本机 Docker Hub 拉取超时），不能声称 PASS。
-3. full compose 未在本机端到端启动（缺 MySQL 镜像）；Redis + Worker 已用真实 Redis 验证。
-4. GitHub Actions 未新增 MySQL/Redis/admin smoke job（token 缺 `workflow` scope）；
-   现有 CI 仍执行 pytest/vitest/typecheck/build/安全/容器门禁。
+2. MySQL/Redis 真实集成测试已在本地运行通过，但 GitHub Actions 尚未新增对应 service
+   job（token 缺 `workflow` scope）；不能把“本地通过”说成“CI 已覆盖”。
+3. full compose 已实际启动并验证；默认 compose 也已验证 SQLite + inline 质检 + `/admin`。
+4. 新增了演示用 HTTP Nginx 配置；生产 TLS 仍使用 `nginx.conf` + 证书挂载。
 5. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
 6. 前端 token 存在 `sessionStorage`，仍受 XSS 影响；未引入 CSP 之外的更强隔离。
 7. 没有 OCR、GCP、临床方案、医疗文本经验；这些标记 `NOT_APPLICABLE`，不在高考项目伪造。
@@ -176,16 +179,16 @@ Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/42
 | Vue 3 / 组件化 | 四视图 + Pinia + Router | 运营后台四块组件 | `frontend/src/components/admin/*` | `AdminView.spec.ts` | **PASS** |
 | TypeScript | 无 | `tsconfig` + `vue-tsc` + 类型化后台 | `frontend/tsconfig.json`、`types/admin.ts`、`api/admin.ts` | `npm test`（含 typecheck） | **PASS** |
 | 管理/运营后台 | 仅健康检查 | 数据筛选/分页/详情/任务/审核/审计/统计 | `AdminView.vue`、`server/admin/routes.py` | pytest + vitest | **PASS** |
-| 数据可视化 | 无 | 状态/严重度/学历层次 CSS 柱状图 | `AdminStatsCards.vue` | AdminView.spec | **PASS** |
+| 数据可视化 | 无 | 任务状态/问题严重度 CSS 柱状图 | `AdminStatsCards.vue` | AdminView.spec | **PASS** |
 | Python/FastAPI | 已有 | 分层 admin API + 错误码 + RequestID | `server/admin/*`、`server/main.py` | `test_admin_*.py` | **PASS** |
-| MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`；运行测试 4 skipped | **PARTIAL**（运行 BLOCKED） |
+| MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`、真实 MySQL 4 passed | **PASS**（仅新增运营表范围） |
 | Redis / 消息队列 | 仅 RAG 缓存 | Redis List + Outbox + Worker | `server/admin/queue.py`、`worker.py` | 真实 Redis 3 passed + 单元测试 | **PASS** |
 | 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、租约 | `worker.py`、`repository.py` | `TestWorker` | **PASS** |
-| 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | compose config + Redis 集成 | **PARTIAL**（full compose 未跑通） |
+| 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | full profile 实启 + Redis 故障恢复 | **PASS** |
 | 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
 | 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
 | 隐私脱敏 | 无 | 姓名/手机/证件/邮箱/token 脱敏 | `server/admin/privacy.py` | `test_admin_privacy.py` | **PASS** |
-| 测试/CI | 已有 1010 pytest | 新增 61+ pytest、85 vitest、typecheck | `tests/`、`frontend/**/__tests__` | 全量运行 | **PASS**（新增集成 job BLOCKED） |
+| 测试/CI | 已有 1010 pytest | 新增 pytest、86 vitest、typecheck、真实 MySQL/Redis 验证 | `tests/`、`frontend/**/__tests__` | 全量运行 | **PASS**（CI service job 未新增） |
 | 性能优化 | cursor 分页 | 质检 N+1 批量化 7.1× + 索引验证 | `quality.py`、`benchmark_admin_queries.py` | `performance.md` | **PASS**（本机测量） |
 | AI Coding 证据 | 无 | 需求→失败→修复→Review→验证记录 | `ai-coding-evidence.md` | 文档内命令 | **PASS** |
 | OCR / 医疗 GCP | 无 | 不在本项目伪造 | — | — | **NOT_APPLICABLE** |

@@ -132,6 +132,7 @@ interface RouterOptions {
   role?: AdminRole
   schools?: SchoolListItem[]
   failSchools?: number
+  failDetails?: number
   audit?: boolean
 }
 
@@ -139,6 +140,7 @@ function installRouter(options: RouterOptions = {}) {
   const role = options.role ?? 'operator'
   const calls: Array<{ url: string; init: RequestInit }> = []
   let schoolFailures = options.failSchools ?? 0
+  let detailFailures = options.failDetails ?? 0
   const mock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
     calls.push({ url, init })
@@ -149,6 +151,10 @@ function installRouter(options: RouterOptions = {}) {
     if (path.endsWith('/admin/system/status')) return response(systemStatus)
     if (path.endsWith('/admin/schools/filters')) return response(filterOptions)
     if (path.endsWith('/admin/schools/1')) {
+      if (detailFailures > 0) {
+        detailFailures -= 1
+        return response({ code: 'INTERNAL_ERROR', message: '详情暂时不可用', request_id: 'req-detail' }, 500)
+      }
       return response({ ...school, website: null, description: '合成院校', scores: [], plans: [] })
     }
     if (path.endsWith('/admin/schools')) {
@@ -276,6 +282,19 @@ describe('AdminView data workflow', () => {
     const wrapper = await mountAndLogin('operator')
     expect(wrapper.find('[data-testid="schools-empty"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('没有匹配的院校')
+  })
+
+  it('retries a failed school detail request with the same id', async () => {
+    const calls = installRouter({ failDetails: 1 })
+    const wrapper = await mountAndLogin('operator')
+    await wrapper.find('[data-testid="school-detail-1"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="school-detail"]').text()).toContain('详情暂时不可用')
+    await wrapper.find('[data-testid="school-detail"] button.underline').trigger('click')
+    await flushPromises()
+    const detailCalls = calls.filter((call) => call.url.endsWith('/admin/schools/1'))
+    expect(detailCalls).toHaveLength(2)
+    expect(wrapper.find('[data-testid="school-detail"]').text()).toContain('录取分数')
   })
 
   it('shows an error and retries the request', async () => {

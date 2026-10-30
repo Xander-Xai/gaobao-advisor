@@ -188,14 +188,22 @@ docker compose --env-file .env.full \
   -f docker-compose.yml -f docker-compose.full.yml --profile full up --build
 ```
 
+Compose 演示使用命名卷 `gaobao_data` 和 HTTP-only `nginx.demo.conf`；生产 TLS 仍使用
+`nginx.conf` + `./certs`。直接访问 `http://localhost/admin` 可进入运营工作台。
+
 启动内容：FastAPI（MySQL + Alembic）、MySQL 8.4、Redis 7、数据质检 Worker、Vue 前端、Nginx。
 API/MySQL/Redis/Frontend 都有 healthcheck；API 使用 `/api/v1/health/ready`（DB 断开返回 503）。
+本机已实测该 profile 全部服务 healthy，并通过“登录 → 异步质检 → SUCCEEDED → 审核 → 审计”链路；
+Redis 停机时创建任务返回 `202 + PENDING + UNAVAILABLE`，恢复后 Worker 从 Outbox 补投并完成。
 
 ```bash
 # 迁移（SQLite 也可以跑，用于验证版本表）
 DATABASE_URL=sqlite:///data/demo.db python -m db.migrate
 
-# 可选集成测试
+# 可选集成测试（一次性启动 MySQL 8.4 + Redis 7，自动清理）
+make test-integration
+
+# 也可以分别指定已有服务
 REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py -q
 MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
   pytest tests/test_admin_mysql.py -q
@@ -322,14 +330,19 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1072 passed / 8 skipped**，覆盖率 **80.78%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1073 passed / 8 skipped**，覆盖率 **80.81%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
-| `vitest run`（frontend）| **14 files / 85 tests passed**；`npm run build` 通过 |
-| `REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis）|
+| `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
+| `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 4 passed（真实 MySQL 8.4）|
+| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；异步任务、审核、审计、Redis 故障恢复通过 |
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
+| `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| gitleaks v8.30.1（full history） | **472 commits scanned / no leaks found** |
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
 > `docker run` 后 `curl` 的真实健康检查结果。

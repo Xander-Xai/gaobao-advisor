@@ -1,7 +1,7 @@
-PYTHON ?= $(shell command -v python3 || command -v python)
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python3 || command -v python; fi)
 
-.PHONY: install install-dev install-legacy-admin test test-cov test-admin lint lint-fix format \
-        typecheck smoke-admin run run-api run-worker admin-env audit-deps lock clean help
+.PHONY: install install-dev install-legacy-admin test test-cov test-admin test-integration lint lint-fix \
+        format typecheck smoke-admin run run-api run-worker admin-env audit-deps lock clean help
 
 help:  ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -23,6 +23,22 @@ test-cov:  ## 运行测试（含覆盖率）
 
 test-admin:  ## 运行运营后台测试
 	$(PYTHON) -m pytest tests/test_admin_*.py -q --no-header
+
+test-integration:  ## 用一次性 MySQL 8.4 + Redis 7 容器运行真实集成测试
+	@set -eu; \
+	docker rm -f gaobao-mysql-test gaobao-redis-test >/dev/null 2>&1 || true; \
+	trap 'docker rm -f gaobao-mysql-test gaobao-redis-test >/dev/null 2>&1 || true' EXIT; \
+	docker run --rm -d --name gaobao-mysql-test \
+		-e MYSQL_ROOT_PASSWORD=testroot -e MYSQL_DATABASE=gaobao_test \
+		-p 3307:3306 mysql:8.4 >/dev/null; \
+	docker run --rm -d --name gaobao-redis-test -p 6380:6379 redis:7-alpine >/dev/null; \
+	for i in $$(seq 1 60); do \
+		if docker exec gaobao-mysql-test mysqladmin ping -h127.0.0.1 -uroot -ptestroot --silent >/dev/null 2>&1; then break; fi; \
+		sleep 2; \
+	done; \
+	MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
+	REDIS_TEST_URL='redis://127.0.0.1:6380/0' \
+	$(PYTHON) -m pytest tests/test_admin_mysql.py tests/test_redis_worker.py -q --no-header --no-cov
 
 typecheck:  ## 前端 TypeScript 类型检查
 	cd frontend && npm run typecheck

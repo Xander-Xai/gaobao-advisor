@@ -8,7 +8,18 @@
 
 set -eu
 
-DB_PATH="${GAOBAO__DB_PATH:-data/demo.db}"
+# Derive the SQLite file path from DATABASE_URL when one is provided, so a
+# custom sqlite URL does not silently seed a different file.
+if [ -n "${GAOBAO__DB_PATH:-}" ]; then
+    DB_PATH="${GAOBAO__DB_PATH}"
+elif [ -n "${DATABASE_URL:-}" ]; then
+    case "${DATABASE_URL}" in
+        sqlite:///*) DB_PATH="${DATABASE_URL#sqlite:///}" ;;
+        *) DB_PATH="" ;;
+    esac
+else
+    DB_PATH="data/demo.db"
+fi
 export DATABASE_URL="${DATABASE_URL:-sqlite:///${DB_PATH}}"
 
 # RAG ships enabled against the bundled SYNTHETIC_DEMO knowledge corpus.
@@ -31,13 +42,19 @@ case "${DATABASE_URL}" in
             python -m scripts.seed_demo_data --database-url "${DATABASE_URL}"
         fi
         ;;
-    *)
-        if [ ! -f "${DB_PATH}" ]; then
+    sqlite:///*)
+        if [ -z "${DB_PATH}" ] || [ "${DB_PATH}" = ":memory:" ]; then
+            echo "[entrypoint] in-memory SQLite requested; skipping demo seed"
+        elif [ ! -f "${DB_PATH}" ]; then
             echo "[entrypoint] no demo database at ${DB_PATH}; generating SYNTHETIC data..."
             python -m scripts.seed_demo_data --db "${DB_PATH}" --reset
         else
             echo "[entrypoint] using existing demo database at ${DB_PATH}"
         fi
+        ;;
+    *)
+        echo "[entrypoint] non-SQLite DATABASE_URL with an unsupported shape" >&2
+        exit 1
         ;;
 esac
 

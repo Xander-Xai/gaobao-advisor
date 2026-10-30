@@ -115,7 +115,7 @@
             <tr v-for="school in admin.schools" :key="school.id" class="hover:bg-slate-50/80">
               <td class="px-4 py-2.5">
                 <div class="font-medium text-slate-800">{{ school.name }}</div>
-                <div class="text-[11px] text-slate-400">{{ school.city }} · {{ school.data_source_note }}</div>
+                <div class="text-[11px] text-slate-400">{{ school.city }} · {{ school.data_source_note ?? '—' }}</div>
               </td>
               <td class="px-3 py-2.5 text-slate-600">{{ school.province }}</td>
               <td class="px-3 py-2.5">
@@ -173,7 +173,7 @@
       <p v-if="admin.detailLoading" class="mt-4 text-sm text-slate-500" aria-busy="true">加载详情中…</p>
       <div v-else-if="admin.detailError" role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
         {{ admin.detailError }}
-        <button v-if="admin.selectedSchool" class="ml-2 underline" @click="admin.loadSchool(admin.selectedSchool.id)">重试</button>
+        <button v-if="admin.schoolDetailId" class="ml-2 underline" @click="admin.loadSchool(admin.schoolDetailId)">重试</button>
       </div>
       <template v-else-if="admin.selectedSchool">
         <p class="mt-3 text-xs leading-relaxed text-slate-500">{{ admin.selectedSchool.description }}</p>

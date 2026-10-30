@@ -83,6 +83,36 @@ class TestInlineWorkflow:
         assert response.status_code == 409
         assert response.json()["code"] == "IDEMPOTENCY_CONFLICT"
 
+    def test_inline_retry_does_not_mark_outbox_dispatched(self, admin_client, monkeypatch, admin_factory):
+        """A retryable inline failure must leave the outbox armed for a worker.
+
+        Regression: the inline path used to mark the outbox DISPATCHED even
+        though the job had gone back to PENDING, stranding it forever when no
+        Redis queue existed.
+        """
+
+        def boom(session, filters):
+            raise RetryableJobError("temporary inline failure")
+
+        monkeypatch.setattr(worker, "collect_issues", boom)
+        token = login(admin_client, "operator")
+        response = _create(admin_client, token, "inline-retry-key-01", {})
+        assert response.status_code == 202, response.text
+        body = response.json()
+        assert body["job"]["status"] == "PENDING"
+        assert body["job"]["attempts"] == 1
+        assert body["job"]["execution_mode"] == "inline_degraded"
+        assert body["queue_state"] == "INLINE"
+        assert "重试" in (body["warning"] or "")
+
+        session = admin_factory()
+        try:
+            outbox = session.query(QualityTaskOutbox).filter_by(job_id=body["job"]["id"]).one()
+            assert outbox.status == "PENDING"
+            assert outbox.next_attempt_at is not None
+        finally:
+            session.close()
+
     def test_unknown_school_scope_succeeds_with_info_issue(self, admin_client):
         token = login(admin_client, "operator")
         response = _create(admin_client, token, "empty-scope-key-01", {"school_id": 999999})

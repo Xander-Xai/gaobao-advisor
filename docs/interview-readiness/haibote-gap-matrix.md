@@ -126,11 +126,39 @@
 | FastAPI 分层/错误码 | PARTIAL | **PASS** | `server/admin/{routes,service,repository,schemas,errors}.py` |
 | 管理员鉴权/RBAC | GAP | **PASS** | `server/admin/auth.py`、`tests/test_admin_auth.py` |
 | 事务/审计/回滚 | GAP | **PASS** | `create_job_with_outbox`、`review_job`、回滚测试 |
-| MySQL | GAP | **PARTIAL / BLOCKED** | 代码/Alembic/DDL 测试完成；真实 MySQL 镜像拉取超时，4 skipped |
-| Redis/MQ/异步任务 | GAP | **PASS** | Outbox + Worker；真实 Redis 3 passed |
-| full compose | GAP | **PARTIAL** | `docker-compose.full.yml` config 通过；未启动（缺 MySQL 镜像） |
+| MySQL | GAP | **PASS（本机实测）** | 真实 MySQL 8.4：`tests/test_admin_mysql.py` 4 passed；迁移/seed/API/事务均通过 |
+| Redis/MQ/异步任务 | GAP | **PASS** | Outbox + Worker；真实 Redis 3 passed；Redis 停机/恢复故障注入通过 |
+| full compose | GAP | **PASS（本机实测）** | full profile 全部服务 healthy；异步任务、审核、审计、故障恢复通过 |
 | 性能 | PARTIAL | **PASS（本机）** | 质检 N+1 批量化 416.791ms → 58.352ms；见 `performance.md` |
 | 隐私脱敏 | GAP | **PASS** | `server/admin/privacy.py`、`test_admin_privacy.py` |
 | AI Coding 证据 | PARTIAL | **PASS** | `ai-coding-evidence.md`（实际失败/修复记录） |
 | 医疗/GCP/OCR | NOT_APPLICABLE | **NOT_APPLICABLE** | 不在高考项目伪造 |
 | 生产 SLA/容量 | NOT_VERIFIED | **NOT_RUN** | 明确不声称 |
+
+## 7. 2026-10-31 复核实测与加固
+
+本轮在 master `1622c3f` 基础上重新执行审计与验收，发现并修复了 5 个真实交付缺陷：
+
+| # | 缺陷 | 影响 | 修复 | 回归测试 |
+|---|---|---|---|---|
+| 1 | 内联降级可重试失败后仍把 Outbox 标记为 DISPATCHED | 任务永久 PENDING，无法重试 | 保留 Outbox PENDING，记录 `inline_degraded`，返回 202 + warning | `test_inline_retry_does_not_mark_outbox_dispatched` |
+| 2 | Compose `./data` bind mount 与容器 UID 不一致 | API 无法创建 `.session_secret`，启动失败 | 改用命名卷 `gaobao_data`；full profile 注入 `SESSION_SECRET` | 默认/full compose 实际启动 |
+| 3 | 生产 `nginx.conf` 强制 TLS，演示环境无证书 | nginx 无限重启，HTTP 入口不可用 | 新增 `nginx.demo.conf`（HTTP-only），生产仍用 `nginx.conf` | `curl /healthz` + `/api/v1/health` |
+| 4 | 前端 Nginx 无 SPA fallback | 直接访问 `/admin` 返回 404 | `try_files $uri $uri/ /index.html` + asset 缓存 | `GET /admin` = 200 |
+| 5 | 自定义 SQLite `DATABASE_URL` 与 entrypoint 种子路径不一致 | 可能给错误的库做 seed | 从 URL 推导 DB 路径；非法 scheme fail-closed | `sh -n` + 默认 compose 实启 |
+
+实测结果：
+
+- Python：**1073 passed / 8 skipped**，覆盖率 **80.81%**（门禁 70%）。
+- 前端：**14 files / 86 tests passed**；`vue-tsc`、`vite build` 通过。
+- MySQL 8.4：`tests/test_admin_mysql.py` **4 passed**（建表、列表/详情、质检+审核事务、回滚）。
+- Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
+- full compose：MySQL/Redis/API/Worker/Frontend/Nginx **全部 healthy**；
+  `login → async job → SUCCEEDED → review → audit` 通过；Redis 停机返回
+  **202 + PENDING + UNAVAILABLE**，恢复后 Worker 自动补投并完成。
+- 默认 compose：SQLite + inline 质检 + `/admin` 200 + SQLite 行数变更均实测通过。
+- 安全门禁：`npm audit --omit=dev` **0 vulnerabilities**（升级 dompurify 3.4.17）；
+  `pip-audit` **No known vulnerabilities**；gitleaks 全历史 **472 commits / no leaks**。
+
+仍未声称：14 张历史表的 MySQL 生产迁移、生产 SLA/容量、真实招生数据质量、CI 中新增
+MySQL/Redis service job（当前 GitHub token 缺 `workflow` scope；集成测试已在本机实际运行）。

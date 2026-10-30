@@ -141,7 +141,10 @@
           </div>
 
           <div v-if="admin.jobDetailLoading" class="mt-3 text-sm text-slate-500" aria-busy="true">加载任务详情…</div>
-          <div v-else-if="admin.jobDetailError" class="mt-3 text-sm text-red-700">{{ admin.jobDetailError }}</div>
+          <div v-else-if="admin.jobDetailError" class="mt-3 text-sm text-red-700">
+            {{ admin.jobDetailError }}
+            <button v-if="admin.jobDetailId" class="ml-2 underline" @click="admin.loadJob(admin.jobDetailId)">重试</button>
+          </div>
           <template v-else>
             <div class="mt-3 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white">
               <table class="min-w-full text-xs">

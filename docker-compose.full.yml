@@ -62,7 +62,14 @@ services:
     restart: unless-stopped
     command: python -m server.admin.worker
     env_file: .env.full
+    environment:
+      # The API owns schema migration + demo seeding; the worker only consumes
+      # the queue. Start it after the API is actually ready to avoid two
+      # concurrent seeders racing on the same empty MySQL database.
+      AUTO_SEED_DEMO: "false"
     depends_on:
+      api:
+        condition: service_healthy
       mysql:
         condition: service_healthy
       redis:

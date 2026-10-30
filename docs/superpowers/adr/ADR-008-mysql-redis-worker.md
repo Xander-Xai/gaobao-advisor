@@ -51,7 +51,11 @@
 - Compose `depends_on: condition: service_healthy` 只负责启动顺序；应用启动后仍通过
   readiness/healthcheck 判断真实可用性。
 - MySQL 启动顺序：healthcheck healthy → API entrypoint 执行 Alembic（重试 30 次）→
-  可选 seed → uvicorn。
+  可选 seed → uvicorn；Worker 等 API healthy 后才启动，避免两个进程并发 seed。
+- API 数据目录使用命名卷 `gaobao_data`，避免宿主机 UID 与容器 appuser UID 不一致导致
+  `.session_secret` 写入失败；full profile 同时注入独立 `SESSION_SECRET`。
+- 默认/演示 Compose 使用 HTTP-only `nginx.demo.conf`；生产 `nginx.conf` 继续负责 TLS，
+  由 `docker-compose.prod.yml` 挂载 `./certs`。
 - 凭据由 `.env.full`（`scripts/setup_full_env.py` 生成，0600，gitignore）注入，不提交。
 
 ## 备选方案
@@ -71,3 +75,6 @@
   Outbox 由 Worker 轮询而不是 CDC。
 - 边界：不承诺生产 SLA、不承诺 MySQL 所有历史查询路径完全等价；实际运行证据见
   `docs/interview-readiness/performance.md` 与最终报告。
+- 2026-10-31 复核：真实 MySQL 8.4 集成测试 4 passed；full profile 全部服务 healthy，
+  异步任务、审核、审计、Redis 停机/恢复均实测通过。剩余边界仅是 14 张历史表的
+  生产级迁移与 CI service job（本地已运行，workflow 因 token scope 未改）。
