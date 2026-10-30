@@ -465,3 +465,13 @@ tests/                 单元与验收测试（1059 passed / 1 skipped）
 
 **商标与人物：** 本项目不包含、也不声称包含任何真实人物的观点、方法论、
 表达风格或语录；相关私有资产已在上游工程中移除。
+
+
+## 生态定位与公开工程证据边界（2026-10-30）
+
+这是公开工程参考仓库，不是任何私有经营系统的客户事实或生产应用替代品。
+
+- **唯一工程主责**：synthetic-demo admissions advising agent project demonstrating LangGraph, FastAPI and session/evidence controls。
+- **验证边界**：Synthetic admissions data, demonstrations and technical CI do not establish actual admissions advice efficacy, paid customers, or production authorization.
+- **公开交叉索引**：[Customer-Service AI Agent](https://github.com/Xander-Xai/Customer-Service-AI-Agent) is a separate agent reference; no mutual backend dependency or commercialization is claimed.
+- 代码、测试、指标及发布的唯一技术权威在本仓；任何外部商业研究、PR、演示、内容制作或私人计划均不能替本仓证明生产安全、真实客户验收或收入。
