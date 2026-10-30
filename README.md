@@ -178,6 +178,41 @@ cd frontend && npm run dev                 # http://localhost:3080/admin
 
 ---
 
+### 可选 MySQL / Redis / Worker（full profile）
+
+默认 `docker compose up` 仍只使用 SQLite，不需要 MySQL/Redis。需要展示异步质检和双数据库时：
+
+```bash
+python scripts/setup_full_env.py          # 生成 .env.full（0600，gitignore）
+docker compose --env-file .env.full \
+  -f docker-compose.yml -f docker-compose.full.yml --profile full up --build
+```
+
+启动内容：FastAPI（MySQL + Alembic）、MySQL 8.4、Redis 7、数据质检 Worker、Vue 前端、Nginx。
+API/MySQL/Redis/Frontend 都有 healthcheck；API 使用 `/api/v1/health/ready`（DB 断开返回 503）。
+
+```bash
+# 迁移（SQLite 也可以跑，用于验证版本表）
+DATABASE_URL=sqlite:///data/demo.db python -m db.migrate
+
+# 可选集成测试
+REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py -q
+MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
+  pytest tests/test_admin_mysql.py -q
+```
+
+**迁移范围（重要）：** Alembic 初始 revision 只覆盖本轮新增的 4 张运营表
+（`data_quality_jobs` / `data_quality_issues` / `operation_audit_logs` /
+`quality_task_outbox`）。14 张历史表的 MySQL 生产迁移不在本轮承诺内；full profile
+的演示数据由 `scripts/seed_demo_data.py --database-url ...` 引导创建。详见
+[ADR-008](docs/superpowers/adr/ADR-008-mysql-redis-worker.md)。
+
+**队列语义：** 创建任务时 DB + Outbox + 审计同事务；Redis 不可用时 `async` 模式返回
+`202 + PENDING + warning`，不会伪造成功；开发环境 `auto` 才显式内联降级并标记
+`execution_mode=inline_degraded`。
+
+---
+
 ## 安全规则资产（fail-closed）
 
 `safety_rules.md` 是原创编写的通用咨询安全约束（不编造数据、标注来源、
@@ -230,9 +265,10 @@ flowchart LR
 | 前端 | Vue 3 + **TypeScript（新后台模块）** + Pinia + Vue Router + Tailwind CSS + Vite |
 | API | FastAPI + Pydantic + SSE + WebSocket |
 | Agent 编排 | LangGraph StateGraph |
-| 数据库 | SQLite + SQLAlchemy |
+| 数据库 | SQLite（默认）+ MySQL 8（可选，Alembic 迁移）+ SQLAlchemy |
 | 知识检索 | BM25 关键词 + 可选 Dense Embedding 混合检索（随仓合成语料默认启用） |
 | LLM | OpenAI Compatible API（DeepSeek / Qwen / GLM / Moonshot / GPT / Ollama） |
+| 异步任务 | Redis List + 事务 Outbox + 独立 Worker（可选）|
 | 可观测性 | Prometheus + Sentry + Analytics |
 | 部署 | Docker / Docker Compose + Nginx |
 
@@ -286,13 +322,14 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1059 passed / 1 skipped**，覆盖率 **80.68%**（门禁 70%）|
+| `pytest tests` | **1071 passed / 8 skipped**，覆盖率 **80.71%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
 | `vitest run`（frontend）| **14 files / 85 tests passed**；`npm run build` 通过 |
+| `REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis）|
 
 > 上述数字来自本机实际运行输出。Docker 一项为本机 `docker build` + 无 Key
 > `docker run` 后 `curl` 的真实健康检查结果。
@@ -317,12 +354,13 @@ server/
   services/            rag / kb_retriever / quality / llm_router ...
   middleware/          CSP、限流、注入检测、请求关联 ID
   admin/               管理员鉴权/RBAC、运营查询、质检任务、审计、Worker
-db/                    SQLAlchemy 模型与会话
+db/                    SQLAlchemy 模型、会话与迁移入口（db/migrate.py）
+migrations/            Alembic 版本目录
 skills/gaokao/         SkillService（fail-closed）+ 原创安全规则与启发式
 quality/               质量与幻觉检查
 legacy/                数据查询适配层
 scrapers/              数据采集器（默认不发起外部请求）
-scripts/               数据导入脚本 + seed_demo_data.py
+scripts/               数据导入脚本 + seed_demo_data.py + 管理员凭据生成
 knowledge/synthetic_demo/  随仓原创合成知识语料（SYNTHETIC_DEMO，CC0）
 frontend/              Vue 3 + Vite（Chat / Report / Profile / Admin；后台模块使用 TypeScript）
 tests/                 单元与验收测试（1059 passed / 1 skipped）

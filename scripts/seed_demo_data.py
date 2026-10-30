@@ -212,62 +212,103 @@ def build_payload() -> dict:
     }
 
 
-def _bind_engine(db_path: Path):
-    """Return an engine bound to ``db_path``, reusing modules if already loaded.
+def _bind_database_url(url: str):
+    """Bind ``db.database`` and the ORM to ``url`` in place.
 
-    ``db.database`` builds its engine from ``DATABASE_URL`` at import time. If
-    it has already been imported (which it will be once any test has touched
-    the app), re-importing the package would create a *second* set of ORM
-    classes and break every caller holding the first. Instead, rebind the
-    existing module in place.
+    ``db.database`` builds its engine at import time. Re-importing the package
+    would create a second set of ORM classes and break callers holding the
+    first, so the existing module is rebound instead.
     """
-    os.environ["DATABASE_URL"] = f"sqlite:///{db_path.resolve()}"
-
-    from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
     import db.database as database
 
-    if getattr(database, "DATABASE_URL", None) == os.environ["DATABASE_URL"]:
+    url = database._normalize_url(url)  # noqa: SLF001 - shared validation source
+    os.environ["DATABASE_URL"] = url
+    if getattr(database, "DATABASE_URL", None) == url:
         return database.engine, database.SessionLocal
 
-    engine = create_engine(
-        os.environ["DATABASE_URL"],
-        connect_args={"check_same_thread": False},
-        pool_pre_ping=True,
-        future=True,
-    )
+    engine = database._create_engine(url)  # noqa: SLF001 - reuse dialect handling
     database.engine = engine
+    database.DATABASE_URL = url
+    database.IS_SQLITE = database._is_sqlite(url)  # noqa: SLF001
     database.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, database.SessionLocal
 
 
-def seed_database(db_path: str | Path, reset: bool = False) -> dict[str, int]:
+def _bind_engine(db_path: Path):
+    return _bind_database_url(f"sqlite:///{db_path.resolve()}")
+
+
+def _current_counts(session) -> dict[str, int]:
+    from db.models import AdmissionScore, EnrollmentPlan, Major, School, SubjectRanking
+
+    return {
+        "schools": int(session.query(School).count()),
+        "majors": int(session.query(Major).count()),
+        "admission_scores": int(session.query(AdmissionScore).count()),
+        "enrollment_plans": int(session.query(EnrollmentPlan).count()),
+        "subject_rankings": int(session.query(SubjectRanking).count()),
+    }
+
+
+def seed_database(
+    db_path: str | Path | None = None,
+    reset: bool = False,
+    *,
+    database_url: str | None = None,
+) -> dict[str, int]:
     """Create schema and load the synthetic dataset. Returns row counts.
 
     Args:
-        db_path: target SQLite file.
-        reset: delete an existing file first.
-
-    Returns:
-        Mapping of table name to inserted row count.
+        db_path: target SQLite file (ignored when ``database_url`` is given).
+        reset: delete an existing SQLite file first. Refused for MySQL/other
+            non-SQLite URLs: no unconditional destructive reset.
+        database_url: explicit SQLAlchemy URL (e.g. mysql+pymysql://...). The
+            seed is idempotent: if schools already exist it returns counts
+            without inserting duplicates.
     """
-    db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    import db.database as database
 
-    if reset and db_path.exists():
-        db_path.unlink()
+    url = database_url
+    if url is None:
+        if db_path is None:
+            raise ValueError("either db_path or database_url is required")
+        target = Path(db_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        url = f"sqlite:///{target.resolve()}"
+    else:
+        url = database._normalize_url(url)  # noqa: SLF001
 
-    _engine, SessionLocal = _bind_engine(db_path)
+    if reset:
+        if not url.startswith("sqlite"):
+            raise ValueError("refusing --reset for a non-SQLite database; use migrations/manual cleanup")
+        existing_path = database._sqlite_path_from_url(url)  # noqa: SLF001
+        if existing_path and Path(existing_path).exists():
+            Path(existing_path).unlink()
 
-    from db.database import init_db
+    _engine, SessionLocal = _bind_database_url(url)
+
+    from db.database import Base
     from db.models import AdmissionScore, EnrollmentPlan, Major, School, SubjectRanking
 
-    init_db()
+    # Seed is a demo bootstrap: create both legacy and admin tables on a fresh
+    # database. Production MySQL uses Alembic instead (see db/migrate.py).
+    Base.metadata.create_all(bind=database.engine)
+    if database.IS_SQLITE:
+        sqlite_path = database._sqlite_path_from_url(url)  # noqa: SLF001
+        if sqlite_path:
+            database._lock_db_permissions(sqlite_path)  # noqa: SLF001
 
-    payload = build_payload()
     session = SessionLocal()
     try:
+        existing = int(session.query(School).count())
+        if existing:
+            counts = _current_counts(session)
+            print(f"database already contains {existing} school(s); skipping seed")
+            return counts
+
+        payload = build_payload()
         schools = [School(**row) for row in payload["schools"]]
         session.add_all(schools)
         session.flush()
@@ -333,6 +374,9 @@ def seed_database(db_path: str | Path, reset: bool = False) -> dict[str, int]:
             "enrollment_plans": len(payload["enrollment_plans"]),
             "subject_rankings": len(payload["subject_rankings"]),
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -342,7 +386,8 @@ def seed_database(db_path: str | Path, reset: bool = False) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Seed the SYNTHETIC demo database")
     parser.add_argument("--db", default="data/demo.db", help="target SQLite path")
-    parser.add_argument("--reset", action="store_true", help="delete existing db first")
+    parser.add_argument("--database-url", default="", help="explicit SQLAlchemy URL (e.g. mysql+pymysql://...)")
+    parser.add_argument("--reset", action="store_true", help="delete existing SQLite db first")
     parser.add_argument("--json-out", default="", help="also write payload metadata as JSON")
     args = parser.parse_args(argv)
 
@@ -354,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
         out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"wrote payload: {out}")
 
-    counts = seed_database(args.db, reset=args.reset)
+    counts = seed_database(args.db, reset=args.reset, database_url=args.database_url or None)
     print(f"{SYNTHETIC_MARKER}: {SYNTHETIC_NOTICE}")
     for table, count in counts.items():
         print(f"  {table:<20} {count}")
