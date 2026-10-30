@@ -162,8 +162,8 @@ cd frontend && npm test -- --run && npm run build
 ### 文档修正：回滚范围反向
 
 - 原 PR 文案 `git revert de9f3d1..8ed4c2a` 是 newer..older，可能得到空范围。
-- 修正为 `1622c3f..de9f3d1`，并补充 squash merge / 普通 merge / rebase merge 的验证流程；
-  本轮不执行真实回滚。
+- 修正为 `1622c3f..HEAD`（older..newer），并补充 squash merge / 普通 merge /
+  rebase merge 的验证流程；本轮不执行真实回滚。
 
 ### 过程阻塞：OAuth token 缺 workflow scope
 

@@ -185,16 +185,17 @@ CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
 ### 5.1 回滚流程（只读验证，不在本任务执行）
 
-PR #35 的基线是 `1622c3f`，分支头是 `de9f3d1`。Git 范围必须写成
-**older..newer**；反向范围（如 `de9f3d1..8ed4c2a`）会得到空集合或错误提交。
+PR #35 的基线是 `1622c3f`。Git 范围必须写成 **older..newer**；反向范围
+（如 `de9f3d1..8ed4c2a`）会得到空集合或错误提交。使用 `HEAD` 可避免分支后续
+文档提交导致范围过期。
 
 ```bash
 # 1) 先验证范围，不修改工作区
-git log --oneline 1622c3f..de9f3d1
-git diff --stat 1622c3f..de9f3d1
+git log --oneline 1622c3f..HEAD
+git diff --stat 1622c3f..HEAD
 
 # 2) 普通线性分支：按 older..newer 生成反向提交（不要执行未评审的回滚）
-git revert --no-commit 1622c3f..de9f3d1
+git revert --no-commit 1622c3f..HEAD
 # 评审、运行 pytest / frontend / compose 检查后再提交
 
 # 3) squash merge 后：对 squash commit 做单提交回滚

@@ -167,13 +167,14 @@ CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service con
 
 ## 8. 2026-10-31 二次加固（PR #35 验收）
 
-本轮只修复工程边界，不新增业务模块；基线 `de9f3d1`，提交 `b6688b9`。
+本轮只修复工程边界，不新增业务模块；基线 `de9f3d1`，代码提交 `b6688b9`，
+验收提交 `e23ebda`。
 
 | # | 边界问题 | 实际证据 | 修复 | 状态 |
 |---|---|---|---|---|
 | 1 | 生产 Compose 只挂载 `.env.production:/app/.env`，应用没有 dotenv 加载逻辑 | 缺 SESSION_SECRET 时生产启动失败；挂载文件不生效 | 改为 required `env_file`，真实注入环境变量；新增 `scripts/verify_prod_compose_env.sh` | **PASS** |
 | 2 | BRPOP 取走消息后、claim 前崩溃会留下 PENDING+DISPATCHED 孤儿 | 真实 full profile 注入：`redis-cli BRPOP` 丢弃消息后 Worker 不再处理 | `requeue_orphaned_dispatched` 补偿扫描；Worker 启动/每 30s 扫描；重复投递由原子 claim 吸收 | **PASS** |
-| 3 | 回滚文档范围写成 `de9f3d1..8ed4c2a`（反向） | Git 范围 older..newer 语义 | 修正为 `1622c3f..de9f3d1`，并补充 squash/merge/rebase 回滚流程 | **PASS** |
+| 3 | 回滚文档范围写成 `de9f3d1..8ed4c2a`（反向） | Git 范围 older..newer 语义 | 修正为 `1622c3f..HEAD`，并补充 squash/merge/rebase 回滚流程 | **PASS** |
 | 4 | full Compose 将 MySQL 3306 / Redis 6379 暴露到宿主机 | `docker compose ps` 显示 `0.0.0.0:3306/6379` | 删除 host ports；容器间用 `mysql:3306` / `redis:6379`；真实 full profile 异步任务仍通过 | **PASS** |
 
 新增/更新测试与命令：
