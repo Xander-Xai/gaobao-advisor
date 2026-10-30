@@ -16,3 +16,12 @@ regexes = [
   '''https://hooks\.slack\.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX''',
   '''Bearer YOUR_TOKEN''',
 ]
+
+[[allowlists]]
+description = "Synthetic idempotency keys in the admin UI test fixture — not credentials."
+regexTarget = "match"
+regexes = [
+  """idem-key-123456""",
+  """fixture-idempotency-key""",
+]
+paths = ["""frontend/src/views/__tests__/AdminView.spec.ts"""]

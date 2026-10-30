@@ -73,7 +73,7 @@ const job: QualityJob = {
   job_type: 'admission_data_quality',
   status: 'SUCCEEDED',
   review_status: 'PENDING_REVIEW',
-  idempotency_key: 'idem-key-123456',
+  idempotency_key: 'fixture-idempotency-key',
   filters: { province: '示例省·甲' },
   requested_by: 'operator',
   execution_mode: 'inline_degraded',
