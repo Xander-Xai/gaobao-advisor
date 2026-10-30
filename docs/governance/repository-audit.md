@@ -10,29 +10,29 @@
 | Item | Observed |
 |---|---|
 | Default branch | `master` |
-| `master` SHA | `1622c3f04dd9931d69134d34e97c78b07d5d20a1` |
-| Open PRs | #35, #31 |
-| Open issues | 0 |
+| `master` SHA | `4d05916a304519c30489129c79a2ad9b90473d40` |
+| Open PRs | 0 |
+| Open issues | #36–#40 |
 | Closed issues | #10, #22, #24 |
-| Remote branches | 7 including `master` |
+| Remote branches | 1 (`master`) + archive tag |
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
 | Branch protection | **none** (`GET /branches/master/protection` → 404) |
 | Required checks | **none configured** (no branch protection) |
-| Latest master CI | **FAILED** (`Security Audit`, Pillow 12.3.0 advisories) |
-| PR #35 CI | 9/9 success at `fa4c19f` before this reliability round |
-| PR #31 CI | failed on old base (`e62d94a`); branch is 10 behind master |
+| Latest master CI | **SUCCESS** (`4d05916`, run 41120768687) |
+| PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
+| PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
 
 ## 1. Remote branch inventory
 
 | Branch | HEAD | merge-base | ahead/behind vs master | Unique assets | Decision |
 |---|---|---|---|---|---|
 | `master` | `1622c3f` | — | — | canonical | protected by process; no force push |
-| `fix/haibote-acceptance-hardening-20261031` | `fa4c19f` → reliability commits | `1622c3f` | ahead | PR #35 fixes + this reliability work | merge after CI |
-| `docs/portfolio-reference-boundaries-20261030` | `e62d94a` | `65bdb40` | 1 ahead / 10 behind | README boundary section only | sync with master, then merge or close SUPERSEDED |
-| `feat/vue3-ts-readonly-data-workbench-20261030` | `8fe4f61` | `65bdb40` | 1 ahead / 10 behind | old read-only TS prototype + design doc | superseded by Phase 1–3 admin workbench; archive SHA, then delete |
-| `feat/haibote-phase1-admin-workbench-20261030` | `4b81aaa` | `4b81aaa` | 0 ahead / 8 behind | none (ancestor of master) | delete after PR #32 merged evidence |
-| `feat/haibote-phase2-mysql-redis-worker-20261030` | `aab68c2` | `aab68c2` | 0 ahead / 6 behind | none (ancestor of master) | delete after PR #33 merged evidence |
-| `feat/haibote-phase3-acceptance-20261030` | `4a3c6d5` | `4a3c6d5` | 0 ahead / 5 behind | none (ancestor of master) | delete after PR #34 merged evidence |
+| `fix/haibote-acceptance-hardening-20261031` | `1f3afab` | `1622c3f` | merged via #35 | PR #35 fixes + reliability work | **deleted** after merge |
+| `docs/portfolio-reference-boundaries-20261030` | `51b8936` | `65bdb40` | merged via #31 | README boundary section only | **deleted** after merge |
+| `feat/vue3-ts-readonly-data-workbench-20261030` | `8fe4f61` | `65bdb40` | 1 ahead / 10 behind | old read-only TS prototype + design doc | **deleted**; archived tag `archive/vue3-ts-readonly-20261030` |
+| `feat/haibote-phase1-admin-workbench-20261030` | `4b81aaa` | `4b81aaa` | ancestor of master | none | **deleted** |
+| `feat/haibote-phase2-mysql-redis-worker-20261030` | `aab68c2` | `aab68c2` | ancestor of master | none | **deleted** |
+| `feat/haibote-phase3-acceptance-20261030` | `4a3c6d5` | `4a3c6d5` | ancestor of master | none | **deleted** |
 
 Local stale branches `docs/mark-private-env-docs-historical-20261021` and
 `fix/dependency-security-runtime-20261021` point at already-merged commits and
@@ -63,8 +63,8 @@ reliability PR is merged and no PR depends on it.
 
 | PR | State | Head | Action |
 |---|---|---|---|
-| #35 | OPEN / CLEAN | `fa4c19f` (+ reliability commits) | audit diff, add reliability work, run full CI, merge |
-| #31 | OPEN / UNSTABLE | `e62d94a` | merge master into branch (no force), resolve README, validate links/CI, then merge or close SUPERSEDED |
+| #35 | **MERGED** | `1f3afab` | merged `b98225a`; CI 9/9 |
+| #31 | **MERGED** | `51b8936` | merged `4d05916`; CI 9/9 |
 | #34/#33/#32 | MERGED | — | verify commits in master; phase branches deletable |
 | #30/#29/#28/#27/#26/#25/#23/#21/#20/#19/#18/#17/#16/#15/#14/#13/#12/#11/#9/#8/#7/#6/#4/#2/#1 | MERGED | — | no action |
 | #5 | CLOSED (draft, conflicting) | — | record; no unique asset to merge |
@@ -82,10 +82,11 @@ governance gap: CI success is the only current merge gate.
 | #22 version/RAG wording drift | CLOSED | PR #23, `pyproject.toml` 3.0.0 | keep closed |
 | #24 synthetic E2E/no-key behavior | CLOSED | PR #25, `test_public_demo_acceptance.py` | keep closed |
 
-Open issues at audit time: **0**. Long-term gaps (14-table MySQL migration,
-full Compose in CI, capacity testing, distributed rate limit/token revocation)
-need executable issues if not completed in this round; deduplicate before
-creating.
+Open issues at audit time: **0**. After audit, 5 executable long-term issues
+were created (no duplicates): #36 MySQL historical migration, #37 full Compose
+in CI, #38 capacity/load benchmarks, #39 distributed rate limit/token
+revocation, #40 consumer-group ACK evaluation. Closed #10/#22/#24 were
+re-verified and commented with current master evidence; they remain closed.
 
 ## 4. CI/CD and security snapshot
 
@@ -94,8 +95,9 @@ creating.
 - PR #35 branch already contains `streamlit 1.66.1 + pillow 13.0.0`,
   `dompurify 3.4.17`, production Compose credential tests, MySQL/Redis/admin
   integration job, and the earlier reliability compensation.
-- Required checks/branch protection: none; final report must state this
-  explicitly rather than claiming protected branch enforcement.
+- Required checks/branch protection: **none** (verified 404). This remains a
+  governance gap; CI success is the only merge gate. No protection rule was
+  bypassed.
 - No real secrets are committed; `.env*` production files are gitignored.
 
 ## 5. Action log
@@ -104,12 +106,12 @@ creating.
 |---|---|---|
 | Phase 0 | fetched all refs via SSH; pruned stale tracking | 7 remote branches confirmed |
 | Phase 0 | audited PR/Issue/review threads/branch protection | no review threads, no protection, 0 open issues |
-| Phase 1 | reliability code + tests (this branch) | pending commit/CI |
-| Phase 3 | PR #35 merge | pending |
-| Phase 3 | PR #31 sync/decision | pending |
-| Phase 4 | phase/Vue branch cleanup | pending |
-| Phase 5 | issue creation/updates | pending |
-| Phase 7 | final master verification | pending |
+| Phase 1 | reliability code + tests | committed `1f3afab`; full suite 1085/14; integration 13 |
+| Phase 3 | PR #35 merge | **MERGED** `b98225a`; CI 9/9 (run 41119912593) |
+| Phase 3 | PR #31 sync/merge | **MERGED** `4d05916`; CI 9/9 (run 41120400909) |
+| Phase 4 | branch cleanup | 6 remote branches deleted; archive tag pushed; only `master` remains |
+| Phase 5 | issue governance | #36–#40 created; #10/#22/#24 re-verified/commented |
+| Phase 7 | final master verification | pytest 1085/14, coverage 81.11%; frontend 86; integration 13; CI success 41120768687 |
 
 ## 6. Rollback and safety
 
