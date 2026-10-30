@@ -30,6 +30,7 @@ from server.admin import repository
 from server.admin.logging import log_error, log_event
 from server.admin.quality import collect_issues
 from server.admin.queue import QueueUnavailable, dispatch_outbox, get_queue
+from server.metrics import record_admin_job_finished
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ def execute_job(
             role=role,
             execution_mode=execution_mode,
         )
+        record_admin_job_finished(finished.status, finished.execution_mode)
         elapsed_ms = int((time.monotonic() - started) * 1000)
         log_event(
             "quality_job.succeeded",
@@ -138,6 +140,7 @@ def execute_job(
         except Exception:  # pragma: no cover - last-resort diagnostics
             log_error("quality_job.failure_persist_failed", job_id=job_id, error=message)
             raise
+        record_admin_job_finished(failed.status, failed.execution_mode)
         log_error(
             "quality_job.failed",
             job_id=job_id,

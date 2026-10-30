@@ -116,3 +116,21 @@
 - Phase 1：`docs/interview-readiness/haibote-fullstack-demo.md`、admin 路由/服务/表、Vue TS 后台。
 - Phase 2：`docs/superpowers/adr/ADR-008-mysql-redis-worker.md`、`docker-compose.full.yml`。
 - Phase 3：`docs/interview-readiness/performance.md`、`docs/interview-readiness/ai-coding-evidence.md`。
+
+## 6. 本轮完成后复核（2026-10-30）
+
+| JD 能力 | 审计状态 | 本轮结果 | 证据 |
+|---|---|---|---|
+| Vue 3 / 管理后台 | GAP | **PASS** | `AdminView.vue` + `components/admin/*` + `AdminView.spec.ts` |
+| TypeScript | GAP | **PASS** | `tsconfig.json`、`vue-tsc`、`npm test` 先执行类型检查 |
+| FastAPI 分层/错误码 | PARTIAL | **PASS** | `server/admin/{routes,service,repository,schemas,errors}.py` |
+| 管理员鉴权/RBAC | GAP | **PASS** | `server/admin/auth.py`、`tests/test_admin_auth.py` |
+| 事务/审计/回滚 | GAP | **PASS** | `create_job_with_outbox`、`review_job`、回滚测试 |
+| MySQL | GAP | **PARTIAL / BLOCKED** | 代码/Alembic/DDL 测试完成；真实 MySQL 镜像拉取超时，4 skipped |
+| Redis/MQ/异步任务 | GAP | **PASS** | Outbox + Worker；真实 Redis 3 passed |
+| full compose | GAP | **PARTIAL** | `docker-compose.full.yml` config 通过；未启动（缺 MySQL 镜像） |
+| 性能 | PARTIAL | **PASS（本机）** | 质检 N+1 批量化 416.791ms → 58.352ms；见 `performance.md` |
+| 隐私脱敏 | GAP | **PASS** | `server/admin/privacy.py`、`test_admin_privacy.py` |
+| AI Coding 证据 | PARTIAL | **PASS** | `ai-coding-evidence.md`（实际失败/修复记录） |
+| 医疗/GCP/OCR | NOT_APPLICABLE | **NOT_APPLICABLE** | 不在高考项目伪造 |
+| 生产 SLA/容量 | NOT_VERIFIED | **NOT_RUN** | 明确不声称 |

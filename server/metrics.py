@@ -185,3 +185,25 @@ def record_judge_score(dimension: str, score: float):
 def record_hallucination(hallucination_type: str):
     """Record a hallucination detection event."""
     QUALITY_HALLUCINATION_DETECTED.labels(hallucination_type=hallucination_type).inc()
+
+
+# === Admin operations ===
+
+ADMIN_QUALITY_JOBS = Counter(
+    "admin_quality_jobs_total",
+    "Data-quality jobs by terminal state and execution mode",
+    ["status", "execution_mode"],
+)
+
+ADMIN_QUEUE_UNAVAILABLE = Counter(
+    "admin_quality_queue_unavailable_total",
+    "Quality-job publishes that could not reach Redis",
+)
+
+
+def record_admin_job_finished(status: str, execution_mode: str) -> None:
+    ADMIN_QUALITY_JOBS.labels(status=status, execution_mode=execution_mode or "unknown").inc()
+
+
+def record_admin_queue_unavailable() -> None:
+    ADMIN_QUEUE_UNAVAILABLE.inc()

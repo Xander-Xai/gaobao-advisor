@@ -82,6 +82,34 @@ def collect_issues(session: Session, filters: dict[str, Any]) -> tuple[int, list
         )
         return 0, issues
 
+    # Batch-load related rows in chunks instead of two queries per school
+    # (N+1). The cap keeps a pathological scope bounded.
+    school_ids = [school.id for school in schools]
+    scores_by_school: dict[int, list[AdmissionScore]] = {}
+    plans_by_school: dict[int, list[EnrollmentPlan]] = {}
+    chunk_size = 100
+    for start in range(0, len(school_ids), chunk_size):
+        chunk = school_ids[start : start + chunk_size]
+        score_query = session.query(AdmissionScore).filter(AdmissionScore.school_id.in_(chunk))
+        if filters.get("year") is not None:
+            score_query = score_query.filter(AdmissionScore.year == int(filters["year"]))
+        if filters.get("subject_type"):
+            score_query = score_query.filter(AdmissionScore.subject_type == str(filters["subject_type"]))
+        for row in (
+            score_query.order_by(AdmissionScore.school_id.asc(), AdmissionScore.id.asc())
+            .limit(MAX_ROWS_PER_SCHOOL * len(chunk))
+            .all()
+        ):
+            scores_by_school.setdefault(row.school_id, []).append(row)
+        for row in (
+            session.query(EnrollmentPlan)
+            .filter(EnrollmentPlan.school_id.in_(chunk))
+            .order_by(EnrollmentPlan.school_id.asc(), EnrollmentPlan.id.asc())
+            .limit(MAX_ROWS_PER_SCHOOL * len(chunk))
+            .all()
+        ):
+            plans_by_school.setdefault(row.school_id, []).append(row)
+
     for school in schools:
         checked_rows += 1
         if not school.name or not school.name.strip():
@@ -133,12 +161,7 @@ def collect_issues(session: Session, filters: dict[str, Any]) -> tuple[int, list
                 suggestion="补充来源与授权记录后再进入演示数据集",
             )
 
-        score_query = session.query(AdmissionScore).filter(AdmissionScore.school_id == school.id)
-        if filters.get("year") is not None:
-            score_query = score_query.filter(AdmissionScore.year == int(filters["year"]))
-        if filters.get("subject_type"):
-            score_query = score_query.filter(AdmissionScore.subject_type == str(filters["subject_type"]))
-        scores = score_query.order_by(AdmissionScore.id.asc()).limit(MAX_ROWS_PER_SCHOOL).all()
+        scores = scores_by_school.get(school.id, [])[:MAX_ROWS_PER_SCHOOL]
         checked_rows += len(scores)
 
         if not scores:
@@ -228,13 +251,7 @@ def collect_issues(session: Session, filters: dict[str, Any]) -> tuple[int, list
                     suggestion="补充科类映射规则",
                 )
 
-        plans = (
-            session.query(EnrollmentPlan)
-            .filter(EnrollmentPlan.school_id == school.id)
-            .order_by(EnrollmentPlan.id.asc())
-            .limit(MAX_ROWS_PER_SCHOOL)
-            .all()
-        )
+        plans = plans_by_school.get(school.id, [])[:MAX_ROWS_PER_SCHOOL]
         checked_rows += len(plans)
         for plan in plans:
             if plan.plan_count is None:
