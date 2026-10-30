@@ -75,7 +75,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os,redis; redis.from_url(os.environ['REDIS_URL']).ping()\""]
+      # Readiness includes both the database and the queue; a Redis-only check
+      # would report healthy while the worker cannot persist job state.
+      test: ["CMD-SHELL", "python -c \"import os,redis; from sqlalchemy import create_engine,text; e=create_engine(os.environ['DATABASE_URL']); e.connect().execute(text('SELECT 1')); redis.from_url(os.environ['REDIS_URL']).ping()\""]
       interval: 15s
       timeout: 5s
       retries: 5

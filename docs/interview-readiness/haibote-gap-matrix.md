@@ -149,7 +149,7 @@
 
 实测结果：
 
-- Python：**1075 passed / 9 skipped**，覆盖率 **80.77%**（门禁 70%）。
+- Python：**1085 passed / 14 skipped**，覆盖率 **81.11%**（门禁 70%）。
 - 前端：**14 files / 86 tests passed**；`vue-tsc`、`vite build` 通过。
 - MySQL 8.4：`tests/test_admin_mysql.py` **5 passed**（建表、列表/详情、质检+审核事务、回滚、崩溃窗口补偿）。
 - Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
@@ -186,8 +186,25 @@ CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service con
   ADMIN_TOKEN_SECRET 三种负控制均 fail-closed；有效配置健康启动并 admin 登录成功。
 - full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
 
-最终本地结果：Python **1075 passed / 9 skipped**，覆盖率 **80.77%**；前端 **14 files / 86 tests**；
-`make test-integration` **8 passed**（MySQL 5 + Redis 3）；CI **9/9 job 通过**
+最终本地结果：Python **1085 passed / 14 skipped**，覆盖率 **81.11%**；前端 **14 files / 86 tests**；
+`make test-integration` **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5）；CI **9/9 job 通过**
 （[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
 
 仍未声称：14 张历史表的 MySQL 生产迁移、生产 SLA/容量、完整 Compose 进 CI、真实招生数据质量。
+
+## 9. 2026-10-31 Worker 可靠性加固
+
+本轮不新增业务模块，只补齐 Worker/数据库并发边界。
+
+| 问题 | 原因 | 实际修复 | 测试证据 | 状态 |
+|---|---|---|---|---|
+| RUNNING 周期恢复 | 原实现只在启动时恢复 | Worker 启动 + 运行期每 30s 有界扫描（limit=50），同时恢复 RUNNING 与孤儿 PENDING/DISPATCHED | `test_worker_loop_runs_periodic_recovery_before_consuming`、`test_recover_worker_state_runs_both_bounded_scans` | **PASS** |
+| 重试耗尽 | attempts >= max 时原恢复跳过，任务卡 RUNNING | 未耗尽→PENDING；耗尽→FAILED + `WORKER_LEASE_EXPIRED` + 失败审计；行级 CAS | `test_lease_exhaustion_marks_failed`（max=1/3）、MySQL 耗尽用例 | **PASS** |
+| 过期 Worker 写入 | `complete_job`/`fail_job` 只检查状态，旧 Worker 可覆盖 | `claim_job` 返回 attempts 作为 fencing token；完成/失败使用 `WHERE status=RUNNING AND attempts=?` CAS | Fencing 单测 + MySQL `test_fenced_old_worker_cannot_complete_after_reclaim` | **PASS** |
+| 多 Worker 并发 | 缺少真实 MySQL+Redis 并发验证 | 新增 `tests/test_worker_integration.py`：双 Worker 争抢、并发恢复、重复投递、耗尽 | `make test-integration` 13 passed；真实 full profile 双进程 3 jobs | **PASS** |
+| 消息恢复边界 | BRPOP 丢消息、at-least-once 语义未明确 | 60s 投递租约补偿；Worker 周期扫描；ADR-008 明确 at-least-once / 非 exactly-once | 真实 BRPOP 注入 + 单测 | **PASS** |
+| MySQL 秒级精度 | 新 Outbox `next_attempt_at` 被向上取整，误报 UNAVAILABLE | `pending_outbox` 增加 1 秒调度容差 | 双 Worker MySQL 集成测试立即投递 | **PASS** |
+| MySQL 短暂不可用 | Worker 健康检查只看 Redis | 健康检查同时验证 MySQL+Redis；API readiness 503、创建任务 500、恢复后成功 | full profile 故障注入 | **PASS** |
+
+最终结果：Python **1085 passed / 14 skipped**，覆盖率 **81.11%**；前端 **14 files / 86 tests**；
+集成 **13 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。

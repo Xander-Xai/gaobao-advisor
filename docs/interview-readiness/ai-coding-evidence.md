@@ -165,6 +165,29 @@ cd frontend && npm test -- --run && npm run build
 - 修正为 `1622c3f..HEAD`（older..newer），并补充 squash merge / 普通 merge /
   rebase merge 的验证流程；本轮不执行真实回滚。
 
+### Bug 15：RUNNING 只在启动时恢复，且耗尽次数卡死
+
+- 现象：Worker 启动后不运行期扫描；`attempts >= max_attempts` 的 RUNNING 行被
+  `requeue_stale_running` 过滤掉，永久卡住。
+- 修复：Worker 启动 + 每 30 秒有界扫描；未耗尽→PENDING，耗尽→FAILED +
+  `WORKER_LEASE_EXPIRED` + 失败审计；行级条件更新保证多 Worker 幂等。
+- 证据：`test_worker_loop_runs_periodic_recovery_before_consuming`、
+  `test_lease_exhaustion_marks_failed`（max=1/3）。
+
+### Bug 16：旧 Worker 可覆盖新执行结果
+
+- 现象：`complete_job` / `fail_job` 只检查 RUNNING，租约过期后旧 Worker 仍能写入。
+- 修复：`claim_job` 返回 attempts 作为 fencing token；完成/失败使用
+  `WHERE status='RUNNING' AND attempts=?` CAS；过期写入返回 `EXECUTION_FENCED`。
+- 证据：Fencing 单测 + MySQL `test_fenced_old_worker_cannot_complete_after_reclaim`。
+
+### Bug 17：MySQL DATETIME 秒级精度导致 Outbox 误报 UNAVAILABLE
+
+- 现象：刚创建的 `next_attempt_at` 被 MySQL 向上取整到下一秒，`dispatch_outbox`
+  立即查询看不到，API 返回 UNAVAILABLE。
+- 修复：`pending_outbox` 增加 1 秒调度容差。
+- 证据：真实 MySQL+Redis 双 Worker 集成测试立即投递成功。
+
 ### 过程阻塞：OAuth token 缺 workflow scope
 
 - 现象：`git push` 被拒绝（OAuth App 不能更新 `.github/workflows/ci.yml`）。
@@ -190,7 +213,7 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1075 passed, 9 skipped**，覆盖率 **80.77%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1085 passed, 14 skipped**，覆盖率 **81.11%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
@@ -200,14 +223,16 @@ cd frontend && npm test -- --run && npm run build
 | `ruff check .` / `ruff format --check .` | 通过 |
 | `docker compose ... --profile full up` | 全部服务 healthy；MySQL/Redis 无宿主机端口；异步任务/审核/审计/Redis 故障恢复通过 |
 | 真实 BRPOP 丢消息注入（Redis+MySQL） | Worker 启动恢复孤儿；job **SUCCEEDED** |
+| 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
+| MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
-| `make test-integration` | **8 passed**（MySQL 5 + Redis 3） |
+| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5） |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
 | gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
-| GitHub Actions（PR #35, `b6688b9`） | **9/9 通过**：Lint、Test 3.10/3.11、MySQL+Redis+Admin Smoke、Security、Secret、Frontend、Container（含生产 Compose 正/负控制）、Redistribution；[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065) |
+| GitHub Actions（PR #35, 本轮可靠性 HEAD） | 9/9 通过（见 PR 最终 run）；含 MySQL+Redis+Admin Smoke 与双 Worker 回归 |
 
 ## 6. 可现场讲解的案例
 

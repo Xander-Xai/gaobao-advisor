@@ -38,7 +38,7 @@ test-integration:  ## 用一次性 MySQL 8.4 + Redis 7 容器运行真实集成�
 	done; \
 	MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
 	REDIS_TEST_URL='redis://127.0.0.1:6380/0' \
-	$(PYTHON) -m pytest tests/test_admin_mysql.py tests/test_redis_worker.py -q --no-header --no-cov
+	$(PYTHON) -m pytest tests/test_admin_mysql.py tests/test_redis_worker.py tests/test_worker_integration.py -q --no-header --no-cov
 
 typecheck:  ## 前端 TypeScript 类型检查
 	cd frontend && npm run typecheck

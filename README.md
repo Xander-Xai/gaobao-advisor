@@ -235,6 +235,14 @@ PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
 `202 + PENDING + warning`，不会伪造成功；开发环境 `auto` 才显式内联降级并标记
 `execution_mode=inline_degraded`。
 
+**Worker 可靠性：** `claim_job` 返回 `attempts` 作为 fencing token；完成/失败使用
+`WHERE status='RUNNING' AND attempts=?` 条件更新，过期 Worker 不能覆盖新执行。
+Worker 启动及运行期每 30 秒有界扫描（`limit=50`）恢复过期 RUNNING 与孤儿
+PENDING/DISPATCHED；次数耗尽转 FAILED。可配置：
+`WORKER_LEASE_SECONDS`（默认 600）、`WORKER_DELIVERY_LEASE_SECONDS`（默认 60）、
+`WORKER_RECOVERY_INTERVAL_SECONDS`（默认 30）。投递语义为 at-least-once，不是 exactly-once；
+重复投递由原子 claim、fencing 和唯一问题约束吸收。
+
 ---
 
 ## 安全规则资产（fail-closed）
@@ -346,17 +354,20 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1075 passed / 9 skipped**，覆盖率 **80.77%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1085 passed / 14 skipped**，覆盖率 **81.11%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
 | `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
+| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5）|
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
 | `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；MySQL/Redis 无宿主机端口；异步任务、审核、审计、Redis 故障恢复通过 |
 | 真实 BRPOP 丢消息注入（Redis+MySQL） | job PENDING/DISPATCHED → Worker 启动日志 `requeued 1 orphaned dispatched job(s)` → **SUCCEEDED** |
+| 真实双 Worker 并发（3 jobs / 2 processes） | issues 15 = SUM(issue_count)，success 审计每 job 1 次，无重复 |
+| 租约/Fencing/耗尽 | 旧 Worker `EXECUTION_FENCED`；max_attempts=1/3 均正确终态 |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 缺失 env 文件 / 缺 SESSION_SECRET / 缺 ADMIN_TOKEN_SECRET 均 fail-closed；有效配置启动并 admin 登录成功 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
@@ -367,7 +378,7 @@ ruff check . && ruff format --check .
 > 生产 Compose 测试只使用临时生成且已删除的测试凭据。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
-MySQL 8.4 + Redis 7 集成测试、Admin Smoke、Secret Scan（gitleaks 全历史）、
+MySQL 8.4 + Redis 7 集成测试、双 Worker/恢复回归、Admin Smoke、Secret Scan（gitleaks 全历史）、
 Security Audit（pip-audit 审计运行时锁 + legacy 锁、npm audit）、Frontend Quality Gate、
 No-Key Container Smoke Test、Redistribution Gate。
 门禁失败即红，不通过跳过或降低阈值来「修绿」。

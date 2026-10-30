@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import datetime
+import types
 import uuid
 
 import pytest
 
 from db.models import DataQualityIssue, DataQualityJob, OperationAuditLog, QualityTaskOutbox
 from server.admin import repository, service, worker
+from server.admin.errors import AdminError
 from server.admin.queue import QueueUnavailable, dispatch_outbox
-from server.admin.worker import RetryableJobError, execute_job, run_once
+from server.admin.worker import RetryableJobError, execute_job, recover_worker_state, run_once
 from tests.conftest import auth_header, login
 
 
@@ -284,6 +286,234 @@ class TestWorker:
             assert job.error_code == "WORKER_LEASE_EXPIRED"
         finally:
             session.close()
+
+
+class TestFencingAndLeaseRecovery:
+    def _create(self, session, key: str, max_attempts: int = 3) -> int:
+        job, _ = repository.create_job_with_outbox(
+            session,
+            filters={},
+            idempotency_key=key,
+            actor="operator",
+            role="operator",
+            request_id="req-fencing",
+            ip_hash=None,
+            max_attempts=max_attempts,
+        )
+        return job.id
+
+    def _age_started(self, session, job_id: int, seconds: int = 120) -> None:
+        job = session.get(DataQualityJob, job_id)
+        job.started_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+            seconds=seconds
+        )
+        session.commit()
+
+    def test_claim_returns_fencing_attempt_and_stale_complete_is_rejected(self, admin_factory):
+        session = admin_factory()
+        try:
+            job_id = self._create(session, "fencing-complete-001")
+            assert repository.claim_job(session, job_id) == 1
+            assert repository.claim_job(session, job_id) is None
+            self._age_started(session, job_id)
+            assert repository.requeue_stale_running(session, older_than_seconds=60) == 1
+            assert repository.claim_job(session, job_id) == 2
+
+            with pytest.raises(AdminError) as error:
+                repository.complete_job(
+                    session,
+                    job_id,
+                    checked_rows=1,
+                    issues=[],
+                    request_id="req-old",
+                    actor="worker-old",
+                    role="system",
+                    expected_attempt=1,
+                )
+            assert error.value.code == "EXECUTION_FENCED"
+
+            finished = repository.complete_job(
+                session,
+                job_id,
+                checked_rows=1,
+                issues=[],
+                request_id="req-new",
+                actor="worker-new",
+                role="system",
+                expected_attempt=2,
+            )
+            assert finished.status == "SUCCEEDED"
+            assert session.query(OperationAuditLog).filter_by(action="quality_job.succeeded").count() == 1
+        finally:
+            session.close()
+
+    def test_stale_failure_cannot_overwrite_new_execution(self, admin_factory):
+        session = admin_factory()
+        try:
+            job_id = self._create(session, "fencing-fail-00001")
+            assert repository.claim_job(session, job_id) == 1
+            self._age_started(session, job_id)
+            assert repository.requeue_stale_running(session, older_than_seconds=60) == 1
+            assert repository.claim_job(session, job_id) == 2
+
+            with pytest.raises(AdminError) as error:
+                repository.fail_job(
+                    session,
+                    job_id,
+                    error_code="QUALITY_JOB_FAILED",
+                    error_message="old worker",
+                    retryable=False,
+                    request_id="req-old",
+                    actor="worker-old",
+                    role="system",
+                    expected_attempt=1,
+                )
+            assert error.value.code == "EXECUTION_FENCED"
+            assert session.get(DataQualityJob, job_id).status == "RUNNING"
+
+            failed = repository.fail_job(
+                session,
+                job_id,
+                error_code="QUALITY_JOB_FAILED",
+                error_message="new worker",
+                retryable=False,
+                request_id="req-new",
+                actor="worker-new",
+                role="system",
+                expected_attempt=2,
+            )
+            assert failed.status == "FAILED"
+        finally:
+            session.close()
+
+    @pytest.mark.parametrize("max_attempts", [1, 3])
+    def test_lease_exhaustion_marks_failed(self, admin_factory, max_attempts):
+        session = admin_factory()
+        try:
+            job_id = self._create(session, f"lease-exhaust-{max_attempts}", max_attempts=max_attempts)
+            for attempt in range(1, max_attempts + 1):
+                assert repository.claim_job(session, job_id) == attempt
+                self._age_started(session, job_id)
+                assert repository.requeue_stale_running(session, older_than_seconds=60) == 1
+                job = session.get(DataQualityJob, job_id)
+                if attempt < max_attempts:
+                    assert job.status == "PENDING"
+                else:
+                    assert job.status == "FAILED"
+                    assert job.error_code == "WORKER_LEASE_EXPIRED"
+                    assert job.finished_at is not None
+            assert session.query(OperationAuditLog).filter_by(action="quality_job.failed").count() == 1
+        finally:
+            session.close()
+
+    def test_repeated_recovery_is_idempotent(self, admin_factory):
+        session = admin_factory()
+        try:
+            job_id = self._create(session, "lease-idempotent-01")
+            assert repository.claim_job(session, job_id) == 1
+            self._age_started(session, job_id)
+            assert repository.requeue_stale_running(session, older_than_seconds=60) == 1
+            version = session.get(DataQualityJob, job_id).version
+            assert repository.requeue_stale_running(session, older_than_seconds=60) == 0
+            assert session.get(DataQualityJob, job_id).version == version
+        finally:
+            session.close()
+
+    def test_recover_worker_state_runs_both_bounded_scans(self, admin_factory, monkeypatch):
+        session = admin_factory()
+        try:
+            stale_id = self._create(session, "recover-state-stale-01")
+            assert repository.claim_job(session, stale_id) == 1
+            self._age_started(session, stale_id)
+
+            orphan_id = self._create(session, "recover-state-orphan-01")
+            repository.mark_outbox_dispatched(session, orphan_id)
+            orphan = session.get(DataQualityJob, orphan_id)
+            orphan.updated_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+                seconds=120
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        monkeypatch.setattr(worker, "SessionLocal", admin_factory)
+        counts = recover_worker_state(stale_running_seconds=60, orphaned_seconds=60)
+        assert counts == {"stale_running": 1, "orphaned_dispatched": 1}
+        session = admin_factory()
+        try:
+            assert session.get(DataQualityJob, stale_id).status == "PENDING"
+            assert session.get(DataQualityJob, orphan_id).status == "PENDING"
+            outbox = session.query(QualityTaskOutbox).filter_by(job_id=orphan_id).one()
+            assert outbox.status == "PENDING"
+        finally:
+            session.close()
+
+    def test_claim_db_failure_does_not_persist_false_failure(self, admin_factory, monkeypatch):
+        session = admin_factory()
+        try:
+            job_id = self._create(session, "claim-db-failure-01")
+
+            def broken_claim(*args, **kwargs):
+                raise RuntimeError("database unavailable during claim")
+
+            monkeypatch.setattr(repository, "claim_job", broken_claim)
+            with pytest.raises(RuntimeError, match="database unavailable"):
+                execute_job(job_id, session=session)
+            session.expire_all()
+            job = session.get(DataQualityJob, job_id)
+            assert job.status == "PENDING"
+            assert session.query(OperationAuditLog).filter_by(action="quality_job.failed").count() == 0
+        finally:
+            session.close()
+
+    def test_worker_loop_runs_periodic_recovery_before_consuming(self, monkeypatch):
+        calls = []
+        stop = {"flag": False}
+
+        def fake_recover(**kwargs):
+            calls.append(kwargs)
+            return {"stale_running": 0, "orphaned_dispatched": 0}
+
+        def fake_run_once(**kwargs):
+            stop["flag"] = True
+            return {"job_id": None, "status": "IDLE"}
+
+        monkeypatch.setattr(worker, "recover_worker_state", fake_recover)
+        monkeypatch.setattr(worker, "run_once", fake_run_once)
+        worker._worker_loop(
+            queue=object(),
+            timeout=0,
+            stop=stop,
+            stale_lease=600,
+            delivery_lease=60,
+            recovery_interval=0,
+        )
+        assert calls == [{"stale_running_seconds": 600, "orphaned_seconds": 60}]
+
+    def test_run_forever_runs_startup_recovery(self, monkeypatch):
+        recovery_calls = []
+        loop_calls = []
+        queue = types.SimpleNamespace(url="redis://example/0", key="queue")
+
+        monkeypatch.setattr(worker, "get_queue", lambda: queue)
+        monkeypatch.setattr(worker.signal, "signal", lambda *args: None)
+        monkeypatch.setattr(
+            worker,
+            "recover_worker_state",
+            lambda **kwargs: recovery_calls.append(kwargs) or {"stale_running": 0, "orphaned_dispatched": 0},
+        )
+        monkeypatch.setattr(worker, "_worker_loop", lambda **kwargs: loop_calls.append(kwargs))
+        worker.run_forever()
+        assert recovery_calls
+        assert loop_calls
+
+    def test_recover_worker_state_surfaces_db_failure(self, monkeypatch):
+        def broken_session():
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr(worker, "SessionLocal", broken_session)
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            recover_worker_state()
 
 
 class TestReviewAndAudit:

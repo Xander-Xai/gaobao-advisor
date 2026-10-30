@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1075 passed / 9 skipped；`vitest` 86 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1085 passed / 14 skipped；`vitest` 86 tests |
 
 ## 1. 三分钟演示路径
 
@@ -112,8 +112,11 @@ rowcount=0 返回 409，避免后写覆盖先写。测试：
 
 Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原子 claim，
 重复消息因状态守卫被跳过；可重试错误回到 PENDING 并重新武装 Outbox，最多 3 次；
-永久错误立即 FAILED。RUNNING 超过租约由 `requeue_stale_running` 回收并记录
-`WORKER_LEASE_EXPIRED`。BRPOP 在 claim 前取走消息的窗口由
+永久错误立即 FAILED。Worker 启动和运行期每 30 秒有界扫描 RUNNING 与孤儿
+PENDING/DISPATCHED；未耗尽→PENDING，耗尽→FAILED + `WORKER_LEASE_EXPIRED`。
+`claim_job` 返回 attempts 作为 fencing token，`complete_job`/`fail_job` 用
+`WHERE status=RUNNING AND attempts=?` CAS，旧 Worker 只能得到 `EXECUTION_FENCED`。
+BRPOP 在 claim 前取走消息的窗口由
 `requeue_orphaned_dispatched` 补偿：把超过 60 秒的 PENDING+DISPATCHED 视为投递租约过期，
 重新武装 Outbox；Worker 启动和运行期每 30 秒扫描。重复投递由原子 claim 吸收。
 测试：`TestWorker`、`TestDeliveryCrashWindow`、MySQL 崩溃窗口用例；真实 Redis+MySQL
@@ -151,12 +154,12 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1075 passed / 9 skipped（覆盖率 80.77%），覆盖 401/403/404/409/422、幂等、
+Python 1085 passed / 14 skipped（覆盖率 81.11%），覆盖 401/403/404/409/422、幂等、
 回滚、乐观锁、Worker 重试/租约、BRPOP 丢消息补偿、Alembic、MySQL DDL/URL、真实
 MySQL 8.4 与 Redis 7；前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
 full compose 已实际启动并验证异步任务、Redis 故障恢复与真实 BRPOP 丢消息恢复；生产
 Compose 凭据正/负控制通过。CI 已新增 MySQL 8.4 + Redis 7 service job 和 admin smoke；
-真实集成测试也可用 `make test-integration` 一键复现（MySQL 5 + Redis 3 = 8 passed）。
+真实集成测试也可用 `make test-integration` 一键复现（MySQL 5 + Redis 3 + 双 Worker/恢复 5 = 13 passed）。
 未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、CI 中启动完整 Compose（本机已实测）。
 CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
@@ -176,8 +179,8 @@ CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 4. 新增了演示用 HTTP Nginx 配置；生产 TLS 仍使用 `nginx.conf` + 证书挂载。
 5. full profile 的 MySQL/Redis 不发布宿主机端口；生产 Compose 的 `.env.production`
    必须存在且包含 `SESSION_SECRET`，启用管理员时还需 `ADMIN_TOKEN_SECRET`。
-6. BRPOP 丢消息用补偿扫描恢复，不是 Redis 消费组/ACK；极端高并发下可能产生重复投递，
-   由原子 claim 吸收。
+6. BRPOP 丢消息用补偿扫描恢复，不是 Redis 消费组/ACK；语义为 at-least-once，
+   恢复延迟受 60 秒投递租约和 30 秒扫描周期影响，重复投递由原子 claim + fencing 吸收。
 7. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
 8. 前端 token 存在 `sessionStorage`，仍受 XSS 影响；未引入 CSP 之外的更强隔离。
 9. 没有 OCR、GCP、临床方案、医疗文本经验；这些标记 `NOT_APPLICABLE`，不在高考项目伪造。
@@ -229,7 +232,7 @@ git log --oneline --graph -10
 | Python/FastAPI | 已有 | 分层 admin API + 错误码 + RequestID | `server/admin/*`、`server/main.py` | `test_admin_*.py` | **PASS** |
 | MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`、真实 MySQL 5 passed | **PASS**（仅新增运营表范围） |
 | Redis / 消息队列 | 仅 RAG 缓存 | Redis List + Outbox + Worker | `server/admin/queue.py`、`worker.py` | 真实 Redis 3 passed + 单元测试 | **PASS** |
-| 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、租约、BRPOP 丢消息补偿 | `worker.py`、`repository.py` | `TestWorker`、`TestDeliveryCrashWindow`、真实 Redis+MySQL 注入 | **PASS** |
+| 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、周期租约、Fencing、BRPOP 补偿 | `worker.py`、`repository.py` | `TestWorker`、`TestFencingAndLeaseRecovery`、双 Worker MySQL+Redis 集成 | **PASS** |
 | 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | full profile 实启 + Redis 故障恢复 | **PASS** |
 | 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
 | 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
