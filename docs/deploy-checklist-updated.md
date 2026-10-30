@@ -60,14 +60,27 @@ cp .env.example .env.production
 vim .env.production
 ```
 
+`docker-compose.prod.yml` 通过 required Compose `env_file` 注入 `.env.production`；
+应用**不会**自动读取容器内 `/app/.env`。文件缺失、生产环境缺 `SESSION_SECRET`、
+启用管理员却缺 `ADMIN_TOKEN_SECRET` 时容器会 fail-closed。可用以下脚本用临时测试凭据
+验证（不读取真实 `.env.production`）：
+
+```bash
+PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
+```
+
 **必须配置的变量**：
 ```env
 # LLM API Key（至少配置一个）
 LLM_API_KEY=sk-your-deepseek-key
 LLM_PROVIDER=deepseek
 
-# Session Secret（32字节随机字符串）
+# Session Secret（32字节随机字符串，生产必填）
 SESSION_SECRET=$(openssl rand -hex 32)
+
+# 管理后台（可选；启用时必须同时设置 token secret，生产禁止明文 ADMIN_PASSWORD）
+ADMIN_USERS_JSON='[{"username":"operator","password_hash":"pbkdf2_sha256$...","role":"operator"}]'
+ADMIN_TOKEN_SECRET=$(openssl rand -hex 32)
 
 # Sentry DSN（可选，用于错误追踪）
 SENTRY_DSN=https://xxx@sentry.io/xxx

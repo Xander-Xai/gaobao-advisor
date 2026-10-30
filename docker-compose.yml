@@ -10,7 +10,9 @@ services:
       - path: .env
         required: false
     volumes:
-      - ./data:/app/data
+      # Named volume avoids host-UID/bind-mount permission failures while
+      # keeping the synthetic database across container restarts.
+      - gaobao_data:/app/data
     healthcheck:
       # Readiness, not liveness: /health/ready returns 503 when the DB is down.
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/ready"]
@@ -26,7 +28,7 @@ services:
     ports:
       - "3080:80"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -39,9 +41,13 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # HTTP-only demo config; production uses nginx.conf + TLS certs.
+      - ./nginx.demo.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       api:
         condition: service_healthy
       frontend:
         condition: service_healthy
+
+volumes:
+  gaobao_data:

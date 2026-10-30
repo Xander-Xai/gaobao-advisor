@@ -20,8 +20,8 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-    ports:
-      - "3306:3306"
+    # No host port: API/worker use mysql:3306 on the Compose network.
+    # Use `docker compose exec mysql ...` for local inspection.
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -37,8 +37,8 @@ services:
     container_name: gaokao-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    # No host port: API/worker use redis:6379 on the Compose network.
+    # Use `docker compose exec redis redis-cli` for local inspection.
     volumes:
       - redis_data:/data
     healthcheck:
@@ -62,13 +62,22 @@ services:
     restart: unless-stopped
     command: python -m server.admin.worker
     env_file: .env.full
+    environment:
+      # The API owns schema migration + demo seeding; the worker only consumes
+      # the queue. Start it after the API is actually ready to avoid two
+      # concurrent seeders racing on the same empty MySQL database.
+      AUTO_SEED_DEMO: "false"
     depends_on:
+      api:
+        condition: service_healthy
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os,redis; redis.from_url(os.environ['REDIS_URL']).ping()\""]
+      # Readiness includes both the database and the queue; a Redis-only check
+      # would report healthy while the worker cannot persist job state.
+      test: ["CMD-SHELL", "python -c \"import os,redis; from sqlalchemy import create_engine,text; e=create_engine(os.environ['DATABASE_URL']); e.connect().execute(text('SELECT 1')); redis.from_url(os.environ['REDIS_URL']).ping()\""]
       interval: 15s
       timeout: 5s
       retries: 5

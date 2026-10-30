@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     admin_password = secrets.token_urlsafe(18)
     admin_hash = hash_password(admin_password)
     token_secret = secrets.token_hex(32)
+    session_secret = secrets.token_hex(32)
     mysql_password = secrets.token_urlsafe(24)
     mysql_root = secrets.token_urlsafe(24)
     users = [{"username": args.username, "password_hash": admin_hash, "role": args.role}]
@@ -54,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         "QUALITY_TASK_MODE=async",
         f"ADMIN_USERS_JSON='{json.dumps(users, separators=(',', ':'))}'",
         f"ADMIN_TOKEN_SECRET={token_secret}",
+        f"SESSION_SECRET={session_secret}",
         "APP_ENV=development",
     ]
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -76,6 +76,7 @@ export const useAdminStore = defineStore('admin', () => {
   const schoolsError = ref('')
 
   const selectedSchool = ref<SchoolDetail | null>(null)
+  const schoolDetailId = ref<number | null>(null)
   const detailLoading = ref(false)
   const detailError = ref('')
 
@@ -87,6 +88,7 @@ export const useAdminStore = defineStore('admin', () => {
   const jobsError = ref('')
 
   const selectedJob = ref<QualityJobDetail | null>(null)
+  const jobDetailId = ref<number | null>(null)
   const jobDetailLoading = ref(false)
   const jobDetailError = ref('')
 
@@ -122,8 +124,10 @@ export const useAdminStore = defineStore('admin', () => {
     filterOptions.value = { provinces: [], levels: [], school_types: [] }
     schools.value = []
     selectedSchool.value = null
+    schoolDetailId.value = null
     jobs.value = []
     selectedJob.value = null
+    jobDetailId.value = null
     auditLogs.value = []
     schoolsError.value = ''
     jobsError.value = ''
@@ -227,6 +231,7 @@ export const useAdminStore = defineStore('admin', () => {
 
   async function loadSchool(id: number): Promise<void> {
     if (!token.value) return
+    schoolDetailId.value = id
     detailLoading.value = true
     detailError.value = ''
     try {
@@ -269,6 +274,7 @@ export const useAdminStore = defineStore('admin', () => {
 
   async function loadJob(id: number): Promise<void> {
     if (!token.value) return
+    jobDetailId.value = id
     jobDetailLoading.value = true
     jobDetailError.value = ''
     try {
@@ -386,6 +392,7 @@ export const useAdminStore = defineStore('admin', () => {
     schoolsLoading,
     schoolsError,
     selectedSchool,
+    schoolDetailId,
     detailLoading,
     detailError,
     jobs,
@@ -395,6 +402,7 @@ export const useAdminStore = defineStore('admin', () => {
     jobsLoading,
     jobsError,
     selectedJob,
+    jobDetailId,
     jobDetailLoading,
     jobDetailError,
     auditLogs,

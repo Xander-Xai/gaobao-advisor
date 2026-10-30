@@ -126,11 +126,85 @@
 | FastAPI 分层/错误码 | PARTIAL | **PASS** | `server/admin/{routes,service,repository,schemas,errors}.py` |
 | 管理员鉴权/RBAC | GAP | **PASS** | `server/admin/auth.py`、`tests/test_admin_auth.py` |
 | 事务/审计/回滚 | GAP | **PASS** | `create_job_with_outbox`、`review_job`、回滚测试 |
-| MySQL | GAP | **PARTIAL / BLOCKED** | 代码/Alembic/DDL 测试完成；真实 MySQL 镜像拉取超时，4 skipped |
-| Redis/MQ/异步任务 | GAP | **PASS** | Outbox + Worker；真实 Redis 3 passed |
-| full compose | GAP | **PARTIAL** | `docker-compose.full.yml` config 通过；未启动（缺 MySQL 镜像） |
+| MySQL | GAP | **PASS（本机实测）** | 真实 MySQL 8.4：`tests/test_admin_mysql.py` 5 passed；迁移/seed/API/事务/崩溃窗口补偿均通过 |
+| Redis/MQ/异步任务 | GAP | **PASS** | Outbox + Worker；真实 Redis 3 passed；Redis 停机/恢复故障注入通过 |
+| full compose | GAP | **PASS（本机实测）** | full profile 全部服务 healthy；异步任务、审核、审计、故障恢复通过 |
 | 性能 | PARTIAL | **PASS（本机）** | 质检 N+1 批量化 416.791ms → 58.352ms；见 `performance.md` |
 | 隐私脱敏 | GAP | **PASS** | `server/admin/privacy.py`、`test_admin_privacy.py` |
 | AI Coding 证据 | PARTIAL | **PASS** | `ai-coding-evidence.md`（实际失败/修复记录） |
 | 医疗/GCP/OCR | NOT_APPLICABLE | **NOT_APPLICABLE** | 不在高考项目伪造 |
 | 生产 SLA/容量 | NOT_VERIFIED | **NOT_RUN** | 明确不声称 |
+
+## 7. 2026-10-31 复核实测与加固
+
+本轮在 master `1622c3f` 基础上重新执行审计与验收，发现并修复了 5 个真实交付缺陷：
+
+| # | 缺陷 | 影响 | 修复 | 回归测试 |
+|---|---|---|---|---|
+| 1 | 内联降级可重试失败后仍把 Outbox 标记为 DISPATCHED | 任务永久 PENDING，无法重试 | 保留 Outbox PENDING，记录 `inline_degraded`，返回 202 + warning | `test_inline_retry_does_not_mark_outbox_dispatched` |
+| 2 | Compose `./data` bind mount 与容器 UID 不一致 | API 无法创建 `.session_secret`，启动失败 | 改用命名卷 `gaobao_data`；full profile 注入 `SESSION_SECRET` | 默认/full compose 实际启动 |
+| 3 | 生产 `nginx.conf` 强制 TLS，演示环境无证书 | nginx 无限重启，HTTP 入口不可用 | 新增 `nginx.demo.conf`（HTTP-only），生产仍用 `nginx.conf` | `curl /healthz` + `/api/v1/health` |
+| 4 | 前端 Nginx 无 SPA fallback | 直接访问 `/admin` 返回 404 | `try_files $uri $uri/ /index.html` + asset 缓存 | `GET /admin` = 200 |
+| 5 | 自定义 SQLite `DATABASE_URL` 与 entrypoint 种子路径不一致 | 可能给错误的库做 seed | 从 URL 推导 DB 路径；非法 scheme fail-closed | `sh -n` + 默认 compose 实启 |
+
+实测结果：
+
+- Python：**1085 passed / 14 skipped**，覆盖率 **81.11%**（门禁 70%）。
+- 前端：**14 files / 86 tests passed**；`vue-tsc`、`vite build` 通过。
+- MySQL 8.4：`tests/test_admin_mysql.py` **5 passed**（建表、列表/详情、质检+审核事务、回滚、崩溃窗口补偿）。
+- Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
+- full compose：MySQL/Redis/API/Worker/Frontend/Nginx **全部 healthy**；
+  `login → async job → SUCCEEDED → review → audit` 通过；Redis 停机返回
+  **202 + PENDING + UNAVAILABLE**，恢复后 Worker 自动补投并完成。
+- 默认 compose：SQLite + inline 质检 + `/admin` 200 + SQLite 行数变更均实测通过。
+- 安全门禁：`npm audit --omit=dev` **0 vulnerabilities**（升级 dompurify 3.4.17）；
+  `pip-audit` 运行时与 legacy 集均 **No known vulnerabilities**（legacy：streamlit
+  1.66.1 / pillow 13.0.0）；gitleaks 全历史 **477 commits / no leaks**。
+
+CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service containers +
+`scripts/admin_smoke.py`），PR #35 全部检查通过。仍未声称：14 张历史表的 MySQL 生产迁移、
+生产 SLA/容量、真实招生数据质量、CI 中启动完整 Compose（本机已实测）。
+
+## 8. 2026-10-31 二次加固（PR #35 验收）
+
+本轮只修复工程边界，不新增业务模块；基线 `de9f3d1`，代码提交 `b6688b9`，
+验收提交 `e23ebda`。
+
+| # | 边界问题 | 实际证据 | 修复 | 状态 |
+|---|---|---|---|---|
+| 1 | 生产 Compose 只挂载 `.env.production:/app/.env`，应用没有 dotenv 加载逻辑 | 缺 SESSION_SECRET 时生产启动失败；挂载文件不生效 | 改为 required `env_file`，真实注入环境变量；新增 `scripts/verify_prod_compose_env.sh` | **PASS** |
+| 2 | BRPOP 取走消息后、claim 前崩溃会留下 PENDING+DISPATCHED 孤儿 | 真实 full profile 注入：`redis-cli BRPOP` 丢弃消息后 Worker 不再处理 | `requeue_orphaned_dispatched` 补偿扫描；Worker 启动/每 30s 扫描；重复投递由原子 claim 吸收 | **PASS** |
+| 3 | 回滚文档范围写成 `de9f3d1..8ed4c2a`（反向） | Git 范围 older..newer 语义 | 修正为 `1622c3f..HEAD`，并补充 squash/merge/rebase 回滚流程 | **PASS** |
+| 4 | full Compose 将 MySQL 3306 / Redis 6379 暴露到宿主机 | `docker compose ps` 显示 `0.0.0.0:3306/6379` | 删除 host ports；容器间用 `mysql:3306` / `redis:6379`；真实 full profile 异步任务仍通过 | **PASS** |
+
+新增/更新测试与命令：
+
+- `TestDeliveryCrashWindow`（SQLite 单测，2 条）+ MySQL `test_mysql_orphaned_dispatched_job_is_recovered`。
+- 真实 Redis+MySQL 故障注入：停 Worker → 创建任务 → `BRPOP` 丢弃 → 回拨 `updated_at` →
+  重启 Worker；日志 `requeued 1 orphaned dispatched job(s)`，任务 **SUCCEEDED**。
+- `scripts/verify_prod_compose_env.sh`：缺失 env 文件、缺 SESSION_SECRET、缺
+  ADMIN_TOKEN_SECRET 三种负控制均 fail-closed；有效配置健康启动并 admin 登录成功。
+- full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
+
+最终本地结果：Python **1085 passed / 14 skipped**，覆盖率 **81.11%**；前端 **14 files / 86 tests**；
+`make test-integration` **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5）；CI **9/9 job 通过**
+（[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
+
+仍未声称：14 张历史表的 MySQL 生产迁移、生产 SLA/容量、完整 Compose 进 CI、真实招生数据质量。
+
+## 9. 2026-10-31 Worker 可靠性加固
+
+本轮不新增业务模块，只补齐 Worker/数据库并发边界。
+
+| 问题 | 原因 | 实际修复 | 测试证据 | 状态 |
+|---|---|---|---|---|
+| RUNNING 周期恢复 | 原实现只在启动时恢复 | Worker 启动 + 运行期每 30s 有界扫描（limit=50），同时恢复 RUNNING 与孤儿 PENDING/DISPATCHED | `test_worker_loop_runs_periodic_recovery_before_consuming`、`test_recover_worker_state_runs_both_bounded_scans` | **PASS** |
+| 重试耗尽 | attempts >= max 时原恢复跳过，任务卡 RUNNING | 未耗尽→PENDING；耗尽→FAILED + `WORKER_LEASE_EXPIRED` + 失败审计；行级 CAS | `test_lease_exhaustion_marks_failed`（max=1/3）、MySQL 耗尽用例 | **PASS** |
+| 过期 Worker 写入 | `complete_job`/`fail_job` 只检查状态，旧 Worker 可覆盖 | `claim_job` 返回 attempts 作为 fencing token；完成/失败使用 `WHERE status=RUNNING AND attempts=?` CAS | Fencing 单测 + MySQL `test_fenced_old_worker_cannot_complete_after_reclaim` | **PASS** |
+| 多 Worker 并发 | 缺少真实 MySQL+Redis 并发验证 | 新增 `tests/test_worker_integration.py`：双 Worker 争抢、并发恢复、重复投递、耗尽 | `make test-integration` 13 passed；真实 full profile 双进程 3 jobs | **PASS** |
+| 消息恢复边界 | BRPOP 丢消息、at-least-once 语义未明确 | 60s 投递租约补偿；Worker 周期扫描；ADR-008 明确 at-least-once / 非 exactly-once | 真实 BRPOP 注入 + 单测 | **PASS** |
+| MySQL 秒级精度 | 新 Outbox `next_attempt_at` 被向上取整，误报 UNAVAILABLE | `pending_outbox` 增加 1 秒调度容差 | 双 Worker MySQL 集成测试立即投递 | **PASS** |
+| MySQL 短暂不可用 | Worker 健康检查只看 Redis | 健康检查同时验证 MySQL+Redis；API readiness 503、创建任务 500、恢复后成功 | full profile 故障注入 | **PASS** |
+
+最终结果：Python **1085 passed / 14 skipped**，覆盖率 **81.11%**；前端 **14 files / 86 tests**；
+集成 **13 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。

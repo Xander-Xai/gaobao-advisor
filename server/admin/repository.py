@@ -515,6 +515,16 @@ def list_jobs(
     }
 
 
+def mark_inline_execution(session: Session, job_id: int, *, execution_mode: str = "inline_degraded") -> None:
+    """Record that a job ran in-request instead of through the Redis worker."""
+    job = session.get(DataQualityJob, job_id)
+    if job is None or job.execution_mode == execution_mode:
+        return
+    job.execution_mode = execution_mode
+    job.updated_at = _utcnow()
+    session.commit()
+
+
 def mark_outbox_dispatched(session: Session, job_id: int) -> None:
     row = session.query(QualityTaskOutbox).filter(QualityTaskOutbox.job_id == job_id).first()
     if row is None:
@@ -544,37 +554,54 @@ def mark_outbox_failed(session: Session, job_id: int, error: str) -> None:
 
 def pending_outbox(session: Session, *, limit: int = 20, job_id: int | None = None) -> list[QualityTaskOutbox]:
     now = _utcnow()
+    # MySQL DATETIME has second precision and may round a just-created value
+    # up by <1s. A small dispatch tolerance prevents an accepted job from
+    # being reported as UNAVAILABLE while the outbox row is already due.
+    dispatch_before = now + datetime.timedelta(seconds=1)
     query = session.query(QualityTaskOutbox).filter(
         QualityTaskOutbox.status == "PENDING",
-        QualityTaskOutbox.next_attempt_at <= now,
+        QualityTaskOutbox.next_attempt_at <= dispatch_before,
     )
     if job_id is not None:
         query = query.filter(QualityTaskOutbox.job_id == job_id)
     return query.order_by(QualityTaskOutbox.id.asc()).limit(limit).all()
 
 
-def claim_job(session: Session, job_id: int) -> bool:
-    """Atomically move PENDING -> RUNNING and increment attempts."""
+def claim_job(session: Session, job_id: int) -> int | None:
+    """Atomically move PENDING -> RUNNING and return the fencing attempt.
+
+    The returned attempt number is the execution ownership token. It is passed
+    back to ``complete_job`` / ``fail_job`` so a worker whose lease expired
+    cannot overwrite a newer execution.
+    """
     now = _utcnow()
-    result = session.execute(
-        update(DataQualityJob)
-        .where(
-            DataQualityJob.id == job_id,
-            DataQualityJob.status == "PENDING",
-            DataQualityJob.attempts < DataQualityJob.max_attempts,
+    try:
+        result = session.execute(
+            update(DataQualityJob)
+            .where(
+                DataQualityJob.id == job_id,
+                DataQualityJob.status == "PENDING",
+                DataQualityJob.attempts < DataQualityJob.max_attempts,
+            )
+            .values(
+                status="RUNNING",
+                attempts=DataQualityJob.attempts + 1,
+                started_at=now,
+                updated_at=now,
+                version=DataQualityJob.version + 1,
+                error_code=None,
+                error_message=None,
+            )
         )
-        .values(
-            status="RUNNING",
-            attempts=DataQualityJob.attempts + 1,
-            started_at=now,
-            updated_at=now,
-            version=DataQualityJob.version + 1,
-            error_code=None,
-            error_message=None,
-        )
-    )
-    session.commit()
-    return bool(result.rowcount)
+        if not result.rowcount:
+            session.rollback()
+            return None
+        attempt = session.execute(select(DataQualityJob.attempts).where(DataQualityJob.id == job_id)).scalar_one()
+        session.commit()
+        return int(attempt)
+    except Exception:
+        session.rollback()
+        raise
 
 
 def complete_job(
@@ -586,15 +613,49 @@ def complete_job(
     request_id: str,
     actor: str,
     role: str,
+    expected_attempt: int,
     execution_mode: str | None = None,
 ) -> DataQualityJob:
-    job = session.get(DataQualityJob, job_id)
-    if job is None:
-        raise AdminError(404, "JOB_NOT_FOUND", "质检任务不存在")
-    if job.status != "RUNNING":
-        raise AdminError(409, "INVALID_STATE_TRANSITION", "只有 RUNNING 任务可以完成")
-    issue_count = 0
-    for draft in issues:
+    drafts = list(issues)
+    issue_count = len(drafts)
+    now = _utcnow()
+    values: dict[str, Any] = {
+        "status": "SUCCEEDED",
+        "issue_count": issue_count,
+        "checked_rows": checked_rows,
+        "finished_at": now,
+        "updated_at": now,
+        "version": DataQualityJob.version + 1,
+    }
+    if execution_mode:
+        values["execution_mode"] = execution_mode
+
+    result = session.execute(
+        update(DataQualityJob)
+        .where(
+            DataQualityJob.id == job_id,
+            DataQualityJob.status == "RUNNING",
+            DataQualityJob.attempts == expected_attempt,
+        )
+        .values(**values)
+    )
+    if not result.rowcount:
+        session.rollback()
+        current = session.get(DataQualityJob, job_id)
+        if current is None:
+            raise AdminError(404, "JOB_NOT_FOUND", "质检任务不存在")
+        raise AdminError(
+            409,
+            "EXECUTION_FENCED",
+            "执行租约已失效，旧 Worker 不能提交结果",
+            details={
+                "expected_attempt": expected_attempt,
+                "current_attempts": current.attempts,
+                "current_status": current.status,
+            },
+        )
+
+    for draft in drafts:
         session.add(
             DataQualityIssue(
                 job_id=job_id,
@@ -607,16 +668,6 @@ def complete_job(
                 suggestion=(draft.get("suggestion") or "")[:300] or None,
             )
         )
-        issue_count += 1
-    now = _utcnow()
-    job.status = "SUCCEEDED"
-    job.issue_count = issue_count
-    job.checked_rows = checked_rows
-    job.finished_at = now
-    job.updated_at = now
-    job.version += 1
-    if execution_mode:
-        job.execution_mode = execution_mode
     record_audit(
         session,
         request_id=request_id,
@@ -625,11 +676,16 @@ def complete_job(
         action="quality_job.succeeded",
         resource_type="data_quality_job",
         resource_id=job_id,
-        detail={"checked_rows": checked_rows, "issue_count": issue_count},
+        detail={
+            "checked_rows": checked_rows,
+            "issue_count": issue_count,
+            "attempt": expected_attempt,
+        },
     )
     session.commit()
-    session.refresh(job)
-    return job
+    current = session.get(DataQualityJob, job_id)
+    assert current is not None
+    return current
 
 
 def fail_job(
@@ -642,24 +698,59 @@ def fail_job(
     request_id: str,
     actor: str,
     role: str,
+    expected_attempt: int,
 ) -> DataQualityJob:
     job = session.get(DataQualityJob, job_id)
     if job is None:
         raise AdminError(404, "JOB_NOT_FOUND", "质检任务不存在")
     now = _utcnow()
-    should_retry = retryable and job.attempts < job.max_attempts
-    job.status = "PENDING" if should_retry else "FAILED"
-    job.error_code = error_code[:64]
-    job.error_message = error_message[:500]
-    job.updated_at = now
-    job.version += 1
+    should_retry = retryable and expected_attempt < job.max_attempts
+    values: dict[str, Any] = {
+        "status": "PENDING" if should_retry else "FAILED",
+        "error_code": error_code[:64],
+        "error_message": error_message[:500],
+        "updated_at": now,
+        "version": DataQualityJob.version + 1,
+    }
+    if not should_retry:
+        values["finished_at"] = now
+
+    result = session.execute(
+        update(DataQualityJob)
+        .where(
+            DataQualityJob.id == job_id,
+            DataQualityJob.status == "RUNNING",
+            DataQualityJob.attempts == expected_attempt,
+        )
+        .values(**values)
+    )
+    if not result.rowcount:
+        session.rollback()
+        current = session.get(DataQualityJob, job_id)
+        if current is None:
+            raise AdminError(404, "JOB_NOT_FOUND", "质检任务不存在")
+        raise AdminError(
+            409,
+            "EXECUTION_FENCED",
+            "执行租约已失效，旧 Worker 不能写入失败状态",
+            details={
+                "expected_attempt": expected_attempt,
+                "current_attempts": current.attempts,
+                "current_status": current.status,
+            },
+        )
+
     if should_retry:
-        outbox = session.query(QualityTaskOutbox).filter(QualityTaskOutbox.job_id == job_id).first()
-        if outbox is not None:
-            outbox.status = "PENDING"
-            outbox.next_attempt_at = now + datetime.timedelta(seconds=min(60, 2**job.attempts))
-    else:
-        job.finished_at = now
+        session.execute(
+            update(QualityTaskOutbox)
+            .where(QualityTaskOutbox.job_id == job_id)
+            .values(
+                status="PENDING",
+                attempts=QualityTaskOutbox.attempts + 1,
+                next_attempt_at=now + datetime.timedelta(seconds=min(60, 2 ** min(expected_attempt, 6))),
+                last_error=error_message[:300],
+            )
+        )
     record_audit(
         session,
         request_id=request_id,
@@ -669,11 +760,16 @@ def fail_job(
         resource_type="data_quality_job",
         resource_id=job_id,
         outcome="FAILURE" if not should_retry else "RETRY",
-        detail={"error_code": error_code, "attempts": job.attempts, "max_attempts": job.max_attempts},
+        detail={
+            "error_code": error_code,
+            "attempts": expected_attempt,
+            "max_attempts": job.max_attempts,
+        },
     )
     session.commit()
-    session.refresh(job)
-    return job
+    current = session.get(DataQualityJob, job_id)
+    assert current is not None
+    return current
 
 
 def review_job(
@@ -778,12 +874,80 @@ def list_audit_logs(
     }
 
 
-def requeue_stale_running(session: Session, *, older_than_seconds: int = 600) -> int:
-    """Recover jobs whose worker died after claiming them.
+def requeue_orphaned_dispatched(
+    session: Session,
+    *,
+    older_than_seconds: int = 60,
+    limit: int = 50,
+) -> int:
+    """Re-arm jobs whose Redis message was lost before the DB claim.
 
-    A RUNNING row older than the lease threshold is moved back to PENDING and
-    its outbox row is re-armed. The job's version is bumped so any late writer
-    using the old version is rejected by the review/update guards.
+    ``BRPOP`` removes the message from Redis before the worker performs the
+    atomic ``PENDING -> RUNNING`` claim. If the worker dies in that window the
+    job remains PENDING while its outbox row is already DISPATCHED.
+
+    The outbox update is conditional on the job still being PENDING, so a
+    concurrent worker claim wins and no duplicate re-arm is recorded.
+    """
+    threshold = _utcnow() - datetime.timedelta(seconds=older_than_seconds)
+    rows = (
+        session.query(DataQualityJob, QualityTaskOutbox)
+        .join(QualityTaskOutbox, QualityTaskOutbox.job_id == DataQualityJob.id)
+        .filter(
+            DataQualityJob.status == "PENDING",
+            QualityTaskOutbox.status == "DISPATCHED",
+            DataQualityJob.updated_at < threshold,
+        )
+        .limit(limit)
+        .all()
+    )
+    now = _utcnow()
+    recovered = 0
+    for job, _outbox in rows:
+        still_pending = (
+            select(DataQualityJob.id)
+            .where(
+                DataQualityJob.id == job.id,
+                DataQualityJob.status == "PENDING",
+                DataQualityJob.updated_at < threshold,
+            )
+            .exists()
+        )
+        result = session.execute(
+            update(QualityTaskOutbox)
+            .where(
+                QualityTaskOutbox.job_id == job.id,
+                QualityTaskOutbox.status == "DISPATCHED",
+                still_pending,
+            )
+            .values(
+                status="PENDING",
+                attempts=QualityTaskOutbox.attempts + 1,
+                next_attempt_at=now,
+                dispatched_at=None,
+                last_error="delivery lease expired before DB claim",
+            )
+        )
+        recovered += int(bool(result.rowcount))
+    if recovered:
+        session.commit()
+    else:
+        session.rollback()
+    return recovered
+
+
+def requeue_stale_running(
+    session: Session,
+    *,
+    older_than_seconds: int = 600,
+    limit: int = 50,
+) -> int:
+    """Recover RUNNING jobs whose worker lease expired.
+
+    Non-exhausted jobs go back to PENDING and re-arm their outbox row.
+    Exhausted jobs become FAILED with a visible error code and failure audit.
+    Every transition is a conditional UPDATE on the exact attempt, so two
+    recovery workers cannot both apply the same transition.
     """
     threshold = _utcnow() - datetime.timedelta(seconds=older_than_seconds)
     rows = (
@@ -792,22 +956,73 @@ def requeue_stale_running(session: Session, *, older_than_seconds: int = 600) ->
             DataQualityJob.status == "RUNNING",
             DataQualityJob.started_at.is_not(None),
             DataQualityJob.started_at < threshold,
-            DataQualityJob.attempts < DataQualityJob.max_attempts,
         )
-        .limit(50)
+        .limit(limit)
         .all()
     )
     now = _utcnow()
+    recovered = 0
     for job in rows:
-        job.status = "PENDING"
-        job.error_code = "WORKER_LEASE_EXPIRED"
-        job.error_message = "Worker lease expired; job requeued for another attempt"
-        job.updated_at = now
-        job.version += 1
-        outbox = session.query(QualityTaskOutbox).filter(QualityTaskOutbox.job_id == job.id).first()
-        if outbox is not None:
-            outbox.status = "PENDING"
-            outbox.next_attempt_at = now
-    if rows:
+        old_attempt = job.attempts
+        exhausted = old_attempt >= job.max_attempts
+        values: dict[str, Any] = {
+            "status": "FAILED" if exhausted else "PENDING",
+            "error_code": "WORKER_LEASE_EXPIRED",
+            "error_message": (
+                "Worker lease expired after max attempts; job marked FAILED"
+                if exhausted
+                else "Worker lease expired; job requeued for another attempt"
+            ),
+            "updated_at": now,
+            "version": DataQualityJob.version + 1,
+        }
+        if exhausted:
+            values["finished_at"] = now
+        result = session.execute(
+            update(DataQualityJob)
+            .where(
+                DataQualityJob.id == job.id,
+                DataQualityJob.status == "RUNNING",
+                DataQualityJob.attempts == old_attempt,
+                DataQualityJob.started_at < threshold,
+            )
+            .values(**values)
+        )
+        if not result.rowcount:
+            continue
+        if not exhausted:
+            session.execute(
+                update(QualityTaskOutbox)
+                .where(
+                    QualityTaskOutbox.job_id == job.id,
+                    QualityTaskOutbox.status == "DISPATCHED",
+                )
+                .values(
+                    status="PENDING",
+                    attempts=QualityTaskOutbox.attempts + 1,
+                    next_attempt_at=now,
+                    dispatched_at=None,
+                    last_error="worker lease expired",
+                )
+            )
+        record_audit(
+            session,
+            request_id=f"recovery-{job.id}-{old_attempt}",
+            actor="system:recovery",
+            role="system",
+            action="quality_job.retry_scheduled" if not exhausted else "quality_job.failed",
+            resource_type="data_quality_job",
+            resource_id=job.id,
+            outcome="RETRY" if not exhausted else "FAILURE",
+            detail={
+                "reason": "worker_lease_expired",
+                "attempts": old_attempt,
+                "max_attempts": job.max_attempts,
+            },
+        )
+        recovered += 1
+    if recovered:
         session.commit()
-    return len(rows)
+    else:
+        session.rollback()
+    return recovered

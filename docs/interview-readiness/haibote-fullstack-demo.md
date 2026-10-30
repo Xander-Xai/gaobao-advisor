@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11 / SQLite；`pytest` 1072 passed / 8 skipped；`vitest` 85 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1085 passed / 14 skipped；`vitest` 86 tests |
 
 ## 1. 三分钟演示路径
 
@@ -112,9 +112,15 @@ rowcount=0 返回 409，避免后写覆盖先写。测试：
 
 Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原子 claim，
 重复消息因状态守卫被跳过；可重试错误回到 PENDING 并重新武装 Outbox，最多 3 次；
-永久错误立即 FAILED。RUNNING 超过租约由 `requeue_stale_running` 回收并记录
-`WORKER_LEASE_EXPIRED`。测试：`TestWorker` 全部用例，真实 Redis 见
-`tests/test_redis_worker.py`。代码：`server/admin/worker.py`、`repository.claim_job`。
+永久错误立即 FAILED。Worker 启动和运行期每 30 秒有界扫描 RUNNING 与孤儿
+PENDING/DISPATCHED；未耗尽→PENDING，耗尽→FAILED + `WORKER_LEASE_EXPIRED`。
+`claim_job` 返回 attempts 作为 fencing token，`complete_job`/`fail_job` 用
+`WHERE status=RUNNING AND attempts=?` CAS，旧 Worker 只能得到 `EXECUTION_FENCED`。
+BRPOP 在 claim 前取走消息的窗口由
+`requeue_orphaned_dispatched` 补偿：把超过 60 秒的 PENDING+DISPATCHED 视为投递租约过期，
+重新武装 Outbox；Worker 启动和运行期每 30 秒扫描。重复投递由原子 claim 吸收。
+测试：`TestWorker`、`TestDeliveryCrashWindow`、MySQL 崩溃窗口用例；真实 Redis+MySQL
+注入见 `performance.md`。代码：`server/admin/worker.py`、`repository.claim_job`。
 
 ### Q7. MySQL 支持和 SQLite 怎么隔离？迁移范围是什么？
 
@@ -124,14 +130,19 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 `python -m db.migrate`，初始 revision 只覆盖新增 4 表；14 张历史表的生产迁移不在本轮
 范围，full profile 的演示数据由 seed 的 create_all 引导，文档明确标注。代码：
 `db/database.py`、`db/migrate.py`、`migrations/`；测试：`test_database_modes.py`、
-`test_migrations.py`。MySQL 真实运行测试因本机镜像拉取超时 BLOCKED。
+`test_migrations.py`。真实 MySQL 8.4 上 `test_admin_mysql.py` **5 passed**，full profile
+的 MySQL+Redis+Worker 已实际启动并完成异步任务。full profile 的 MySQL/Redis 不发布
+宿主机端口，容器间通过 `mysql:3306` / `redis:6379` 通信。生产 `docker-compose.prod.yml`
+使用 required `env_file` 注入 `.env.production`；应用不会自动读 `/app/.env`，缺
+`SESSION_SECRET` / `ADMIN_TOKEN_SECRET` 会 fail-closed。验证脚本：
+`scripts/verify_prod_compose_env.sh`。
 
 ### Q8. TypeScript 是渐进式还是重写？
 
 渐进式。没有重写聊天/SSE/报告模块；新增 `tsconfig.json`、`env.d.ts` 和
 `vue-tsc --noEmit`，只把后台模块改成 `<script setup lang="ts">`，DTO 放在
 `types/admin.ts`，API 错误映射在 `api/admin.ts`。`npm test` 先跑 typecheck，现有 CI
-无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 85 tests。
+无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 86 tests。
 
 ### Q9. 审计和隐私怎么保证不泄漏凭据？
 
@@ -143,12 +154,14 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/422、幂等、
-回滚、乐观锁、Worker 重试/租约、Alembic、MySQL DDL/URL、真实 Redis；前端 85 tests
-覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。未做到：MySQL 真实运行
-（镜像拉取 BLOCKED）、full compose 运行（依赖 MySQL）、workflow 文件修改（gh token 缺
-`workflow` scope）、生产容量/SLA。CI 现有 lint/test/secret/security/frontend/container
-门禁仍保留。
+Python 1085 passed / 14 skipped（覆盖率 81.11%），覆盖 401/403/404/409/422、幂等、
+回滚、乐观锁、Worker 重试/租约、BRPOP 丢消息补偿、Alembic、MySQL DDL/URL、真实
+MySQL 8.4 与 Redis 7；前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
+full compose 已实际启动并验证异步任务、Redis 故障恢复与真实 BRPOP 丢消息恢复；生产
+Compose 凭据正/负控制通过。CI 已新增 MySQL 8.4 + Redis 7 service job 和 admin smoke；
+真实集成测试也可用 `make test-integration` 一键复现（MySQL 5 + Redis 3 + 双 Worker/恢复 5 = 13 passed）。
+未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、CI 中启动完整 Compose（本机已实测）。
+CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
 ## 4. 设计取舍（ADR）
 
@@ -160,14 +173,53 @@ Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/42
 ## 5. 未实现边界（必须能说出口）
 
 1. MySQL 14 张历史表的生产级迁移未完成；只保证新增 4 表 + 演示查询路径。
-2. MySQL 真实运行测试 BLOCKED（本机 Docker Hub 拉取超时），不能声称 PASS。
-3. full compose 未在本机端到端启动（缺 MySQL 镜像）；Redis + Worker 已用真实 Redis 验证。
-4. GitHub Actions 未新增 MySQL/Redis/admin smoke job（token 缺 `workflow` scope）；
-   现有 CI 仍执行 pytest/vitest/typecheck/build/安全/容器门禁。
-5. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
-6. 前端 token 存在 `sessionStorage`，仍受 XSS 影响；未引入 CSP 之外的更强隔离。
-7. 没有 OCR、GCP、临床方案、医疗文本经验；这些标记 `NOT_APPLICABLE`，不在高考项目伪造。
-8. 没有生产容量、并发、SLA、真实 RAG 质量结论。
+2. MySQL/Redis 真实集成测试已同时在本机和 GitHub Actions service containers 运行通过；
+   完整 Compose 只在本地实测，未放进 CI（构建成本高）。
+3. full compose 已实际启动并验证；默认 compose 也已验证 SQLite + inline 质检 + `/admin`。
+4. 新增了演示用 HTTP Nginx 配置；生产 TLS 仍使用 `nginx.conf` + 证书挂载。
+5. full profile 的 MySQL/Redis 不发布宿主机端口；生产 Compose 的 `.env.production`
+   必须存在且包含 `SESSION_SECRET`，启用管理员时还需 `ADMIN_TOKEN_SECRET`。
+6. BRPOP 丢消息用补偿扫描恢复，不是 Redis 消费组/ACK；语义为 at-least-once，
+   恢复延迟受 60 秒投递租约和 30 秒扫描周期影响，重复投递由原子 claim + fencing 吸收。
+7. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
+8. 前端 token 存在 `sessionStorage`，仍受 XSS 影响；未引入 CSP 之外的更强隔离。
+9. 没有 OCR、GCP、临床方案、医疗文本经验；这些标记 `NOT_APPLICABLE`，不在高考项目伪造。
+10. 没有生产容量、并发、SLA、真实 RAG 质量结论。
+
+### 5.1 回滚流程（只读验证，不在本任务执行）
+
+PR #35 的基线是 `1622c3f`。Git 范围必须写成 **older..newer**；反向范围
+（如 `de9f3d1..8ed4c2a`）会得到空集合或错误提交。使用 `HEAD` 可避免分支后续
+文档提交导致范围过期。
+
+```bash
+# 1) 先验证范围，不修改工作区
+git log --oneline 1622c3f..HEAD
+git diff --stat 1622c3f..HEAD
+
+# 2) 普通线性分支：按 older..newer 生成反向提交（不要执行未评审的回滚）
+git revert --no-commit 1622c3f..HEAD
+# 评审、运行 pytest / frontend / compose 检查后再提交
+
+# 3) squash merge 后：对 squash commit 做单提交回滚
+git revert <squash_commit_sha>
+
+# 4) 普通 merge 后：保留主线父提交
+git revert -m 1 <merge_commit_sha>
+
+# 5) rebase merge 后：对实际落地提交逐个回滚
+git log --oneline <base>..<head>
+git revert --no-commit <base>..<head>
+```
+
+验证回滚范围是否包含预期提交：
+
+```bash
+git show --stat <revert_commit>
+git log --oneline --graph -10
+```
+
+边界：以上命令仅作为文档与演练步骤；本轮不执行真实回滚，不重写历史，不强制推送。
 
 ## 6. 最终 JD 验收表
 
@@ -176,16 +228,16 @@ Python 1072 passed / 8 skipped（覆盖率 80.78%），覆盖 401/403/404/409/42
 | Vue 3 / 组件化 | 四视图 + Pinia + Router | 运营后台四块组件 | `frontend/src/components/admin/*` | `AdminView.spec.ts` | **PASS** |
 | TypeScript | 无 | `tsconfig` + `vue-tsc` + 类型化后台 | `frontend/tsconfig.json`、`types/admin.ts`、`api/admin.ts` | `npm test`（含 typecheck） | **PASS** |
 | 管理/运营后台 | 仅健康检查 | 数据筛选/分页/详情/任务/审核/审计/统计 | `AdminView.vue`、`server/admin/routes.py` | pytest + vitest | **PASS** |
-| 数据可视化 | 无 | 状态/严重度/学历层次 CSS 柱状图 | `AdminStatsCards.vue` | AdminView.spec | **PASS** |
+| 数据可视化 | 无 | 任务状态/问题严重度 CSS 柱状图 | `AdminStatsCards.vue` | AdminView.spec | **PASS** |
 | Python/FastAPI | 已有 | 分层 admin API + 错误码 + RequestID | `server/admin/*`、`server/main.py` | `test_admin_*.py` | **PASS** |
-| MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`；运行测试 4 skipped | **PARTIAL**（运行 BLOCKED） |
+| MySQL | 仅 SQLite | 可选 MySQL + Alembic + 方言隔离 | `db/database.py`、`db/migrate.py`、`migrations/` | `test_database_modes.py`、`test_migrations.py`、真实 MySQL 5 passed | **PASS**（仅新增运营表范围） |
 | Redis / 消息队列 | 仅 RAG 缓存 | Redis List + Outbox + Worker | `server/admin/queue.py`、`worker.py` | 真实 Redis 3 passed + 单元测试 | **PASS** |
-| 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、租约 | `worker.py`、`repository.py` | `TestWorker` | **PASS** |
-| 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | compose config + Redis 集成 | **PARTIAL**（full compose 未跑通） |
+| 异步任务 | 无 | PENDING→RUNNING→SUCCEEDED/FAILED、重试、周期租约、Fencing、BRPOP 补偿 | `worker.py`、`repository.py` | `TestWorker`、`TestFencingAndLeaseRecovery`、双 Worker MySQL+Redis 集成 | **PASS** |
+| 微服务边界 | 单体 | API/Worker 独立进程、故障隔离 | `docker-compose.full.yml` | full profile 实启 + Redis 故障恢复 | **PASS** |
 | 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
 | 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
 | 隐私脱敏 | 无 | 姓名/手机/证件/邮箱/token 脱敏 | `server/admin/privacy.py` | `test_admin_privacy.py` | **PASS** |
-| 测试/CI | 已有 1010 pytest | 新增 61+ pytest、85 vitest、typecheck | `tests/`、`frontend/**/__tests__` | 全量运行 | **PASS**（新增集成 job BLOCKED） |
+| 测试/CI | 已有 1010 pytest | 新增 pytest、86 vitest、typecheck、MySQL/Redis service job、admin smoke | `tests/`、`frontend/**/__tests__`、`.github/workflows/ci.yml` | 全量运行 + CI 全绿 | **PASS** |
 | 性能优化 | cursor 分页 | 质检 N+1 批量化 7.1× + 索引验证 | `quality.py`、`benchmark_admin_queries.py` | `performance.md` | **PASS**（本机测量） |
 | AI Coding 证据 | 无 | 需求→失败→修复→Review→验证记录 | `ai-coding-evidence.md` | 文档内命令 | **PASS** |
 | OCR / 医疗 GCP | 无 | 不在本项目伪造 | — | — | **NOT_APPLICABLE** |

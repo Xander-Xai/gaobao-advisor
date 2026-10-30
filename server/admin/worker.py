@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import signal
 import time
@@ -27,10 +28,11 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from db.models import DataQualityJob
 from server.admin import repository
-from server.admin.logging import log_error, log_event
+from server.admin.errors import AdminError
+from server.admin.logging import log_error, log_event, log_warning
 from server.admin.quality import collect_issues
 from server.admin.queue import QueueUnavailable, dispatch_outbox, get_queue
-from server.metrics import record_admin_job_finished
+from server.metrics import record_admin_job_finished, record_admin_worker_recovery
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,60 @@ class RetryableJobError(RuntimeError):
 
 def _redact(value: str) -> str:
     return _REDACT_RE.sub(r"://\1:***@", value)[:500]
+
+
+def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("invalid %s=%r; using %d", name, raw, default)
+        return default
+    return max(minimum, value)
+
+
+def recover_worker_state(
+    *,
+    stale_running_seconds: int | None = None,
+    orphaned_seconds: int | None = None,
+    limit: int = 50,
+) -> dict[str, int]:
+    """Run one bounded recovery scan for both crash windows.
+
+    Failures are logged and counted, then re-raised so the caller can decide
+    whether to retry. The database remains the source of truth; no state is
+    invented when the scan cannot run.
+    """
+    stale_lease = stale_running_seconds or _env_int("WORKER_LEASE_SECONDS", 600)
+    delivery_lease = orphaned_seconds or _env_int("WORKER_DELIVERY_LEASE_SECONDS", 60)
+    session: Session | None = None
+    counts: dict[str, int] = {}
+    try:
+        session = SessionLocal()
+        for kind, func, lease in (
+            ("stale_running", repository.requeue_stale_running, stale_lease),
+            ("orphaned_dispatched", repository.requeue_orphaned_dispatched, delivery_lease),
+        ):
+            started = time.monotonic()
+            count = func(session, older_than_seconds=lease, limit=limit)
+            elapsed = time.monotonic() - started
+            counts[kind] = count
+            record_admin_worker_recovery(kind, count, elapsed)
+            log_event(
+                "worker.recovery",
+                kind=kind,
+                recovered=count,
+                elapsed_ms=int(elapsed * 1000),
+                limit=limit,
+            )
+        return counts
+    except Exception as exc:
+        record_admin_worker_recovery("recovery", 0, 0.0, failed=True)
+        log_error("worker.recovery.failed", error=_redact(f"{type(exc).__name__}: {exc}"))
+        raise
+    finally:
+        if session is not None:
+            session.close()
 
 
 def _result(job: DataQualityJob | None) -> dict[str, Any]:
@@ -72,8 +128,10 @@ def execute_job(
     owns_session = session is None
     db = session or SessionLocal()
     started = time.monotonic()
+    attempt: int | None = None
     try:
-        if not repository.claim_job(db, job_id):
+        attempt = repository.claim_job(db, job_id)
+        if attempt is None:
             job = repository.get_job(db, job_id)
             log_event("quality_job.claim_skipped", job_id=job_id, status=job.status if job else None)
             return _result(job)
@@ -109,6 +167,7 @@ def execute_job(
             request_id=request_id,
             actor=actor,
             role=role,
+            expected_attempt=attempt,
             execution_mode=execution_mode,
         )
         record_admin_job_finished(finished.status, finished.execution_mode)
@@ -123,6 +182,18 @@ def execute_job(
         return _result(finished)
     except Exception as exc:  # noqa: BLE001 - failure must be persisted, then surfaced
         db.rollback()
+        if attempt is None:
+            log_error("quality_job.claim_failed", job_id=job_id, error=_redact(f"{type(exc).__name__}: {exc}"))
+            raise
+        if isinstance(exc, AdminError) and exc.code == "EXECUTION_FENCED":
+            current = repository.get_job(db, job_id)
+            log_warning(
+                "quality_job.fenced",
+                job_id=job_id,
+                attempt=attempt,
+                status=current.status if current else None,
+            )
+            return _result(current)
         retryable = isinstance(exc, (RetryableJobError, OperationalError, SATimeoutError, TimeoutError))
         message = _redact(f"{type(exc).__name__}: {exc}")
         error_code = "QUALITY_JOB_TRANSIENT" if retryable else "QUALITY_JOB_FAILED"
@@ -136,7 +207,20 @@ def execute_job(
                 request_id=request_id,
                 actor=actor,
                 role=role,
+                expected_attempt=attempt,
             )
+        except AdminError as fenced:
+            if fenced.code == "EXECUTION_FENCED":
+                current = repository.get_job(db, job_id)
+                log_warning(
+                    "quality_job.fenced",
+                    job_id=job_id,
+                    attempt=attempt,
+                    status=current.status if current else None,
+                )
+                return _result(current)
+            log_error("quality_job.failure_persist_failed", job_id=job_id, error=message)
+            raise
         except Exception:  # pragma: no cover - last-resort diagnostics
             log_error("quality_job.failure_persist_failed", job_id=job_id, error=message)
             raise
@@ -183,18 +267,64 @@ def run_forever(*, timeout: int = 2) -> None:
     if queue is None:
         raise QueueUnavailable("REDIS_URL is not configured; refusing to start a worker without a queue")
 
-    # Recover jobs left RUNNING by a crashed worker before consuming new work.
-    session = SessionLocal()
-    try:
-        recovered = repository.requeue_stale_running(session)
-        if recovered:
-            logger.warning("requeued %d stale RUNNING job(s)", recovered)
-    finally:
-        session.close()
+    stale_lease = _env_int("WORKER_LEASE_SECONDS", 600)
+    delivery_lease = _env_int("WORKER_DELIVERY_LEASE_SECONDS", 60)
+    recovery_interval = _env_int("WORKER_RECOVERY_INTERVAL_SECONDS", 30)
 
-    logger.info("quality worker started, queue=%s key=%s", queue.url, queue.key)
+    # Recover both crash windows before consuming new work:
+    #   * RUNNING rows left by a worker that died during execution;
+    #   * PENDING+DISPATCHED rows whose BRPOP delivery was lost before claim.
+    try:
+        counts = recover_worker_state(
+            stale_running_seconds=stale_lease,
+            orphaned_seconds=delivery_lease,
+        )
+        if any(counts.values()):
+            logger.warning("worker startup recovery: %s", counts)
+    except Exception:
+        logger.exception("worker startup recovery failed; will retry in the loop")
+
+    logger.info(
+        "quality worker started, queue=%s key=%s lease=%ss delivery_lease=%ss recovery_interval=%ss",
+        queue.url,
+        queue.key,
+        stale_lease,
+        delivery_lease,
+        recovery_interval,
+    )
+    _worker_loop(
+        queue=queue,
+        timeout=timeout,
+        stop=stop,
+        stale_lease=stale_lease,
+        delivery_lease=delivery_lease,
+        recovery_interval=recovery_interval,
+    )
+    logger.info("quality worker stopped")
+
+
+def _worker_loop(
+    *,
+    queue: Any,
+    timeout: int,
+    stop: dict[str, bool],
+    stale_lease: int,
+    delivery_lease: int,
+    recovery_interval: int,
+) -> None:
+    """Run recovery and consumption in one testable loop."""
+    last_recovery = time.monotonic()
     while not stop["flag"]:
         try:
+            if time.monotonic() - last_recovery >= recovery_interval:
+                try:
+                    recover_worker_state(
+                        stale_running_seconds=stale_lease,
+                        orphaned_seconds=delivery_lease,
+                    )
+                except Exception:
+                    logger.exception("periodic worker recovery failed")
+                last_recovery = time.monotonic()
             result = run_once(timeout=timeout, queue=queue)
             if result.get("job_id"):
                 log_event("worker.processed", **result)
@@ -204,7 +334,6 @@ def run_forever(*, timeout: int = 2) -> None:
         except Exception:  # pragma: no cover - worker must stay alive
             logger.exception("unexpected worker loop error; retrying in 3s")
             time.sleep(3)
-    logger.info("quality worker stopped")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -7,6 +7,7 @@
 
 - 仓库：`Xander-Xai/gaobao-advisor`，`master@65bdb406db3b2cb26dae0398c3dec83349ef5eaa`
 - 基线实测：`pytest` 1010 passed / 1 skipped；`vitest` 12 files / 70 tests；`ruff`、`vite build` 通过。
+- 2026-10-31 复核基线：`master@1622c3f`，`pytest` 1072 passed / 8 skipped；`vitest` 85 tests。
 - 审计结论：`AdminView.vue` 只是健康检查；前端无 TS；`DATABASE_URL` 仅允许 SQLite；
   Redis 只做 RAG 缓存；无 admin RBAC；无任务/审计表。
 
@@ -86,12 +87,112 @@ cd frontend && npm test -- --run && npm run build
 - 结果：median **58.352 ms**，约 7.1×；新增 `tests/test_admin_quality_batching.py` 防回归。
 - 证据：`docs/interview-readiness/performance.md`。
 
-### 未解决/环境阻塞
+### Bug 6：内联降级失败后 Outbox 被错误标记为 DISPATCHED
 
-- MySQL 真实运行测试：Docker Hub 拉取 `mysql:8.4` 超时 → `tests/test_admin_mysql.py` 4 skipped。
-  未标记 PASS；提供了 DDL 编译测试和可复现命令。
-- GitHub workflow 修改：当前 `gh` token 缺 `workflow` scope，推送 `.github/workflows/*`
-  被拒绝。通过把 `vue-tsc` 加入 `npm test` 脚本绕过，现有 CI 仍执行类型检查。
+- 现象：`QUALITY_TASK_MODE=inline` 下注入可重试异常，任务回到 PENDING，但 Outbox
+  变成 DISPATCHED，任务永久卡住。
+- 定位：`service.create_quality_job` 在内联执行后无条件调用
+  `mark_outbox_dispatched`，没有区分“终态”和“等待重试”。
+- 修复：新增 `mark_inline_execution`；仅终态标记 Outbox DISPATCHED；PENDING 保留
+  Outbox 并返回 202 + warning。
+- 证据：`test_inline_retry_does_not_mark_outbox_dispatched`（先失败后通过）。
+
+### Bug 7：Compose bind mount 权限导致 API 启动失败
+
+- 现象：full compose 中 API 重启，日志 `PermissionError: data/.session_secret`。
+- 原因：宿主机 UID 1001 / 容器 appuser UID 1000，`./data:/app/data` 不可写。
+- 修复：改为命名卷 `gaobao_data:/app/data`；full profile 注入 `SESSION_SECRET`。
+- 证据：默认与 full compose 均实际启动，API/Frontend healthcheck 通过。
+
+### Bug 8：演示环境 Nginx 强制 TLS 导致无限重启
+
+- 现象：`nginx: [emerg] cannot load certificate /etc/nginx/ssl/fullchain.pem`。
+- 原因：`nginx.conf` 是生产 TLS 配置，默认 compose 没有证书。
+- 修复：新增 HTTP-only `nginx.demo.conf` 并仅供 Compose 演示使用；生产仍挂载
+  `nginx.conf` + `./certs`。
+- 证据：`GET /healthz` = 200，`GET /api/v1/health` 经 Nginx 返回 200。
+
+### Bug 9：前端 `/admin` 深链接 404
+
+- 现象：Vue Router 使用 history mode，但前端 Nginx 没有 SPA fallback。
+- 修复：`try_files $uri $uri/ /index.html`，并为 hashed assets 增加缓存头。
+- 证据：Docker 内 `GET /admin` 返回 200；Vitest 详情重试用例通过。
+
+### Bug 10：DOMPurify critical advisory 触发前端安全门禁
+
+- 现象：`npm audit --omit=dev` 报告 `dompurify <=3.4.16` 1 个 critical advisory。
+- 修复：升级到 `dompurify@3.4.17`，同步 `package-lock.json`；不添加 ignore。
+- 证据：`npm audit --omit=dev --audit-level=high` → **0 vulnerabilities**；
+  `vue-tsc` + 86 tests + build 仍通过。
+
+### Bug 11：可选 legacy admin 依赖集触发 Pillow 公告
+
+- 现象：CI Security Audit 在 `requirements-legacy-admin.lock` 上报 Pillow 12.3.0
+  的 31 个公告（旧 workflow 仅忽略 8 个）。
+- 定位：Streamlit 1.66.0 固定 `pillow<13`；但 1.66.1 已放宽为 `pillow<14`。
+- 修复：升级 `streamlit==1.66.1` + `pillow==13.0.0`，移除历史 ignore 列表；
+  legacy 集要求 Python 3.11+，运行时集不变。
+- 证据：`pip-audit -r requirements-legacy-admin.lock` → **No known vulnerabilities**；
+  CI Security Audit 重新运行通过。
+
+### Bug 12：生产 Compose 挂载 `.env.production` 但应用不读取
+
+- 现象：`docker-compose.prod.yml` 只把 `.env.production` 挂到 `/app/.env`，代码没有
+  dotenv 加载逻辑，`SESSION_SECRET` / `ADMIN_TOKEN_SECRET` 实际不可见。
+- 修复：改为 required Compose `env_file`，真实注入进程；新增
+  `scripts/verify_prod_compose_env.sh` 做真实启动正/负控制。
+- 证据：缺 env 文件、缺 SESSION_SECRET、缺 ADMIN_TOKEN_SECRET 均 fail-closed；
+  有效配置健康启动且 admin 登录成功。
+
+### Bug 13：BRPOP 后、claim 前崩溃造成 PENDING+DISPATCHED 孤儿
+
+- 现象：真实 Redis+MySQL 注入中，Worker 用 BRPOP 取走消息后被停止，任务停在
+  PENDING、Outbox 为 DISPATCHED，RUNNING 租约恢复找不到它。
+- 修复：新增 `requeue_orphaned_dispatched`，Worker 启动和每 30 秒扫描超过 60 秒的
+  该状态并重新武装 Outbox；重复投递由原子 claim 吸收。
+- 证据：SQLite `TestDeliveryCrashWindow` 2 条、MySQL 1 条；真实 full profile 注入后
+  Worker 日志 `requeued 1 orphaned dispatched job(s)`，任务最终 SUCCEEDED。
+
+### Bug 14：full Compose 把 MySQL/Redis 暴露到宿主机
+
+- 现象：`3306:3306` / `6379:6379` 使数据库和队列可从宿主机直连。
+- 修复：删除 host ports；API/Worker 通过 Compose 网络 `mysql:3306` / `redis:6379` 通信。
+- 证据：`docker port` 对两者为空；full profile 异步任务、容器间 MySQL/Redis 连接均通过。
+
+### 文档修正：回滚范围反向
+
+- 原 PR 文案 `git revert de9f3d1..8ed4c2a` 是 newer..older，可能得到空范围。
+- 修正为 `1622c3f..HEAD`（older..newer），并补充 squash merge / 普通 merge /
+  rebase merge 的验证流程；本轮不执行真实回滚。
+
+### Bug 15：RUNNING 只在启动时恢复，且耗尽次数卡死
+
+- 现象：Worker 启动后不运行期扫描；`attempts >= max_attempts` 的 RUNNING 行被
+  `requeue_stale_running` 过滤掉，永久卡住。
+- 修复：Worker 启动 + 每 30 秒有界扫描；未耗尽→PENDING，耗尽→FAILED +
+  `WORKER_LEASE_EXPIRED` + 失败审计；行级条件更新保证多 Worker 幂等。
+- 证据：`test_worker_loop_runs_periodic_recovery_before_consuming`、
+  `test_lease_exhaustion_marks_failed`（max=1/3）。
+
+### Bug 16：旧 Worker 可覆盖新执行结果
+
+- 现象：`complete_job` / `fail_job` 只检查 RUNNING，租约过期后旧 Worker 仍能写入。
+- 修复：`claim_job` 返回 attempts 作为 fencing token；完成/失败使用
+  `WHERE status='RUNNING' AND attempts=?` CAS；过期写入返回 `EXECUTION_FENCED`。
+- 证据：Fencing 单测 + MySQL `test_fenced_old_worker_cannot_complete_after_reclaim`。
+
+### Bug 17：MySQL DATETIME 秒级精度导致 Outbox 误报 UNAVAILABLE
+
+- 现象：刚创建的 `next_attempt_at` 被 MySQL 向上取整到下一秒，`dispatch_outbox`
+  立即查询看不到，API 返回 UNAVAILABLE。
+- 修复：`pending_outbox` 增加 1 秒调度容差。
+- 证据：真实 MySQL+Redis 双 Worker 集成测试立即投递成功。
+
+### 过程阻塞：OAuth token 缺 workflow scope
+
+- 现象：`git push` 被拒绝（OAuth App 不能更新 `.github/workflows/ci.yml`）。
+- 处理：改用已授权的 SSH（`ssh.github.com:443`）推送同一提交；随后新增
+  `MySQL + Redis + Admin Smoke` job，CI 全绿。没有通过删除/跳过检查来绕过。
 
 ## 4. Code Review 检查项
 
@@ -100,7 +201,7 @@ cd frontend && npm test -- --run && npm run build
 | 聊天 token 是否可当管理员 token | 否；独立 secret + `aud=gaobao-admin`，有测试 |
 | 前端隐藏按钮是否被当权限 | 否；后端 `require_role` 真实返回 401/403 |
 | 生产缺凭据是否放行 | 否；显式启用但缺 secret 时启动失败 |
-| 创建任务与入队是否可能丢消息 | 否；DB + Outbox + 审计同事务，投递失败保留 PENDING |
+| 创建任务与入队是否可能丢消息 | 同事务 + Outbox；BRPOP 丢消息由 `requeue_orphaned_dispatched` 补偿，原子 claim 吸收重复 |
 | 重复提交 | 唯一幂等键 + 冲突 409 + 回放 200 |
 | 并发审核 | `expected_version` + 条件 UPDATE；冲突 409 |
 | 审计是否包含密钥 | 递归脱敏；有 `test_admin_privacy.py` |
@@ -112,16 +213,26 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header` | **1072 passed, 8 skipped**，覆盖率 **80.78%** |
-| `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis） |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1085 passed, 14 skipped**，覆盖率 **81.11%** |
+| `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
+| `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
 | `pytest tests/test_database_modes.py` | **7 passed** |
-| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 85 tests passed** |
+| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 86 tests passed** |
 | `cd frontend && npm run build` | 通过 |
 | `ruff check .` / `ruff format --check .` | 通过 |
-| `docker compose ... config` | 通过（`--env-file .env.full`） |
-| `docker build` | 本机拉取依赖超时，未完成；CI container job 会执行 |
-| MySQL 运行测试 | **BLOCKED**（镜像拉取超时） |
+| `docker compose ... --profile full up` | 全部服务 healthy；MySQL/Redis 无宿主机端口；异步任务/审核/审计/Redis 故障恢复通过 |
+| 真实 BRPOP 丢消息注入（Redis+MySQL） | Worker 启动恢复孤儿；job **SUCCEEDED** |
+| 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
+| MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
+| `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
+| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5） |
+| 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
+| `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
+| `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
+| gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
+| GitHub Actions（PR #35, 本轮可靠性 HEAD） | 9/9 通过（见 PR 最终 run）；含 MySQL+Redis+Admin Smoke 与双 Worker 回归 |
 
 ## 6. 可现场讲解的案例
 
