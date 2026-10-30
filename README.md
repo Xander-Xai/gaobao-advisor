@@ -349,9 +349,9 @@ ruff check . && ruff format --check .
 > `docker run` 后 `curl` 的真实健康检查结果。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
-Secret Scan（gitleaks 全历史）、Security Audit（pip-audit 审计运行时依赖锁 + 可选
-legacy 依赖集、npm audit）、Frontend Quality Gate、No-Key Container Smoke Test、
-Redistribution Gate。
+MySQL 8.4 + Redis 7 集成测试、Admin Smoke、Secret Scan（gitleaks 全历史）、
+Security Audit（pip-audit 审计运行时锁 + legacy 锁、npm audit）、Frontend Quality Gate、
+No-Key Container Smoke Test、Redistribution Gate。
 门禁失败即红，不通过跳过或降低阈值来「修绿」。
 
 ---

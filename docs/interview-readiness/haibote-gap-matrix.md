@@ -161,5 +161,6 @@
   `pip-audit` 运行时与 legacy 集均 **No known vulnerabilities**（legacy：streamlit
   1.66.1 / pillow 13.0.0）；gitleaks 全历史 **472 commits / no leaks**。
 
-仍未声称：14 张历史表的 MySQL 生产迁移、生产 SLA/容量、真实招生数据质量、CI 中新增
-MySQL/Redis service job（当前 GitHub token 缺 `workflow` scope；集成测试已在本机实际运行）。
+CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service containers +
+`scripts/admin_smoke.py`），PR #35 全部检查通过。仍未声称：14 张历史表的 MySQL 生产迁移、
+生产 SLA/容量、真实招生数据质量、CI 中启动完整 Compose（本机已实测）。

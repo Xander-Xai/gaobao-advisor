@@ -147,10 +147,10 @@ Worker 用 `UPDATE ... WHERE status='PENDING' AND attempts < max_attempts` 原�
 Python 1073 passed / 8 skipped（覆盖率 80.81%），覆盖 401/403/404/409/422、幂等、
 回滚、乐观锁、Worker 重试/租约、Alembic、MySQL DDL/URL、真实 MySQL 8.4 与 Redis 7；
 前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。full compose
-已实际启动并验证异步任务与 Redis 故障恢复。未做到：workflow 文件新增 MySQL/Redis
-service job（gh token 缺 `workflow` scope；同样的测试已在本机真实服务上运行）、
-14 张历史表的 MySQL 生产迁移、生产容量/SLA。真实集成测试可用
-`make test-integration` 一键复现（MySQL 4 + Redis 3 = 7 passed）；CI 现有
+已实际启动并验证异步任务与 Redis 故障恢复。CI 已新增 MySQL 8.4 + Redis 7 service
+job 和 admin smoke；真实集成测试也可用 `make test-integration` 一键复现
+（MySQL 4 + Redis 3 = 7 passed）。未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、
+CI 中启动完整 Compose（本机已实测）。CI 现有
 lint/test/secret/security/frontend/container 门禁仍保留。
 
 ## 4. 设计取舍（ADR）
@@ -163,8 +163,8 @@ lint/test/secret/security/frontend/container 门禁仍保留。
 ## 5. 未实现边界（必须能说出口）
 
 1. MySQL 14 张历史表的生产级迁移未完成；只保证新增 4 表 + 演示查询路径。
-2. MySQL/Redis 真实集成测试已在本地运行通过，但 GitHub Actions 尚未新增对应 service
-   job（token 缺 `workflow` scope）；不能把“本地通过”说成“CI 已覆盖”。
+2. MySQL/Redis 真实集成测试已同时在本机和 GitHub Actions service containers 运行通过；
+   完整 Compose 只在本地实测，未放进 CI（构建成本高）。
 3. full compose 已实际启动并验证；默认 compose 也已验证 SQLite + inline 质检 + `/admin`。
 4. 新增了演示用 HTTP Nginx 配置；生产 TLS 仍使用 `nginx.conf` + 证书挂载。
 5. 登录/任务限流是进程内滑窗，多 worker 生产需 Redis。
@@ -188,7 +188,7 @@ lint/test/secret/security/frontend/container 门禁仍保留。
 | 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
 | 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
 | 隐私脱敏 | 无 | 姓名/手机/证件/邮箱/token 脱敏 | `server/admin/privacy.py` | `test_admin_privacy.py` | **PASS** |
-| 测试/CI | 已有 1010 pytest | 新增 pytest、86 vitest、typecheck、真实 MySQL/Redis 验证 | `tests/`、`frontend/**/__tests__` | 全量运行 | **PASS**（CI service job 未新增） |
+| 测试/CI | 已有 1010 pytest | 新增 pytest、86 vitest、typecheck、MySQL/Redis service job、admin smoke | `tests/`、`frontend/**/__tests__`、`.github/workflows/ci.yml` | 全量运行 + CI 全绿 | **PASS** |
 | 性能优化 | cursor 分页 | 质检 N+1 批量化 7.1× + 索引验证 | `quality.py`、`benchmark_admin_queries.py` | `performance.md` | **PASS**（本机测量） |
 | AI Coding 证据 | 无 | 需求→失败→修复→Review→验证记录 | `ai-coding-evidence.md` | 文档内命令 | **PASS** |
 | OCR / 医疗 GCP | 无 | 不在本项目伪造 | — | — | **NOT_APPLICABLE** |

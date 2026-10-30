@@ -76,5 +76,6 @@
 - 边界：不承诺生产 SLA、不承诺 MySQL 所有历史查询路径完全等价；实际运行证据见
   `docs/interview-readiness/performance.md` 与最终报告。
 - 2026-10-31 复核：真实 MySQL 8.4 集成测试 4 passed；full profile 全部服务 healthy，
-  异步任务、审核、审计、Redis 停机/恢复均实测通过。剩余边界仅是 14 张历史表的
-  生产级迁移与 CI service job（本地已运行，workflow 因 token scope 未改）。
+  异步任务、审核、审计、Redis 停机/恢复均实测通过；CI 新增 MySQL 8.4 + Redis 7
+  service job 与 admin smoke。剩余边界仅是 14 张历史表的生产级迁移与完整 Compose
+  未放进 CI（构建成本高，本机已实测）。
