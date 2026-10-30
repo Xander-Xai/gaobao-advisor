@@ -50,6 +50,9 @@ mysql = [
     "cryptography>=42",
     "alembic>=1.13,<2",
 ]
+worker = [
+    "redis>=5.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/Xander-Xai/gaobao-advisor"

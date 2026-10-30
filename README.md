@@ -201,6 +201,7 @@ Redis 停机时创建任务返回 `202 + PENDING + UNAVAILABLE`，恢复后 Work
 DATABASE_URL=sqlite:///data/demo.db python -m db.migrate
 
 # 可选集成测试（一次性启动 MySQL 8.4 + Redis 7，自动清理）
+# 先安装可选 extras：pip install -e ".[dev,mysql,worker]"
 make test-integration
 
 # 也可以分别指定已有服务
