@@ -159,7 +159,7 @@
 - 默认 compose：SQLite + inline 质检 + `/admin` 200 + SQLite 行数变更均实测通过。
 - 安全门禁：`npm audit --omit=dev` **0 vulnerabilities**（升级 dompurify 3.4.17）；
   `pip-audit` 运行时与 legacy 集均 **No known vulnerabilities**（legacy：streamlit
-  1.66.1 / pillow 13.0.0）；gitleaks 全历史 **476 commits / no leaks**。
+  1.66.1 / pillow 13.0.0）；gitleaks 全历史 **477 commits / no leaks**。
 
 CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service containers +
 `scripts/admin_smoke.py`），PR #35 全部检查通过。仍未声称：14 张历史表的 MySQL 生产迁移、
@@ -167,7 +167,7 @@ CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service con
 
 ## 8. 2026-10-31 二次加固（PR #35 验收）
 
-本轮只修复工程边界，不新增业务模块；基线 `de9f3d1`。
+本轮只修复工程边界，不新增业务模块；基线 `de9f3d1`，提交 `b6688b9`。
 
 | # | 边界问题 | 实际证据 | 修复 | 状态 |
 |---|---|---|---|---|
@@ -186,6 +186,7 @@ CI 已新增 `MySQL + Redis + Admin Smoke` job（MySQL 8.4 / Redis 7 service con
 - full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
 
 最终本地结果：Python **1075 passed / 9 skipped**，覆盖率 **80.77%**；前端 **14 files / 86 tests**；
-`make test-integration` **8 passed**（MySQL 5 + Redis 3）；CI **9/9 job 通过**。
+`make test-integration` **8 passed**（MySQL 5 + Redis 3）；CI **9/9 job 通过**
+（[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
 
 仍未声称：14 张历史表的 MySQL 生产迁移、生产 SLA/容量、完整 Compose 进 CI、真实招生数据质量。

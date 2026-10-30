@@ -206,8 +206,8 @@ cd frontend && npm test -- --run && npm run build
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
-| gitleaks v8.30.1（full history） | **476 commits scanned / no leaks found** |
-| GitHub Actions（PR #35） | **全部通过**：Lint、Test 3.10/3.11、MySQL+Redis+Admin Smoke、Security、Secret、Frontend、Container、Redistribution |
+| gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
+| GitHub Actions（PR #35, `b6688b9`） | **9/9 通过**：Lint、Test 3.10/3.11、MySQL+Redis+Admin Smoke、Security、Secret、Frontend、Container（含生产 Compose 正/负控制）、Redistribution；[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065) |
 
 ## 6. 可现场讲解的案例
 

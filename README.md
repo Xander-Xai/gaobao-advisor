@@ -361,7 +361,7 @@ ruff check . && ruff format --check .
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
-| gitleaks v8.30.1（full history） | **476 commits scanned / no leaks found** |
+| gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
 
 > 上述数字来自本机实际运行输出。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
 > 生产 Compose 测试只使用临时生成且已删除的测试凭据。
