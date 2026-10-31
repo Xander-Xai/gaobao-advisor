@@ -38,10 +38,12 @@ cannot silently masquerade as demo knowledge.
 
 ## Historical commit caveat
 
-The statements above describe the **current tree**. A 72 MiB admissions database
-removed in `b222bde` is still reachable through historical commit `5278ae1` on
-the public repository; it is not synthetic and is not covered by the CC0 grant.
-See Issue #58 for the open remediation and history-purge blocker.
+The statements above describe the **current tree only**. A historical database
+object is still reachable through an older public Git commit; it is not
+synthetic and is not covered by the CC0 grant. The open, redacted remediation
+record is [Issue #58](https://github.com/Xander-Xai/gaobao-advisor/issues/58).
+Nothing in this licence grants rights to that historical object or to any
+third-party admissions data.
 
 ## What is deliberately NOT here
 

@@ -108,7 +108,7 @@
 - 负面：Worker 租约/重试是应用层实现，不是企业级调度；Outbox 由 Worker 轮询而不是 CDC；
   BRPOP 丢消息靠补偿扫描而非 Redis 消费组确认；0002 不支持破坏性 downgrade。
 - 边界：不承诺生产 SLA、不承诺 MySQL 所有历史查询路径完全等价；实际运行证据见
-  `docs/interview-readiness/performance.md` 与最终报告。
+  `docs/performance/mysql-benchmark.md`、`docs/performance/redis-queue-recovery.md` 与最终报告。
 - 2026-10-31 可靠性复核：真实 MySQL 8.4 + Redis 7 上验证双 Worker 争抢、并发恢复、
   重复投递、BRPOP 丢消息、Fencing 旧结果、重试耗尽、MySQL 短暂不可用；
   `tests/test_worker_integration.py` 5 passed，SQLite 单测覆盖周期恢复/耗尽/失败。

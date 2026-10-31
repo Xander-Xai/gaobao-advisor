@@ -7,7 +7,7 @@ from typing import Any
 # Keywords that signal each scene
 _SCENE_KEYWORDS: dict[str, list[str]] = {
     "kaoyan": ["考研", "研究生", "保研", "复试", "初试", "调剂"],
-    "career": ["就业", "工作", "实习", "求职", "面试", "简历", "职业"],
+    "career": ["就业", "工作", "实习", "职业", "行业", "考公"],
     "gaokao": ["高考", "志愿", "填报", "录取", "分数线", "投档", "考生"],
 }
 

@@ -1,84 +1,67 @@
 # gaobao-advisor Frontend
 
-Vue 3 SPA 前端 — 高考志愿 AI 顾问的对话界面。
+Vue 3 SPA for the advisor: chat with structured recommendation cards, public
+data explorer, profile/report views, and the administrator workbench.
 
-## 技术栈
+## Stack
 
-| 技术 | 用途 |
-|------|------|
-| Vue 3 | 组件框架 |
-| Vite | 构建工具 |
-| Pinia | 状态管理 |
-| Vue Router | 路由管理 |
-| Tailwind CSS | 样式框架 |
-| DOMPurify | XSS 消毒 |
-| Vitest | 单元测试 |
+| Technology | Purpose |
+|---|---|
+| Vue 3 | Components and reactivity |
+| Vite | Dev server and production build |
+| Pinia | Chat, data-catalog, admin, scene and voice stores |
+| Vue Router | `/`, `/data`, `/profile/:id`, `/report/:id`, `/admin` |
+| Tailwind CSS | Styling |
+| DOMPurify | Markdown/HTML sanitisation |
+| Vitest + vue-tsc | Unit tests and TypeScript checks |
 
-## 目录结构
+## Routes
 
-```
-src/
-├── main.js                      # 应用入口
-├── App.vue                      # 根组件
-├── router/index.js              # 路由（/ /report/:id /admin）
-├── stores/
-│   ├── chat.js                  # 对话状态（会话/消息/流式/槽位）
-│   ├── scene.js                 # 场景状态（gaokao/kaoyan/career）
-│   └── voice.js                 # 语音模态框可见性
-├── components/
-│   ├── chat/                    # 对话组件（ChatArea, MessageBubble, MessageInput）
-│   ├── layout/                  # 布局组件（AppHeader, AppSidebar, AppRightPanel）
-│   └── voice/                   # 语音组件（VoiceModal, VoiceRipple, LiveSubtitle）
-├── views/
-│   ├── ChatView.vue             # 主界面（三栏布局 + 语音浮窗）
-│   ├── AdminView.vue            # 管理面板（占位）
-│   └── ReportView.vue           # 报告页面（占位）
-├── api/client.js                # API 客户端（SSE 流式 + 引导）
-├── composables/useVoice.js      # WebSocket 语音通话
-└── utils/sanitize.js            # HTML 消毒 + Markdown 渲染
+| Route | View |
+|---|---|
+| `/` | Chat, structured card, profile side panel |
+| `/data` | Data overview, school browser, score trend, plans |
+| `/profile/:sessionId` | Persisted profile |
+| `/report/:id` | Generated report |
+| `/admin` | RBAC operations workbench |
+
+## Data flow
+
+```text
+MessageInput -> chat store -> POST /api/v1/chat (SSE)
+  -> token / slots / structured / sources / rag_status / degraded / done
+  -> incremental message rendering + structured card
+
+DataView -> data store -> GET /api/v1/data/overview|filters|schools|trends
+  -> server-side filtering/pagination -> cards, table, SVG trend chart
 ```
 
-## 关键架构
+The data explorer never hardcodes counts: every number comes from the backend
+catalog response. Trends are rendered per subject type; the chart is an
+in-repo SVG component, so no second charting framework is required.
 
-### 数据流
+## SSE events
 
-```
-用户输入 → MessageInput
-  → chatStore.sendMessage()
-    → chatAPI.send() POST /api/v1/chat
-      → SSE 流式解析（token / slots / emotion / structured 事件）
-    → messages[] 增量更新
-  → ChatArea 自动滚动
-```
+| Event | Purpose |
+|---|---|
+| `slots` | Extracted profile fields |
+| `emotion` | Emotion state used by the response strategy |
+| `structured` | Structured recommendation card payload |
+| `sources` | RAG citations (`chunk_id`, `source`) |
+| `rag_status` | `NO_EVIDENCE` / `RAG_DISABLED` / `RAG_ERROR` |
+| `token` | Streamed answer text |
+| `degraded` | Explicit fallback notice |
+| `done` | Server session ID + HMAC capability token |
 
-### SSE 流式事件
-
-| 事件 | 触发时机 | 数据 |
-|------|---------|------|
-| `slots` | 槽位提取后 | 用户画像字段 |
-| `emotion` | 情绪检测后 | 情绪状态/策略 |
-| `structured` | 结构化卡片生成后 | StructuredPlanningCard |
-| `token` | LLM 推理中 | token 文本块 |
-| `degraded` | LLM 降级时 | 降级原因 |
-| `done` | 回复完整 | session_token（HMAC 签名）|
-
-### 语音通话
-
-VoiceModal 通过 `useVoice` composable 打开 WebSocket 连接至 `/ws/call`：
-- PCM 音频帧上行 → ASR → LangGraph → TTS → PCM 音频帧下行
-- `LiveSubtitle` 显示实时识别文本 + AI 回复
-- `VoiceRipple` 动画表示说话状态
-
-## 开发
+## Development
 
 ```bash
-npm install
-npm run dev     # 开发服务器（默认端口 5173）
-npm run build   # 生产构建
-npm run test    # 运行单元测试
-npm run lint    # ESLint 检查
+npm ci
+npm run dev       # http://localhost:3080
+npm test -- --run # vue-tsc + Vitest
+npm run build
 ```
 
-## API 代理
-
-开发模式下，Vite 配置代理将 `/api/` 和 `/ws/` 转发到 FastAPI 后端（默认 `localhost:8000`）。
+Vite proxies `/api` and `/ws` to `http://127.0.0.1:8000` in development. To use
+a different backend origin, set `VITE_API_BASE_URL` when starting the dev
+server.
