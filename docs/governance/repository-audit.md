@@ -10,29 +10,33 @@
 | Item | Observed |
 |---|---|
 | Default branch | `master` |
-| `master` SHA | `f43be0128e7fd853097cce009a1417bf1245515f` (verified before the follow-up PR) |
+| `master` SHA | `6e1760cf1440b99029b0a8d77f1fa78350d24e32` |
 | Open PRs | 0 |
-| Open issues | #36–#40 |
-| Closed issues | #10, #22, #24 |
+| Open issues | #38, #39, #40 |
+| Closed issues | #10, #22, #24, #36, #37 |
 | Remote branches | 1 (`master`) + archive tag |
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
 | Branch protection | **ENABLED** on `master` (required checks, no force/delete, admins enforced) |
-| Required checks | 9: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution |
-| Baseline master CI | **9/9 SUCCESS** (`f43be01`, [run 41123250301](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41123250301)) |
+| Required checks | 10: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution, Full Compose E2E |
+| Baseline master CI | **10/10 SUCCESS** (`6e1760c`, [run 41155246215](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41155246215)) |
 | PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
 | PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
+| PR #43 CI | 10/10 success at `000d5a4` (run 41151056672), merged `e647226` |
+| PR #44 CI | 10/10 success at `d44fe14` (run 41155009440), merged `6e1760c` |
 
 ## 1. Remote branch inventory
 
 | Branch | HEAD | merge-base | ahead/behind vs master | Unique assets | Decision |
 |---|---|---|---|---|---|
-| `master` | `f43be01` | — | — | canonical baseline; full SHA in Section 0 | protected by process; no force push |
+| `master` | `6e1760c` | — | — | canonical baseline; full SHA in Section 0 | protected; no force push/delete |
 | `fix/haibote-acceptance-hardening-20261031` | `1f3afab` | `1622c3f` | merged via #35 | PR #35 fixes + reliability work | **deleted** after merge |
 | `docs/portfolio-reference-boundaries-20261030` | `51b8936` | `65bdb40` | merged via #31 | README boundary section only | **deleted** after merge |
 | `feat/vue3-ts-readonly-data-workbench-20261030` | `8fe4f61` | `65bdb40` | 1 ahead / 10 behind | old read-only TS prototype + design doc | **deleted**; archived tag `archive/vue3-ts-readonly-20261030` |
 | `feat/haibote-phase1-admin-workbench-20261030` | `4b81aaa` | `4b81aaa` | ancestor of master | none | **deleted** |
 | `feat/haibote-phase2-mysql-redis-worker-20261030` | `aab68c2` | `aab68c2` | ancestor of master | none | **deleted** |
 | `feat/haibote-phase3-acceptance-20261030` | `4a3c6d5` | `4a3c6d5` | ancestor of master | none | **deleted** |
+| `ci/full-compose-e2e-and-governance-20261031` | `000d5a4` | `f43be01` | merged via #43 | Full Compose E2E + governance docs | **deleted** |
+| `feat/mysql-full-alembic-migration` | `d44fe14` | `e647226` | merged via #44 | full 18-table migration + schema contract | **deleted** |
 
 Local stale branches `docs/mark-private-env-docs-historical-20261021` and
 `fix/dependency-security-runtime-20261021` point at already-merged commits and
@@ -67,6 +71,8 @@ reliability PR is merged and no PR depends on it.
 | #31 | **MERGED** | `51b8936` | merged `4d05916`; CI 9/9 |
 | #41 | **MERGED** | — | governance ledger, merged `d41f4ef` |
 | #42 | **MERGED** | — | branch protection documentation, merged `f43be01` |
+| #43 | **MERGED** | `000d5a4` | Full Compose E2E + governance, merged `e647226`; CI 10/10 |
+| #44 | **MERGED** | `d44fe14` | full 18-table Alembic migration, merged `6e1760c`; CI 10/10 |
 | #34/#33/#32 | MERGED | — | verify commits in master; phase branches deletable |
 | #30/#29/#28/#27/#26/#25/#23/#21/#20/#19/#18/#17/#16/#15/#14/#13/#12/#11/#9/#8/#7/#6/#4/#2/#1 | MERGED | — | no action |
 | #5 | CLOSED (draft, conflicting) | — | record; no unique asset to merge |
@@ -85,6 +91,11 @@ protection-rule details; re-check GitHub branch settings before relying on them.
 | #10 session token ownership | CLOSED | PR #11 + `tests/test_auth*` | keep closed; re-verify in final suite |
 | #22 version/RAG wording drift | CLOSED | PR #23, `pyproject.toml` 3.0.0 | keep closed |
 | #24 synthetic E2E/no-key behavior | CLOSED | PR #25, `test_public_demo_acceptance.py` | keep closed |
+| #36 14-table MySQL migration | CLOSED | PR #44, `test_mysql_migrations.py` | completed 2026-10-31 |
+| #37 full Compose in CI | CLOSED | PR #43, Full Compose E2E | completed 2026-10-31 |
+| #38 capacity benchmarks | OPEN | local SQLite only | keep open P2 |
+| #39 distributed auth hardening | OPEN | ADR-007 trade-off | keep open P2 |
+| #40 consumer-group evaluation | OPEN | ADR-009 comparison | keep open P2 |
 
 Open issues at audit time: **0**. After audit, 5 executable long-term issues
 were created (no duplicates): #36 MySQL historical migration, #37 full Compose
@@ -94,13 +105,13 @@ re-verified and commented with current master evidence; they remain closed.
 
 ## 4. CI/CD and security snapshot
 
-- Workflow: `.github/workflows/ci.yml`, 9 jobs.
+- Workflow: `.github/workflows/ci.yml`, **10 jobs** (Full Compose E2E added).
 - `master@1622c3f` failed `Security Audit`: legacy Pillow 12.3.0, 31 advisories.
 - PR #35 branch already contains `streamlit 1.66.1 + pillow 13.0.0`,
   `dompurify 3.4.17`, production Compose credential tests, MySQL/Redis/admin
   integration job, and the earlier reliability compensation.
-- Required checks/branch protection: **ENABLED** on 2026-10-31 with the 9 CI
-  jobs, `strict=true`, `enforce_admins=true`, no force push, no branch deletion,
+- Required checks/branch protection: **ENABLED** with all 10 CI jobs,
+  `strict=true`, `enforce_admins=true`, no force push, no branch deletion,
   conversation resolution required. No protection rule was bypassed.
 - No real secrets are committed; `.env*` production files are gitignored.
 
@@ -116,11 +127,18 @@ re-verified and commented with current master evidence; they remain closed.
 | Phase 4 | branch cleanup | 6 remote branches deleted; archive tag pushed; only `master` remains |
 | Phase 5 | issue governance | #36–#40 created; #10/#22/#24 re-verified/commented |
 | Phase 7 | final master verification | pytest 1085/14, coverage 81.11%; frontend 86; integration 13; CI success 41120768687 |
-| Phase 7 | branch protection | enabled on `master`: 9 required checks, strict, enforce admins, no force/delete |
+| Phase 7 | branch protection | enabled on `master`: 10 required checks (incl. Full Compose E2E), strict, enforce admins, no force/delete |
+| Phase 1 (#43) | full Compose E2E | merged `e647226`; six services healthy, Nginx async chain, 10/10 CI |
+| Phase 2 (#44) | full MySQL migration | merged `6e1760c`; 18 tables, adopt-existing, seed no create_all, 10/10 CI |
+| Phase 3 | issue closure | #37 and #36 closed with run/SHA/test evidence; #38–#40 remain open |
+| Phase 4 | branch cleanup | `ci/full-compose...` and `feat/mysql...` deleted; only `master` remains |
 
 ## 6. Rollback and safety
 
 - No force push, no history rewrite, no deletion before asset check.
+- PR #43 merge `e647226c3e235d0bf7811730f7733d2a9848452c`; PR #44 merge
+  `6e1760cf1440b99029b0a8d77f1fa78350d24e32`.
+- Alembic `0002` downgrade is intentionally refused; use verified backup/restore.
 - PR #35 was merged with a **merge commit** (`b98225a69c0f3dc4e82e1763e9d9f9cad31d8e75`),
   not a linear or squash range. If a rollback is actually required, first inspect
   dependent commits, branch protection, database compatibility and current refs;
@@ -134,17 +152,15 @@ re-verified and commented with current master evidence; they remain closed.
 - Local `.env.full` is generated, gitignored, mode 0600, and restored after
   Compose tests; no test secrets are committed.
 
-## 7. Follow-up work: full Compose CI
+## 7. Follow-up work: full Compose CI and migration (historical note)
 
-- Baseline observed from GitHub before this work: `master@f43be01`, 0 open PRs,
-  1 remote branch (`master`), 5 open issues (#36–#40), and 9 successful CI jobs
-  in run 41123250301.
-- [Issue #37](https://github.com/Xander-Xai/gaobao-advisor/issues/37) tracks
-  full-profile Compose automation. The follow-up changes are prepared through
-  a protected PR workflow, not an unreviewed direct `master` commit.
-- The new `Full Compose E2E` job is additional to the existing nine jobs; its
-  status and any decision to close #37 must be based on the **new PR run**,
-  not on the earlier baseline run.
-- Remaining #36 and #38–#40 stay open until their own acceptance criteria are
-  independently satisfied. No production SLA or full historic MySQL migration
-  is implied by a passing Compose smoke test.
+- Historical baseline before this work: `master@f43be01`, 0 open PRs, 1 remote
+  branch (`master`), 5 open issues (#36–#40), 9 successful CI jobs in run
+  41123250301.
+- PR #43 added the `Full Compose E2E` job and merged `e647226`; master CI
+  10/10 passed (run 41151378153). #37 was closed with that evidence.
+- PR #44 added the full 18-table MySQL Alembic baseline and merged `6e1760c`;
+  master CI 10/10 passed (run 41155246215). #36 was closed with that evidence.
+- Current open issues are #38–#40. #40 has the ADR-009 technical comparison;
+  #38 and #39 remain open for measured capacity/security work.
+- No production SLA or production database migration is implied by CI tests.

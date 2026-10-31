@@ -449,7 +449,7 @@ tests/                 单元与验收测试（1059 passed / 1 skipped）
 - **反馈问题：** [提交 Issue](https://github.com/Xander-Xai/gaobao-advisor/issues/new/choose)。请不要附加真实考生个人信息或 API Key。
 - **贡献代码：** 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。涉及安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 - **面试/验收材料：** [3 分钟演示与 10 个追问](docs/interview-readiness/haibote-fullstack-demo.md) · [JD 能力矩阵](docs/interview-readiness/haibote-gap-matrix.md) · [性能与恢复](docs/interview-readiness/performance.md) · [AI 开发证据](docs/interview-readiness/ai-coding-evidence.md)。
-- **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)。
+- **工程决策：** [ADR-002 LangGraph](docs/superpowers/adr/ADR-002-langgraph-flow.md)、[ADR-003 数据库](docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md)、[ADR-004 混合检索](docs/superpowers/adr/ADR-004-hybrid-rag.md)、[ADR-009 Redis 投递选型](docs/superpowers/adr/ADR-009-redis-delivery-selection.md)。
 - **仓库治理台账：** [repository-audit.md](docs/governance/repository-audit.md)。
 - **RAG 演示与健康检查：** [docs/rag-demo.md](docs/rag-demo.md)。
 
