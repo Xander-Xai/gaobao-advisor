@@ -14,10 +14,23 @@ TMP="$(mktemp -d)"
 LOG_DIR="${RUNNER_TEMP:-/tmp}/gaobao-full-compose-logs"
 mkdir -p "$LOG_DIR"
 export COMPOSE_PROJECT_NAME="gaobao-full-ci-${GITHUB_RUN_ID:-local}-$$"
+COMPOSE_EXTRA_FILE="${FULL_COMPOSE_OVERRIDE:-}"
 
 compose() {
-  docker compose --env-file .env.full -f docker-compose.yml -f docker-compose.full.yml --profile full "$@"
+  if [ -n "$COMPOSE_EXTRA_FILE" ]; then
+    docker compose --env-file .env.full -f docker-compose.yml -f docker-compose.full.yml \
+      -f "$COMPOSE_EXTRA_FILE" --profile full "$@"
+  else
+    docker compose --env-file .env.full -f docker-compose.yml -f docker-compose.full.yml --profile full "$@"
+  fi
 }
+
+for container in gaokao-mysql gaokao-redis gaokao-api gaokao-worker gaokao-frontend gaokao-nginx; do
+  if docker inspect "$container" >/dev/null 2>&1; then
+    echo "Refusing to reuse existing container: $container" >&2
+    exit 2
+  fi
+done
 
 started_at="$SECONDS"
 cleanup() {
@@ -41,7 +54,7 @@ trap cleanup EXIT
 
 # The helper creates random database, session and admin credentials (file mode 0600).
 # Its password is captured in a private temporary file, never printed to CI logs.
-python scripts/setup_full_env.py --out .env.full --role admin --username ci-admin >"$TMP/setup-output"
+python3 scripts/setup_full_env.py --out .env.full --role admin --username ci-admin >"$TMP/setup-output"
 ADMIN_PASSWORD="$(sed -n 's/^admin password: //p' "$TMP/setup-output")"
 if [ -z "$ADMIN_PASSWORD" ]; then
   echo "Failed to generate temporary admin credentials" >&2
@@ -71,8 +84,9 @@ import urllib.error
 import urllib.request
 import uuid
 
-BASE = "http://127.0.0.1"
+BASE = os.environ.get("FULL_COMPOSE_BASE_URL", "http://127.0.0.1").rstrip("/")
 PASSWORD = os.environ["CI_ADMIN_PASSWORD"]
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 def request(method, path, body=None, token=None, headers=None):
     data = None if body is None else json.dumps(body).encode("utf-8")
@@ -84,7 +98,7 @@ def request(method, path, body=None, token=None, headers=None):
     if headers:
         merged.update(headers)
     req = urllib.request.Request(BASE + path, data=data, headers=merged, method=method)
-    with urllib.request.urlopen(req, timeout=15) as response:
+    with OPENER.open(req, timeout=15) as response:
         payload = response.read()
         return response.status, json.loads(payload) if payload and "json" in response.headers.get("Content-Type", "") else payload
 
