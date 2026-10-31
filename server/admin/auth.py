@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import datetime
 import hashlib
 import hmac
 import json
@@ -30,7 +31,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from server.admin.client_ip import resolve_client_ip
+from server.admin.errors import AdminError
+from server.admin.revocation import hash_jti, is_token_revoked
+from server.deps import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +47,7 @@ ROLE_LEVELS: dict[str, int] = {"viewer": 1, "operator": 2, "admin": 3}
 _VALID_ROLES = frozenset(ROLE_LEVELS)
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_.@-]{3,64}$")
 _HASH_RE = re.compile(r"^pbkdf2_sha256\$(\d{5,7})\$([0-9a-f]{16,64})\$([0-9a-f]{64})$")
+_JTI_RE = re.compile(r"^[0-9a-f]{16}$")
 _TOKEN_PREFIX = "v1"
 _TOKEN_AUDIENCE = "gaobao-admin"
 _PBKDF2_ITERATIONS = 600_000
@@ -76,6 +84,8 @@ class AdminConfig:
 class AdminPrincipal:
     username: str
     role: Role
+    jti_hash: str | None = None
+    expires_at: int | None = None
 
     @property
     def level(self) -> int:
@@ -246,6 +256,13 @@ def ensure_admin_ready() -> None:
     if config.enabled and not config.token_secret:
         raise AdminConfigError("administrator token secret is missing")
     if config.enabled:
+        from server.admin.limits import security_backend
+
+        if os.getenv("APP_ENV", "development").strip().lower() == "production" and security_backend() != "redis":
+            raise AdminConfigError(
+                "production administrator rate limiting requires Redis; "
+                "set REDIS_URL and ADMIN_RATE_LIMIT_BACKEND=redis (memory is not allowed in production)"
+            )
         logger.info("admin surface enabled (%d user(s), source=%s)", len(config.users), config.source)
 
 
@@ -313,7 +330,10 @@ def verify_admin_token(token: str | None, *, now: int | None = None) -> AdminPri
         if not isinstance(payload, dict) or payload.get("aud") != _TOKEN_AUDIENCE:
             return None
         expiry = int(payload.get("exp", 0))
-        if expiry < int(time.time() if now is None else now):
+        if expiry <= int(time.time() if now is None else now):
+            return None
+        jti = str(payload.get("jti", ""))
+        if not _JTI_RE.match(jti):
             return None
         username = str(payload.get("sub", ""))
         user = config.find_user(username)
@@ -321,7 +341,12 @@ def verify_admin_token(token: str | None, *, now: int | None = None) -> AdminPri
             return None
         # Use the *current* configured role, not the role embedded at issue
         # time: demoting/removing a user takes effect on the next request.
-        return AdminPrincipal(username=user.username, role=user.role)
+        return AdminPrincipal(
+            username=user.username,
+            role=user.role,
+            jti_hash=hash_jti(jti, config.token_secret),
+            expires_at=expiry,
+        )
     except (ValueError, TypeError, KeyError, json.JSONDecodeError, binascii.Error):
         return None
 
@@ -335,12 +360,20 @@ def _bearer(authorization: str | None) -> str | None:
     return value.strip() or None
 
 
-def require_role(minimum: Role) -> Callable[..., AdminPrincipal]:
-    """FastAPI dependency factory enforcing an administrator role floor."""
+def require_role(minimum: Role, *, allow_revoked: bool = False) -> Callable[..., AdminPrincipal]:
+    """FastAPI dependency factory enforcing an administrator role floor.
+
+    Revocation is checked against the database after signature/claims/role
+    validation. ``allow_revoked`` is only used by logout so repeated logout is
+    idempotent while every other endpoint rejects the revoked token.
+    """
 
     required_level = ROLE_LEVELS[minimum]
 
-    async def dependency(authorization: str | None = Header(default=None)) -> AdminPrincipal:
+    async def dependency(
+        authorization: str | None = Header(default=None),
+        db: Session = Depends(get_db),
+    ) -> AdminPrincipal:
         config_error: AdminConfigError | None = None
         try:
             config = get_admin_config()
@@ -359,15 +392,24 @@ def require_role(minimum: Role) -> Callable[..., AdminPrincipal]:
             raise HTTPException(status_code=401, detail="Invalid or expired administrator token")
         if principal.level < required_level:
             raise HTTPException(status_code=403, detail="Insufficient administrator role")
+        if principal.jti_hash is None or principal.expires_at is None:
+            raise HTTPException(status_code=401, detail="Invalid administrator token claims")
+        if not allow_revoked and is_token_revoked(db, principal.jti_hash):
+            raise AdminError(401, "ADMIN_TOKEN_REVOKED", "管理员 Token 已被撤销")
         return principal
 
     return dependency
 
 
+def token_expiry_datetime(principal: AdminPrincipal) -> datetime.datetime:
+    if principal.expires_at is None:
+        raise ValueError("administrator token has no expiry")
+    return datetime.datetime.fromtimestamp(principal.expires_at, tz=datetime.timezone.utc).replace(tzinfo=None)
+
+
 def client_ip_hash(request: Request) -> str:
-    """Hash the client address so audit logs can correlate without storing IPs."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "")
+    """Hash the normalized client address; never store the raw address."""
+    ip = resolve_client_ip(request)
     try:
         secret = get_admin_config().token_secret or b"gaobao-audit"
     except AdminConfigError:

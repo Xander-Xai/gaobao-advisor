@@ -82,11 +82,17 @@ SESSION_SECRET=$(openssl rand -hex 32)
 ADMIN_USERS_JSON='[{"username":"operator","password_hash":"pbkdf2_sha256$...","role":"operator"}]'
 ADMIN_TOKEN_SECRET=$(openssl rand -hex 32)
 
+# 管理员分布式安全（生产启用管理员时必填）
+REDIS_URL=redis://redis:6379/0
+ADMIN_RATE_LIMIT_BACKEND=redis
+# 仅填写真实反向代理的精确 CIDR；默认空表示忽略 X-Forwarded-For
+# ADMIN_TRUSTED_PROXIES=10.0.0.10/32
+
 # Sentry DSN（可选，用于错误追踪）
 SENTRY_DSN=https://xxx@sentry.io/xxx
 
-# Redis URL（RAG 缓存）
-REDIS_URL=redis://redis:6379/0
+# Redis 同时用于 RAG 缓存、管理员限流与 Token 撤销状态校验
+# REDIS_URL 已在上方配置
 
 # Grafana Admin Password
 GRAFANA_ADMIN_PASSWORD=your-secure-password

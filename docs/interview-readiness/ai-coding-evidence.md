@@ -123,7 +123,7 @@ cd frontend && npm test -- --run && npm run build
 - 现象：`npm audit --omit=dev` 报告 `dompurify <=3.4.16` 1 个 critical advisory。
 - 修复：升级到 `dompurify@3.4.17`，同步 `package-lock.json`；不添加 ignore。
 - 证据：`npm audit --omit=dev --audit-level=high` → **0 vulnerabilities**；
-  `vue-tsc` + 86 tests + build 仍通过。
+  `vue-tsc` + 88 tests + build 仍通过。
 
 ### Bug 11：可选 legacy admin 依赖集触发 Pillow 公告
 
@@ -191,12 +191,21 @@ cd frontend && npm test -- --run && npm run build
 ### Issue #36：14 张历史表全量 MySQL Alembic 迁移
 
 - 问题：原 Alembic 只有 4 张运营表；14 张历史表依赖 `create_all`/seed。
-- 修复：`20261031_0002` 按 FK 顺序创建 14 表；`db/schema_contract.py` 对比列/PK/
+- 修复：`20261031_0002` 按 FK 顺序创建 14 表，`20261031_0003` 创建撤销表；`db/schema_contract.py` 对比列/PK/
   索引/唯一约束/FK；新增 `adopt-existing` 对已有 create_all schema 做显式校验后 stamp；
   seed 增加 `--no-create-schema`；`0002` downgrade 明确拒绝，回滚走备份。
 - 证据：SQLite `test_migrations.py` 5 passed；真实 MySQL 8.4
   `test_mysql_migrations.py` 3 passed（空库、重复 upgrade、seed 无 create_all、
   adopt 数据保留、索引 drift 拒绝）；full Compose E2E 通过。
+
+### Issue #39：管理员分布式安全加固
+
+- 问题：进程内限流、无 Token 撤销、XFF 无条件信任。
+- 修复：Redis Lua 原子滑动窗口（IP+身份）、持久化 jti 撤销表 + logout、可信代理
+  右向左解析、Redis 不可用 503 / 生产 memory 启动失败。
+- 证据：`test_admin_security.py` 20 passed；真实 Redis `test_admin_limits_redis.py`
+  10 passed（100 并发、双客户端、双进程、TTL、Redis flush 后撤销仍有效）；
+  full Compose E2E 覆盖 logout/撤销后 401。
 
 ### 过程阻塞：OAuth token 缺 workflow scope
 
@@ -223,12 +232,12 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1088 passed, 17 skipped**，覆盖率 **80.82%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1108 passed, 27 skipped**，覆盖率 **80.91%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
 | `pytest tests/test_database_modes.py` | **7 passed** |
-| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 86 tests passed** |
+| `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 88 tests passed** |
 | `cd frontend && npm run build` | 通过 |
 | `ruff check .` / `ruff format --check .` | 通过 |
 | `docker compose ... --profile full up` | 全部服务 healthy；MySQL/Redis 无宿主机端口；异步任务/审核/审计/Redis 故障恢复通过 |
@@ -236,8 +245,8 @@ cd frontend && npm test -- --run && npm run build
 | 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
 | MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
-| `make test-integration` | **16 passed**（MySQL 8 + Redis 3 + 双 Worker/恢复 5） |
-| 全量迁移（MySQL 8.4） | 18 表 upgrade / 重复 upgrade / seed 无 create_all / adopt 数据保留 |
+| `make test-integration` | **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5） |
+| 全量迁移（MySQL 8.4） | 19 表 upgrade / 重复 upgrade / seed 无 create_all / adopt 数据保留 |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |

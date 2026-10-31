@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1088 passed / 17 skipped；`vitest` 86 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1108 passed / 27 skipped；`vitest` 88 tests |
 
 ## 1. 三分钟演示路径
 
@@ -128,8 +128,8 @@ BRPOP 在 claim 前取走消息的窗口由
 `mysql://` 规范化为 PyMySQL。WAL PRAGMA、`check_same_thread`、文件权限只对 SQLite
 执行；MySQL 用 `pool_pre_ping/pool_recycle/utf8mb4/connect_timeout`。迁移用 Alembic，
 `python -m db.migrate`：`20261030_0001` 创建 4 张运营表，`20261031_0002`
-创建 14 张历史业务表；已有 `create_all` 数据库先 `adopt-existing`（校验 schema 后
-stamp）再 upgrade。`0002` downgrade 明确拒绝，回滚依赖备份/恢复。Schema Matrix 见
+创建 14 张历史业务表，`20261031_0003` 创建管理员 Token 撤销表；已有 `create_all` 数据库先 `adopt-existing`（校验 schema 后
+stamp）再 upgrade。`0002/0003` downgrade 明确拒绝，回滚依赖备份/恢复。Schema Matrix 见
 `docs/database-schema-matrix.md`。代码：`db/database.py`、`db/migrate.py`、
 `db/schema_contract.py`、`migrations/`；测试：`test_database_modes.py`、
 `test_migrations.py`、`test_mysql_migrations.py`。真实 MySQL 8.4 上全量迁移/seed/
@@ -144,7 +144,7 @@ adopt 数据保留均通过，full profile 的 MySQL+Redis+Worker 已实际启�
 渐进式。没有重写聊天/SSE/报告模块；新增 `tsconfig.json`、`env.d.ts` 和
 `vue-tsc --noEmit`，只把后台模块改成 `<script setup lang="ts">`，DTO 放在
 `types/admin.ts`，API 错误映射在 `api/admin.ts`。`npm test` 先跑 typecheck，现有 CI
-无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 86 tests。
+无需改 workflow 即可获得类型门禁。测试：`npm test -- --run`，14 files / 88 tests。
 
 ### Q9. 审计和隐私怎么保证不泄漏凭据？
 
@@ -156,28 +156,27 @@ adopt 数据保留均通过，full profile 的 MySQL+Redis+Worker 已实际启�
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1088 passed / 17 skipped（覆盖率 80.82%），覆盖 401/403/404/409/422、幂等、
+Python 1108 passed / 27 skipped（覆盖率 80.91%），覆盖 401/403/404/409/422、幂等、
 回滚、乐观锁、Worker 重试/租约、BRPOP 丢消息补偿、Alembic、MySQL DDL/URL、真实
-MySQL 8.4 与 Redis 7；前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
+MySQL 8.4 与 Redis 7；前端 88 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
 full compose 已实际启动并验证异步任务、Redis 故障恢复与真实 BRPOP 丢消息恢复；生产
 Compose 凭据正/负控制通过。CI 已新增 MySQL 8.4 + Redis 7 service job 和 admin smoke；
-真实集成测试也可用 `make test-integration` 一键复现（MySQL 8 + Redis 3 + 双 Worker/恢复 5 = 16 passed）。
+真实集成测试也可用 `make test-integration` 一键复现（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5 = 26 passed）。
 未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、CI 中启动完整 Compose（本机已实测）。
 CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
 ## 4. 设计取舍（ADR）
 
-- `ADR-007`：独立管理员 token 而非复用 session；Bearer 而非 Cookie；进程内限流的
-  代价；审计脱敏。
-- `ADR-008`：SQLite 默认 + MySQL opt-in；Alembic 只覆盖新表；Redis List + Outbox；
+- `ADR-007`：独立管理员 token 而非复用 session；Bearer 而非 Cookie；Redis 分布式
+  限流、持久化 Token 撤销、可信代理和 fail-closed；审计脱敏。
+- `ADR-008`：SQLite 默认 + MySQL opt-in；Alembic 覆盖全量 19 表；Redis List + Outbox；
   Worker 失败语义；full compose 边界。
 
 ## 5. 未实现边界（必须能说出口）
 
-1. MySQL 全量 18 表已由 Alembic 覆盖；`0002` 不支持破坏性 downgrade，回滚必须使用
+1. MySQL 全量 19 表已由 Alembic 覆盖；`0002/0003` 不支持破坏性 downgrade，回滚必须使用
    经验证的备份/恢复。
-2. MySQL/Redis 真实集成测试已同时在本机和 GitHub Actions service containers 运行通过；
-   完整 Compose 只在本地实测，未放进 CI（构建成本高）。
+2. MySQL/Redis 真实集成测试和完整 Compose 均已进入 GitHub Actions（Full Compose E2E）。
 3. full compose 已实际启动并验证；默认 compose 也已验证 SQLite + inline 质检 + `/admin`。
 4. 新增了演示用 HTTP Nginx 配置；生产 TLS 仍使用 `nginx.conf` + 证书挂载。
 5. full profile 的 MySQL/Redis 不发布宿主机端口；生产 Compose 的 `.env.production`
@@ -240,7 +239,7 @@ git log --oneline --graph -10
 | 鉴权与 RBAC | 无 admin | 独立 token、角色、fail-closed | `server/admin/auth.py` | `test_admin_auth.py` | **PASS** |
 | 事务/审计 | 无 | 同事务 Outbox + 审计 + 回滚 | `create_job_with_outbox`、`record_audit` | 回滚/审计测试 | **PASS** |
 | 隐私脱敏 | 无 | 姓名/手机/证件/邮箱/token 脱敏 | `server/admin/privacy.py` | `test_admin_privacy.py` | **PASS** |
-| 测试/CI | 已有 1010 pytest | 新增 pytest、86 vitest、typecheck、MySQL/Redis service job、admin smoke | `tests/`、`frontend/**/__tests__`、`.github/workflows/ci.yml` | 全量运行 + CI 全绿 | **PASS** |
+| 测试/CI | 已有 1010 pytest | 新增 pytest、88 vitest、typecheck、MySQL/Redis service job、admin smoke | `tests/`、`frontend/**/__tests__`、`.github/workflows/ci.yml` | 全量运行 + CI 全绿 | **PASS** |
 | 性能优化 | cursor 分页 | 质检 N+1 批量化 7.1× + 索引验证 | `quality.py`、`benchmark_admin_queries.py` | `performance.md` | **PASS**（本机测量） |
 | AI Coding 证据 | 无 | 需求→失败→修复→Review→验证记录 | `ai-coding-evidence.md` | 文档内命令 | **PASS** |
 | OCR / 医疗 GCP | 无 | 不在本项目伪造 | — | — | **NOT_APPLICABLE** |

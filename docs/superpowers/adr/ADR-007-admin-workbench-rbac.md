@@ -29,6 +29,19 @@
    统一脱敏，且未引入第三方脚本。
 6. **审计与脱敏**：创建任务、任务完成/失败、审核写入 `operation_audit_logs`；
    审计详情递归脱敏姓名、手机号、身份证、邮箱、token。
+7. **分布式限流（2026-10-31）**：`ADMIN_RATE_LIMIT_BACKEND=auto|memory|redis`。
+   Redis 模式使用 Lua 原子滑动窗口（sorted set + Redis TIME + TTL）；登录同时限制
+   IP 与用户名，任务创建同时限制管理员与 IP。生产不允许 memory；Redis 不可用时
+   返回 503 `SECURITY_BACKEND_UNAVAILABLE`，不静默回退。
+8. **Token 撤销（2026-10-31）**：新增 `admin_token_revocations` 持久化表，只存
+   HMAC-SHA256(jti) 摘要。签名/audience/exp/当前用户/当前角色先校验，再查撤销；
+   `POST /api/v1/admin/auth/logout` 幂等撤销当前 Token，其他 Token 不受影响。
+   Redis 重启不会恢复已撤销 Token；数据库不可用时 admin 请求 fail-closed。
+9. **可信代理（2026-10-31）**：默认忽略 `X-Forwarded-For`；只有直接 peer 在
+   `ADMIN_TRUSTED_PROXIES` CIDR 内才从右向左解析，取第一个非可信 hop。限流与审计
+   使用同一规范化 IP 哈希。
+10. **退出语义（2026-10-31）**：前端先调用后端 logout；网络失败时清理本地状态并
+    明确提示“服务端撤销未确认”，不谎称成功。
 
 ## 备选方案
 
@@ -42,13 +55,19 @@
 ## 后果
 
 - 正面：权限边界清晰、可测试；生产配置错误会尽早失败；审计可追溯。
-- 负面：token 无刷新/撤销列表，只能等过期或轮换密钥；多 worker 的登录限流
-  是进程内的，生产应迁移到 Redis；`sessionStorage` 仍受 XSS 影响。
-- 边界：这不是完整 IAM/MFA，不承诺多租户隔离。
+- 正面（2026-10-31）：支持多副本共享限流、服务端 Token 撤销、可信代理边界和
+  Redis 故障 fail-closed；默认 SQLite/无 Redis 开发模式仍可用。
+- 负面：`sessionStorage` 仍受 XSS 影响；撤销表按过期清理，无后台清理任务；
+  Redis 限流单区域；无 MFA/OIDC/刷新令牌。
+- 边界：这不是完整 IAM/MFA，不承诺多租户隔离或生产 SLA。
 
 ## 验收
 
 - `tests/test_admin_auth.py`：401/403、聊天 token 拒绝、过期/篡改、生产
   fail-closed、登录限流。
 - `tests/test_admin_quality_jobs.py`：角色校验、乐观锁审核、审计、回滚。
-- `frontend/src/views/__tests__/AdminView.spec.ts`：登录、403 展示、只读角色。
+- `frontend/src/views/__tests__/AdminView.spec.ts`：登录、403、只读角色、logout。
+- `tests/test_admin_security.py`：撤销/幂等/过期边界/可信代理/503。
+- `tests/test_admin_limits_redis.py`：真实 Redis 原子并发、双客户端/双进程、
+  TTL、Redis flush 后撤销仍有效。
+- `docs/security/admin-auth-hardening.md`：威胁模型、配置和残余风险。

@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
         "AUTO_MIGRATE=true",
         "AUTO_SEED_DEMO=true",
         "QUALITY_TASK_MODE=async",
+        "ADMIN_RATE_LIMIT_BACKEND=redis",
         f"ADMIN_USERS_JSON='{json.dumps(users, separators=(',', ':'))}'",
         f"ADMIN_TOKEN_SECRET={token_secret}",
         f"SESSION_SECRET={session_secret}",

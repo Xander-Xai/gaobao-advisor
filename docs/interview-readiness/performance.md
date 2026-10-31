@@ -87,9 +87,9 @@ REDIS_TEST_URL=redis://127.0.0.1:6379/0 \
   后运行 `tests/test_admin_mysql.py`：**5 passed**（列表/详情、质检+审核事务、崩溃窗口补偿、
   异常回滚、dialect 断言）。
 - **迁移 + seed 实测**：fresh MySQL 8.4 上 `python -m db.migrate upgrade` 创建
-  14 张历史表 + 4 张运营表 + `alembic_version`；`seed_demo_data --database-url
+  14 张历史表 + 4 张运营表 + Token 撤销表 + `alembic_version`；`seed_demo_data --database-url
   --no-create-schema` 写入 8 校 / 128 分数 / 48 计划，证明 seed 不依赖 `create_all`。
-  已有 `create_all` schema 通过 `adopt-existing` 校验后保留数据并推进到 `0002`；
+  已有 `create_all` schema 通过 `adopt-existing` 校验后保留数据并推进到 `0003`；
   索引 drift 会被拒绝。
 - **full compose 实测**：MySQL 8.4 + Redis 7 + API + Worker + Frontend + Nginx
   全部 healthy；MySQL/Redis 无宿主机端口，容器间通过服务名通信；异步质检
@@ -97,6 +97,9 @@ REDIS_TEST_URL=redis://127.0.0.1:6379/0 \
 - **MySQL 全量迁移**：`tests/test_mysql_migrations.py` 3 passed（空库、重复 upgrade、
   seed 无 create_all、adopt 数据保留、索引 drift 拒绝）；SQLite `tests/test_migrations.py`
   5 passed。
+- **管理员安全**：Redis Lua 限流 100 并发仅放行 limit 个；双客户端/双进程共享计数；
+  Token 撤销在 Redis flush 后仍有效；Redis 不可用返回 503。详见
+  `docs/security/admin-auth-hardening.md`。
 - **双 Worker 实进程**：同一 worker 容器内启动两个 `python -m server.admin.worker`，
   并发处理 3 个任务；`issues=15=SUM(issue_count)`，每个 job 的 succeeded 审计恰好 1 次。
 - **MySQL 短暂不可用**：停止 MySQL 后 `/health/ready` 返回 503，创建任务返回 500；
@@ -134,7 +137,7 @@ docker compose --env-file .env.full \
 
 - 没有生产容量/并发/SLA 测试；
 - 没有慢查询日志采集或 APM 链路追踪；
-- MySQL 已覆盖全量 18 表迁移；`0002` 不支持破坏性 downgrade，回滚依赖备份/恢复；
+- MySQL 已覆盖全量 19 表迁移；`0002/0003` 不支持破坏性 downgrade，回滚依赖备份/恢复；
 - Redis 单实例，没有集群/高可用；BRPOP 丢消息靠补偿扫描，不是 Redis 消费组确认；
 - at-least-once 语义允许重复投递；恢复延迟受 60 秒投递租约和 30 秒扫描周期影响；
 - 所有数字来自本机临时 SQLite，不代表真实招生数据规模。

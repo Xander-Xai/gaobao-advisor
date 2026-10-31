@@ -119,6 +119,9 @@ export const adminApi = {
   me(token: string): Promise<AdminUser> {
     return request<AdminUser>('/admin/auth/me', { token })
   },
+  logout(token: string): Promise<void> {
+    return request<void>('/admin/auth/logout', { method: 'POST', token })
+  },
   stats(token: string): Promise<Stats> {
     return request<Stats>('/admin/stats', { token })
   },
