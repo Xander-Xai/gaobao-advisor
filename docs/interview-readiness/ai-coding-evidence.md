@@ -188,6 +188,16 @@ cd frontend && npm test -- --run && npm run build
 - 修复：`pending_outbox` 增加 1 秒调度容差。
 - 证据：真实 MySQL+Redis 双 Worker 集成测试立即投递成功。
 
+### Issue #36：14 张历史表全量 MySQL Alembic 迁移
+
+- 问题：原 Alembic 只有 4 张运营表；14 张历史表依赖 `create_all`/seed。
+- 修复：`20261031_0002` 按 FK 顺序创建 14 表；`db/schema_contract.py` 对比列/PK/
+  索引/唯一约束/FK；新增 `adopt-existing` 对已有 create_all schema 做显式校验后 stamp；
+  seed 增加 `--no-create-schema`；`0002` downgrade 明确拒绝，回滚走备份。
+- 证据：SQLite `test_migrations.py` 5 passed；真实 MySQL 8.4
+  `test_mysql_migrations.py` 3 passed（空库、重复 upgrade、seed 无 create_all、
+  adopt 数据保留、索引 drift 拒绝）；full Compose E2E 通过。
+
 ### 过程阻塞：OAuth token 缺 workflow scope
 
 - 现象：`git push` 被拒绝（OAuth App 不能更新 `.github/workflows/ci.yml`）。
@@ -213,7 +223,7 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1085 passed, 14 skipped**，覆盖率 **81.11%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1088 passed, 17 skipped**，覆盖率 **80.82%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **2 passed** |
@@ -226,13 +236,14 @@ cd frontend && npm test -- --run && npm run build
 | 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
 | MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
-| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5） |
+| `make test-integration` | **16 passed**（MySQL 8 + Redis 3 + 双 Worker/恢复 5） |
+| 全量迁移（MySQL 8.4） | 18 表 upgrade / 重复 upgrade / seed 无 create_all / adopt 数据保留 |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（Pillow 13.0.0）|
 | gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
-| GitHub Actions（PR #35, 本轮可靠性 HEAD） | 9/9 通过（见 PR 最终 run）；含 MySQL+Redis+Admin Smoke 与双 Worker 回归 |
+| GitHub Actions（PR #43 / master `e647226`） | **10/10 通过**：新增 Full Compose E2E；含 MySQL+Redis+Admin Smoke 与双 Worker 回归 |
 
 ## 6. 可现场讲解的案例
 

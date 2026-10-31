@@ -98,6 +98,23 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXX
 SMTP_PASSWORD=your-smtp-password
 ```
 
+### MySQL Schema 迁移
+
+```bash
+# 空库或已在 Alembic 管理下的库
+python -m db.migrate upgrade
+
+# 旧 create_all 库：先校验 18 张表 schema，再 stamp 0001；不会创建/删除表
+python -m db.migrate adopt-existing
+python -m db.migrate upgrade
+
+# 迁移后 seed（不依赖 create_all）
+python -m scripts.seed_demo_data --database-url "$DATABASE_URL" --no-create-schema
+```
+
+`20261031_0002` 的 downgrade 被明确拒绝；回滚使用经验证的数据库备份/恢复。
+详见 `docs/database-schema-matrix.md`。
+
 ---
 
 ## 📦 代码部署

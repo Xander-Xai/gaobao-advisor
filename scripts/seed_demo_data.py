@@ -257,6 +257,7 @@ def seed_database(
     reset: bool = False,
     *,
     database_url: str | None = None,
+    create_schema: bool = True,
 ) -> dict[str, int]:
     """Create schema and load the synthetic dataset. Returns row counts.
 
@@ -267,6 +268,9 @@ def seed_database(
         database_url: explicit SQLAlchemy URL (e.g. mysql+pymysql://...). The
             seed is idempotent: if schools already exist it returns counts
             without inserting duplicates.
+        create_schema: create missing tables with ``Base.metadata.create_all``.
+            Set to ``False`` after Alembic has created the schema; this proves
+            the seed does not depend on an implicit ``create_all`` bootstrap.
     """
     import db.database as database
 
@@ -292,9 +296,10 @@ def seed_database(
     from db.database import Base
     from db.models import AdmissionScore, EnrollmentPlan, Major, School, SubjectRanking
 
-    # Seed is a demo bootstrap: create both legacy and admin tables on a fresh
-    # database. Production MySQL uses Alembic instead (see db/migrate.py).
-    Base.metadata.create_all(bind=database.engine)
+    # SQLite demo bootstrap creates the schema; MySQL production deployments
+    # run Alembic first and pass create_schema=False.
+    if create_schema:
+        Base.metadata.create_all(bind=database.engine)
     if database.IS_SQLITE:
         sqlite_path = database._sqlite_path_from_url(url)  # noqa: SLF001
         if sqlite_path:
@@ -389,6 +394,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--database-url", default="", help="explicit SQLAlchemy URL (e.g. mysql+pymysql://...)")
     parser.add_argument("--reset", action="store_true", help="delete existing SQLite db first")
     parser.add_argument("--json-out", default="", help="also write payload metadata as JSON")
+    parser.add_argument(
+        "--no-create-schema",
+        action="store_true",
+        help="do not run create_all; require an existing migrated schema",
+    )
     args = parser.parse_args(argv)
 
     payload = build_payload()
@@ -399,7 +409,12 @@ def main(argv: list[str] | None = None) -> int:
         out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"wrote payload: {out}")
 
-    counts = seed_database(args.db, reset=args.reset, database_url=args.database_url or None)
+    counts = seed_database(
+        args.db,
+        reset=args.reset,
+        database_url=args.database_url or None,
+        create_schema=not args.no_create_schema,
+    )
     print(f"{SYNTHETIC_MARKER}: {SYNTHETIC_NOTICE}")
     for table, count in counts.items():
         print(f"  {table:<20} {count}")

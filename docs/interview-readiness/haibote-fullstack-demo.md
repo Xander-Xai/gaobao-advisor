@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1085 passed / 14 skipped；`vitest` 86 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1088 passed / 17 skipped；`vitest` 86 tests |
 
 ## 1. 三分钟演示路径
 
@@ -127,11 +127,13 @@ BRPOP 在 claim 前取走消息的窗口由
 `DATABASE_URL` 白名单只允许 sqlite/mysql/mysql+pymysql，非法 scheme 直接失败；
 `mysql://` 规范化为 PyMySQL。WAL PRAGMA、`check_same_thread`、文件权限只对 SQLite
 执行；MySQL 用 `pool_pre_ping/pool_recycle/utf8mb4/connect_timeout`。迁移用 Alembic，
-`python -m db.migrate`，初始 revision 只覆盖新增 4 表；14 张历史表的生产迁移不在本轮
-范围，full profile 的演示数据由 seed 的 create_all 引导，文档明确标注。代码：
-`db/database.py`、`db/migrate.py`、`migrations/`；测试：`test_database_modes.py`、
-`test_migrations.py`。真实 MySQL 8.4 上 `test_admin_mysql.py` **5 passed**，full profile
-的 MySQL+Redis+Worker 已实际启动并完成异步任务。full profile 的 MySQL/Redis 不发布
+`python -m db.migrate`：`20261030_0001` 创建 4 张运营表，`20261031_0002`
+创建 14 张历史业务表；已有 `create_all` 数据库先 `adopt-existing`（校验 schema 后
+stamp）再 upgrade。`0002` downgrade 明确拒绝，回滚依赖备份/恢复。Schema Matrix 见
+`docs/database-schema-matrix.md`。代码：`db/database.py`、`db/migrate.py`、
+`db/schema_contract.py`、`migrations/`；测试：`test_database_modes.py`、
+`test_migrations.py`、`test_mysql_migrations.py`。真实 MySQL 8.4 上全量迁移/seed/
+adopt 数据保留均通过，full profile 的 MySQL+Redis+Worker 已实际启动并完成异步任务。full profile 的 MySQL/Redis 不发布
 宿主机端口，容器间通过 `mysql:3306` / `redis:6379` 通信。生产 `docker-compose.prod.yml`
 使用 required `env_file` 注入 `.env.production`；应用不会自动读 `/app/.env`，缺
 `SESSION_SECRET` / `ADMIN_TOKEN_SECRET` 会 fail-closed。验证脚本：
@@ -154,12 +156,12 @@ BRPOP 在 claim 前取走消息的窗口由
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1085 passed / 14 skipped（覆盖率 81.11%），覆盖 401/403/404/409/422、幂等、
+Python 1088 passed / 17 skipped（覆盖率 80.82%），覆盖 401/403/404/409/422、幂等、
 回滚、乐观锁、Worker 重试/租约、BRPOP 丢消息补偿、Alembic、MySQL DDL/URL、真实
 MySQL 8.4 与 Redis 7；前端 86 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
 full compose 已实际启动并验证异步任务、Redis 故障恢复与真实 BRPOP 丢消息恢复；生产
 Compose 凭据正/负控制通过。CI 已新增 MySQL 8.4 + Redis 7 service job 和 admin smoke；
-真实集成测试也可用 `make test-integration` 一键复现（MySQL 5 + Redis 3 + 双 Worker/恢复 5 = 13 passed）。
+真实集成测试也可用 `make test-integration` 一键复现（MySQL 8 + Redis 3 + 双 Worker/恢复 5 = 16 passed）。
 未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、CI 中启动完整 Compose（本机已实测）。
 CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
@@ -172,7 +174,8 @@ CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 
 ## 5. 未实现边界（必须能说出口）
 
-1. MySQL 14 张历史表的生产级迁移未完成；只保证新增 4 表 + 演示查询路径。
+1. MySQL 全量 18 表已由 Alembic 覆盖；`0002` 不支持破坏性 downgrade，回滚必须使用
+   经验证的备份/恢复。
 2. MySQL/Redis 真实集成测试已同时在本机和 GitHub Actions service containers 运行通过；
    完整 Compose 只在本地实测，未放进 CI（构建成本高）。
 3. full compose 已实际启动并验证；默认 compose 也已验证 SQLite + inline 质检 + `/admin`。
