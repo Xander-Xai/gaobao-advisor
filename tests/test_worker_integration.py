@@ -27,6 +27,7 @@ from server.admin import repository
 from server.admin.queue import RedisQueue, dispatch_outbox
 from server.admin.worker import run_once
 from tests.conftest import _seed
+from tests.mysql_guard import ensure_test_database
 
 MYSQL_URL = os.getenv("MYSQL_TEST_URL", "").strip()
 REDIS_TEST_URL = os.getenv("REDIS_TEST_URL", "").strip()
@@ -46,9 +47,8 @@ def _database_name(url: str) -> str:
 
 @pytest.fixture
 def mysql_factory():
-    if "test" not in _database_name(MYSQL_URL):
-        pytest.skip("MYSQL_TEST_URL database name must contain 'test'")
     engine = create_engine(MYSQL_URL, pool_pre_ping=True, pool_recycle=1800)
+    ensure_test_database(engine, MYSQL_URL)
     with engine.begin() as conn:
         conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
     Base.metadata.drop_all(bind=engine)
