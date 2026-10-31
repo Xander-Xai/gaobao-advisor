@@ -32,3 +32,64 @@ def test_token_refill():
     assert limiter.allow("test") is False
     time.sleep(0.05)
     assert limiter.allow("test") is True
+
+
+def test_middleware_returns_429_with_retry_after():
+    """Throttling must be a client-visible 429, not an unhandled 500."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from server.middleware.ratelimit import RateLimitMiddleware
+
+    app = FastAPI()
+    app.add_middleware(RateLimitMiddleware, rate=1, capacity=1)
+
+    @app.get("/ping")
+    def ping():
+        return {"ok": True}
+
+    client = TestClient(app)
+    assert client.get("/ping").status_code == 200
+    blocked = client.get("/ping")
+    assert blocked.status_code == 429
+    assert blocked.headers.get("retry-after") == "1"
+    assert "请求过于频繁" in blocked.json()["detail"]
+
+
+def test_generic_trusted_proxies_are_honoured(monkeypatch):
+    """Public endpoints can trust a configured proxy without weakening defaults."""
+    from starlette.requests import Request
+
+    from server.admin.client_ip import resolve_client_ip
+
+    monkeypatch.delenv("ADMIN_TRUSTED_PROXIES", raising=False)
+    monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.0/8")
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [(b"x-forwarded-for", b"198.51.100.1, 10.1.2.3")],
+            "client": ("10.1.2.3", 12345),
+        }
+    )
+    assert resolve_client_ip(request) == "198.51.100.1"
+
+
+def test_untrusted_peer_ignores_forwarded_header(monkeypatch):
+    from starlette.requests import Request
+
+    from server.admin.client_ip import resolve_client_ip
+
+    monkeypatch.delenv("ADMIN_TRUSTED_PROXIES", raising=False)
+    monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.0/8")
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [(b"x-forwarded-for", b"198.51.100.1")],
+            "client": ("203.0.113.9", 12345),
+        }
+    )
+    assert resolve_client_ip(request) == "203.0.113.9"
