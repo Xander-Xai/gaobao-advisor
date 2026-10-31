@@ -21,6 +21,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 MARKER_TABLE = "_gaobao_test_ownership"
+EXPECTED_OWNER = "gaobao-test-suite"
 _TEST_DB_RE = re.compile(r"(?:^|[_-])test(?:$|[_-])", re.IGNORECASE)
 
 
@@ -41,11 +42,29 @@ def assert_safe_test_url(url: str) -> None:
         raise RuntimeError("MYSQL_TEST_URL must not equal DATABASE_URL; refusing destructive test")
 
 
-def ensure_test_database(engine: Engine, url: str) -> None:
+def validate_test_marker(engine: Engine, *, expected_owner: str = EXPECTED_OWNER) -> None:
+    """Validate the marker's schema and exact ownership record.
+
+    A same-named table is not enough: a mis-pointed database can contain a
+    forged/old marker. Require exactly one row with id=1 and the expected owner.
+    """
+    columns = {column["name"] for column in inspect(engine).get_columns(MARKER_TABLE)}
+    if columns != {"id", "owner"}:
+        raise RuntimeError(f"refusing destructive test: {MARKER_TABLE} has unexpected columns {sorted(columns)}")
+    with engine.connect() as connection:
+        rows = connection.execute(text(f"SELECT id, owner FROM {MARKER_TABLE}")).all()
+    if len(rows) != 1 or rows[0][0] != 1 or rows[0][1] != expected_owner:
+        raise RuntimeError(
+            f"refusing destructive test: {MARKER_TABLE} ownership mismatch (expected id=1 owner={expected_owner!r})"
+        )
+
+
+def ensure_test_database(engine: Engine, url: str, *, expected_owner: str = EXPECTED_OWNER) -> None:
     """Validate ownership and create the marker on an empty test database."""
     assert_safe_test_url(url)
     tables = set(inspect(engine).get_table_names())
     if MARKER_TABLE in tables:
+        validate_test_marker(engine, expected_owner=expected_owner)
         return
     if tables:
         raise RuntimeError(
@@ -54,4 +73,4 @@ def ensure_test_database(engine: Engine, url: str) -> None:
         )
     with engine.begin() as connection:
         connection.execute(text(f"CREATE TABLE {MARKER_TABLE} (id INTEGER PRIMARY KEY, owner VARCHAR(64) NOT NULL)"))
-        connection.execute(text(f"INSERT INTO {MARKER_TABLE} (id, owner) VALUES (1, 'gaobao-test-suite')"))
+        connection.execute(text(f"INSERT INTO {MARKER_TABLE} (id, owner) VALUES (1, '{expected_owner}')"))

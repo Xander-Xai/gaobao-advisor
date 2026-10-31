@@ -15,6 +15,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 MARKER_TABLE = "_gaobao_benchmark_ownership"
+EXPECTED_OWNER = "gaobao-benchmark"
 _BENCH_DB_RE = re.compile(r"(benchmark|(?:^|[_-])test(?:$|[_-]))", re.IGNORECASE)
 
 
@@ -35,10 +36,30 @@ def assert_safe_benchmark_url(url: str, *, allow_database_url_match: bool = Fals
         raise RuntimeError("benchmark URL must not equal DATABASE_URL")
 
 
-def ensure_benchmark_database(engine: Engine, url: str, *, allow_database_url_match: bool = False) -> None:
+def validate_benchmark_marker(engine: Engine, *, expected_owner: str = EXPECTED_OWNER) -> None:
+    """Validate the marker's schema and exact ownership record."""
+    columns = {column["name"] for column in inspect(engine).get_columns(MARKER_TABLE)}
+    if columns != {"id", "owner"}:
+        raise RuntimeError(f"refusing benchmark: {MARKER_TABLE} has unexpected columns {sorted(columns)}")
+    with engine.connect() as connection:
+        rows = connection.execute(text(f"SELECT id, owner FROM {MARKER_TABLE}")).all()
+    if len(rows) != 1 or rows[0][0] != 1 or rows[0][1] != expected_owner:
+        raise RuntimeError(
+            f"refusing benchmark: {MARKER_TABLE} ownership mismatch (expected id=1 owner={expected_owner!r})"
+        )
+
+
+def ensure_benchmark_database(
+    engine: Engine,
+    url: str,
+    *,
+    allow_database_url_match: bool = False,
+    expected_owner: str = EXPECTED_OWNER,
+) -> None:
     assert_safe_benchmark_url(url, allow_database_url_match=allow_database_url_match)
     tables = set(inspect(engine).get_table_names())
     if MARKER_TABLE in tables:
+        validate_benchmark_marker(engine, expected_owner=expected_owner)
         return
     if tables:
         raise RuntimeError(
@@ -46,4 +67,4 @@ def ensure_benchmark_database(engine: Engine, url: str, *, allow_database_url_ma
         )
     with engine.begin() as connection:
         connection.execute(text(f"CREATE TABLE {MARKER_TABLE} (id INTEGER PRIMARY KEY, owner VARCHAR(64) NOT NULL)"))
-        connection.execute(text(f"INSERT INTO {MARKER_TABLE} (id, owner) VALUES (1, 'gaobao-benchmark')"))
+        connection.execute(text(f"INSERT INTO {MARKER_TABLE} (id, owner) VALUES (1, '{expected_owner}')"))
