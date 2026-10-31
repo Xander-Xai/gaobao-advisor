@@ -150,8 +150,8 @@
 
 实测结果：
 
-- Python：**1132 passed / 34 skipped**，覆盖率 **80.91%**（门禁 70%）。
-- 前端：**14 files / 88 tests passed**；`vue-tsc`、`vite build` 通过。
+- Python：**1162 passed / 34 skipped**，覆盖率 **81.76%**（门禁 70%）。
+- 前端：**15 files / 92 tests passed**；`vue-tsc`、`vite build` 通过。
 - MySQL 8.4：`tests/test_admin_mysql.py` **5 passed**（建表、列表/详情、质检+审核事务、回滚、崩溃窗口补偿）。
 - Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
 - full compose：MySQL/Redis/API/Worker/Frontend/Nginx **全部 healthy**；
@@ -188,8 +188,8 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
   ADMIN_TOKEN_SECRET 三种负控制均 fail-closed；有效配置健康启动并 admin 登录成功。
 - full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
 
-最终本地结果：Python **1132 passed / 34 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
-`make test-integration` **33 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 + Queue recovery 6）；CI **10/10 job 通过**
+最终本地结果：Python **1162 passed / 34 skipped**，覆盖率 **81.76%**；前端 **15 files / 92 tests**；
+`make test-integration` **33 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 + Queue recovery 6）；CI **10/10 job + CodeQL 通过**
 （[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
 
 全量 19 表迁移已完成（见 §10）；仍未声称生产 SLA/容量、真实招生数据质量。
@@ -208,7 +208,7 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
 | MySQL 秒级精度 | 新 Outbox `next_attempt_at` 被向上取整，误报 UNAVAILABLE | `pending_outbox` 增加 1 秒调度容差 | 双 Worker MySQL 集成测试立即投递 | **PASS** |
 | MySQL 短暂不可用 | Worker 健康检查只看 Redis | 健康检查同时验证 MySQL+Redis；API readiness 503、创建任务 500、恢复后成功 | full profile 故障注入 | **PASS** |
 
-最终结果：Python **1132 passed / 34 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
+最终结果：Python **1162 passed / 34 skipped**，覆盖率 **81.76%**；前端 **15 files / 92 tests**；
 集成 **33 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。
 
 ## 10. 2026-10-31 MySQL 全量 Alembic 迁移（Issue #36）
