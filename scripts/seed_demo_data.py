@@ -28,7 +28,7 @@ import json
 import os
 import random
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config.constants import DEMO_PROVINCES
@@ -43,7 +43,12 @@ SYNTHETIC_NOTICE = (
 # once the calendar advances. Recomputing at seed time keeps a freshly seeded
 # demo answerable. Within a given year the output remains fully deterministic.
 DEMO_YEAR = datetime.now().year - 1
+# Three synthetic admission years make the public trend view meaningful without
+# implying a real historical series. The newest year stays the query-layer
+# default so a fresh demo remains answerable.
+DEMO_YEARS = tuple(range(DEMO_YEAR - 2, DEMO_YEAR + 1))
 RANDOM_SEED = 20240617
+DATASET_VERSION = "1.1.0"
 
 # Fictional provinces (single source: config.constants). Deliberately not real
 # administrative divisions.
@@ -141,25 +146,29 @@ def build_payload() -> dict:
                 continue
             for province in DEMO_PROVINCES:
                 subject_type = DEMO_SUBJECT_TYPES[(school_idx + major_idx) % 2]
-                base = 520 + school_idx * 6 - major_idx * 2 + rng.randint(-8, 8)
-                min_score = max(300, min(750, base))
-                max_score = min(750, min_score + rng.randint(18, 45))
-                admission_scores.append(
-                    {
-                        "school_idx": school_idx,
-                        "major_idx": major_idx,
-                        "province": province,
-                        "year": DEMO_YEAR,
-                        "batch": "本科批",
-                        "standardized_batch": "本科批",
-                        "subject_type": subject_type,
-                        "min_score": min_score,
-                        "avg_score": round((min_score + max_score) / 2, 1),
-                        "max_score": max_score,
-                        "min_rank": rng.randint(1_200, 88_000),
-                        "plan_count": rng.randint(20, 180),
-                    }
-                )
+                # Keep the subject type and province stable across years so the
+                # trend view compares like with like. The yearly drift is
+                # synthetic, not a real admissions pattern.
+                base = 520 + school_idx * 6 - major_idx * 2
+                for year_offset, year in enumerate(DEMO_YEARS):
+                    min_score = max(300, min(750, base + year_offset * 3 + rng.randint(-6, 6)))
+                    max_score = min(750, min_score + rng.randint(18, 45))
+                    admission_scores.append(
+                        {
+                            "school_idx": school_idx,
+                            "major_idx": major_idx,
+                            "province": province,
+                            "year": year,
+                            "batch": "本科批",
+                            "standardized_batch": "本科批",
+                            "subject_type": subject_type,
+                            "min_score": min_score,
+                            "avg_score": round((min_score + max_score) / 2, 1),
+                            "max_score": max_score,
+                            "min_rank": rng.randint(1_200, 88_000),
+                            "plan_count": rng.randint(20, 180),
+                        }
+                    )
 
     enrollment_plans = []
     for school_idx, school in enumerate(schools):
@@ -167,19 +176,20 @@ def build_payload() -> dict:
             if (school_idx * 2 + major_idx) % 4 != 0:
                 continue
             for province in DEMO_PROVINCES[:2]:
-                enrollment_plans.append(
-                    {
-                        "school_idx": school_idx,
-                        "major_idx": major_idx,
-                        "province": province,
-                        "year": DEMO_YEAR,
-                        "plan_count": rng.randint(15, 120),
-                        "subject_requirement": "物理必选" if major_idx % 2 == 0 else "不限",
-                        "batch": "本科批",
-                        "duration": 4,
-                        "tuition": rng.choice([5000, 6000, 7000, 8000]),
-                    }
-                )
+                for year in DEMO_YEARS:
+                    enrollment_plans.append(
+                        {
+                            "school_idx": school_idx,
+                            "major_idx": major_idx,
+                            "province": province,
+                            "year": year,
+                            "plan_count": rng.randint(15, 120),
+                            "subject_requirement": "物理必选" if major_idx % 2 == 0 else "不限",
+                            "batch": "本科批",
+                            "duration": 4,
+                            "tuition": rng.choice([5000, 6000, 7000, 8000]),
+                        }
+                    )
 
     subject_rankings = []
     for school_idx, school in enumerate(schools):
@@ -200,8 +210,9 @@ def build_payload() -> dict:
             "marker": SYNTHETIC_MARKER,
             "notice": SYNTHETIC_NOTICE,
             "seed": RANDOM_SEED,
-            "year": DEMO_YEAR,
-            "dataset_version": "1.0.0",
+            "years": list(DEMO_YEARS),
+            "latest_year": DEMO_YEAR,
+            "dataset_version": DATASET_VERSION,
             "disclaimer": "本数据集为程序生成的虚构数据，不可用于真实志愿决策。",
         },
         "schools": schools,
@@ -294,7 +305,14 @@ def seed_database(
     _engine, SessionLocal = _bind_database_url(url)
 
     from db.database import Base
-    from db.models import AdmissionScore, EnrollmentPlan, Major, School, SubjectRanking
+    from db.models import (
+        AdmissionScore,
+        DatasetSnapshot,
+        EnrollmentPlan,
+        Major,
+        School,
+        SubjectRanking,
+    )
 
     # SQLite demo bootstrap creates the schema; MySQL production deployments
     # run Alembic first and pass create_schema=False.
@@ -369,6 +387,20 @@ def seed_database(
                 )
                 for row in payload["subject_rankings"]
             ]
+        )
+        metadata = payload["metadata"]
+        session.add(
+            DatasetSnapshot(
+                id=1,
+                dataset_version=metadata["dataset_version"],
+                profile="SYNTHETIC_DEMO",
+                source_note=SYNTHETIC_NOTICE,
+                generated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                year_from=min(metadata["years"]),
+                year_to=max(metadata["years"]),
+                seed=RANDOM_SEED,
+                is_synthetic=1,
+            )
         )
         session.commit()
 

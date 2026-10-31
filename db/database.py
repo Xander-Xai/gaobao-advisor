@@ -168,6 +168,7 @@ def init_db():
         ConversationMessage,
         DataQualityIssue,
         DataQualityJob,
+        DatasetSnapshot,
         EnrollmentPlan,
         Feedback,
         GraduateProgram,

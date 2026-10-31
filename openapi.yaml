@@ -220,6 +220,172 @@ components:
       - message
       title: ChatRequest
       type: object
+    DataAvailabilityOut:
+      properties:
+        available_years:
+          items:
+            type: integer
+          title: Available Years
+          type: array
+        has_plans:
+          title: Has Plans
+          type: boolean
+        has_scores:
+          title: Has Scores
+          type: boolean
+        subject_types:
+          items:
+            type: string
+          title: Subject Types
+          type: array
+      required:
+      - has_scores
+      - has_plans
+      title: DataAvailabilityOut
+      type: object
+    DataCountsOut:
+      properties:
+        admission_scores:
+          default: 0
+          title: Admission Scores
+          type: integer
+        enrollment_plans:
+          default: 0
+          title: Enrollment Plans
+          type: integer
+        majors:
+          default: 0
+          title: Majors
+          type: integer
+        schools:
+          default: 0
+          title: Schools
+          type: integer
+        score_rank_rows:
+          default: 0
+          title: Score Rank Rows
+          type: integer
+        subject_rankings:
+          default: 0
+          title: Subject Rankings
+          type: integer
+      title: DataCountsOut
+      type: object
+    DataOverviewOut:
+      properties:
+        counts:
+          $ref: '#/components/schemas/DataCountsOut'
+        data_profile:
+          title: Data Profile
+          type: string
+        latest_admission_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Admission Year
+        levels:
+          items:
+            type: string
+          title: Levels
+          type: array
+        notice:
+          title: Notice
+          type: string
+        provinces:
+          items:
+            type: string
+          title: Provinces
+          type: array
+        school_types:
+          items:
+            type: string
+          title: School Types
+          type: array
+        schools_with_plans:
+          default: 0
+          title: Schools With Plans
+          type: integer
+        schools_with_scores:
+          default: 0
+          title: Schools With Scores
+          type: integer
+        scores_by_year:
+          items:
+            $ref: '#/components/schemas/YearCountOut'
+          title: Scores By Year
+          type: array
+        snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/DatasetSnapshotOut'
+          - type: 'null'
+        subject_types:
+          items:
+            type: string
+          title: Subject Types
+          type: array
+        year_from:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Year From
+        year_to:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Year To
+        years:
+          items:
+            type: integer
+          title: Years
+          type: array
+      required:
+      - data_profile
+      - notice
+      - counts
+      title: DataOverviewOut
+      type: object
+    DatasetSnapshotOut:
+      properties:
+        dataset_version:
+          title: Dataset Version
+          type: string
+        generated_at:
+          format: date-time
+          title: Generated At
+          type: string
+        is_synthetic:
+          default: false
+          title: Is Synthetic
+          type: boolean
+        profile:
+          title: Profile
+          type: string
+        seed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Seed
+        source_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Note
+        year_from:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Year From
+        year_to:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Year To
+      required:
+      - dataset_version
+      - profile
+      - generated_at
+      title: DatasetSnapshotOut
+      type: object
     EnrollmentPlanOut:
       properties:
         batch:
@@ -301,6 +467,40 @@ components:
       - message_index
       - rating
       title: FeedbackRequest
+      type: object
+    FilterOptionsOut:
+      properties:
+        levels:
+          items:
+            type: string
+          title: Levels
+          type: array
+        majors:
+          items:
+            type: string
+          title: Majors
+          type: array
+        provinces:
+          items:
+            type: string
+          title: Provinces
+          type: array
+        school_types:
+          items:
+            type: string
+          title: School Types
+          type: array
+        subject_types:
+          items:
+            type: string
+          title: Subject Types
+          type: array
+        years:
+          items:
+            type: integer
+          title: Years
+          type: array
+      title: FilterOptionsOut
       type: object
     GenerateRequest:
       description: Request body for report generation.
@@ -425,6 +625,53 @@ components:
       - step
       - data
       title: OnboardingRequest
+      type: object
+    PlanRowOut:
+      properties:
+        batch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Batch
+        duration:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Duration
+        id:
+          title: Id
+          type: integer
+        major_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Major Name
+        plan_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Plan Count
+        province:
+          title: Province
+          type: string
+        subject_requirement:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subject Requirement
+        tuition:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Tuition
+        year:
+          title: Year
+          type: integer
+      required:
+      - id
+      - province
+      - year
+      title: PlanRowOut
       type: object
     ProfileResponse:
       properties:
@@ -769,109 +1016,6 @@ components:
       - expected_version
       title: ReviewRequest
       type: object
-    SchoolDetailOut:
-      properties:
-        city:
-          title: City
-          type: string
-        data_source_note:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Data Source Note
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        id:
-          title: Id
-          type: integer
-        is_211:
-          title: Is 211
-          type: integer
-        is_985:
-          title: Is 985
-          type: integer
-        is_double_first_class:
-          title: Is Double First Class
-          type: integer
-        latest_min_score:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Latest Min Score
-        latest_year:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Latest Year
-        level:
-          title: Level
-          type: string
-        name:
-          title: Name
-          type: string
-        plan_count:
-          title: Plan Count
-          type: integer
-        plans:
-          items:
-            $ref: '#/components/schemas/EnrollmentPlanOut'
-          title: Plans
-          type: array
-        province:
-          title: Province
-          type: string
-        ranking:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Ranking
-        school_type:
-          title: School Type
-          type: string
-        score_count:
-          title: Score Count
-          type: integer
-        scores:
-          items:
-            $ref: '#/components/schemas/AdmissionScoreOut'
-          title: Scores
-          type: array
-        special_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Special Type
-        website:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Website
-      required:
-      - id
-      - name
-      - province
-      - city
-      - level
-      - school_type
-      - ranking
-      - is_985
-      - is_211
-      - is_double_first_class
-      - special_type
-      - data_source_note
-      - score_count
-      - plan_count
-      - latest_year
-      - latest_min_score
-      - website
-      - description
-      - scores
-      - plans
-      title: SchoolDetailOut
-      type: object
     SchoolListItem:
       properties:
         city:
@@ -977,6 +1121,61 @@ components:
       - page_size
       - pages
       title: SchoolPageOut
+      type: object
+    ScoreRowOut:
+      properties:
+        avg_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Score
+        batch:
+          title: Batch
+          type: string
+        id:
+          title: Id
+          type: integer
+        major_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Major Name
+        max_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Score
+        min_rank:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Rank
+        min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Score
+        plan_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Plan Count
+        province:
+          title: Province
+          type: string
+        subject_type:
+          title: Subject Type
+          type: string
+        year:
+          title: Year
+          type: integer
+      required:
+      - id
+      - province
+      - year
+      - batch
+      - subject_type
+      title: ScoreRowOut
       type: object
     SkipFieldRequest:
       properties:
@@ -1084,6 +1283,106 @@ components:
       - worker_hint
       title: SystemStatusOut
       type: object
+    TrendOut:
+      properties:
+        aggregation:
+          title: Aggregation
+          type: string
+        major:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Major
+        missing_years:
+          items:
+            type: integer
+          title: Missing Years
+          type: array
+        notice:
+          title: Notice
+          type: string
+        province:
+          title: Province
+          type: string
+        school_id:
+          title: School Id
+          type: integer
+        school_name:
+          title: School Name
+          type: string
+        scope:
+          title: Scope
+          type: string
+        series:
+          items:
+            $ref: '#/components/schemas/TrendSeriesOut'
+          title: Series
+          type: array
+      required:
+      - school_id
+      - school_name
+      - province
+      - scope
+      - aggregation
+      - notice
+      title: TrendOut
+      type: object
+    TrendPointOut:
+      properties:
+        avg_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Score
+        max_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Score
+        min_rank:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Rank
+        min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min Score
+        record_count:
+          default: 0
+          title: Record Count
+          type: integer
+        year:
+          title: Year
+          type: integer
+      required:
+      - year
+      title: TrendPointOut
+      type: object
+    TrendSeriesOut:
+      properties:
+        change:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Change
+        direction:
+          default: 数据不足
+          title: Direction
+          type: string
+        points:
+          items:
+            $ref: '#/components/schemas/TrendPointOut'
+          title: Points
+          type: array
+        subject_type:
+          title: Subject Type
+          type: string
+      required:
+      - subject_type
+      title: TrendSeriesOut
+      type: object
     ValidationError:
       properties:
         ctx:
@@ -1109,6 +1408,219 @@ components:
       - msg
       - type
       title: ValidationError
+      type: object
+    YearCountOut:
+      properties:
+        count:
+          title: Count
+          type: integer
+        year:
+          title: Year
+          type: integer
+      required:
+      - year
+      - count
+      title: YearCountOut
+      type: object
+    server__admin__schemas__SchoolDetailOut:
+      properties:
+        city:
+          title: City
+          type: string
+        data_source_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Data Source Note
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        id:
+          title: Id
+          type: integer
+        is_211:
+          title: Is 211
+          type: integer
+        is_985:
+          title: Is 985
+          type: integer
+        is_double_first_class:
+          title: Is Double First Class
+          type: integer
+        latest_min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Min Score
+        latest_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Year
+        level:
+          title: Level
+          type: string
+        name:
+          title: Name
+          type: string
+        plan_count:
+          title: Plan Count
+          type: integer
+        plans:
+          items:
+            $ref: '#/components/schemas/EnrollmentPlanOut'
+          title: Plans
+          type: array
+        province:
+          title: Province
+          type: string
+        ranking:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ranking
+        school_type:
+          title: School Type
+          type: string
+        score_count:
+          title: Score Count
+          type: integer
+        scores:
+          items:
+            $ref: '#/components/schemas/AdmissionScoreOut'
+          title: Scores
+          type: array
+        special_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Special Type
+        website:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Website
+      required:
+      - id
+      - name
+      - province
+      - city
+      - level
+      - school_type
+      - ranking
+      - is_985
+      - is_211
+      - is_double_first_class
+      - special_type
+      - data_source_note
+      - score_count
+      - plan_count
+      - latest_year
+      - latest_min_score
+      - website
+      - description
+      - scores
+      - plans
+      title: SchoolDetailOut
+      type: object
+    server__domain__data_catalog__SchoolDetailOut:
+      properties:
+        city:
+          default: ''
+          title: City
+          type: string
+        data_availability:
+          $ref: '#/components/schemas/DataAvailabilityOut'
+        data_source_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Data Source Note
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        id:
+          title: Id
+          type: integer
+        is_211:
+          default: false
+          title: Is 211
+          type: boolean
+        is_985:
+          default: false
+          title: Is 985
+          type: boolean
+        is_double_first_class:
+          default: false
+          title: Is Double First Class
+          type: boolean
+        latest_min_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Min Score
+        latest_year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Year
+        level:
+          title: Level
+          type: string
+        name:
+          title: Name
+          type: string
+        plan_count:
+          default: 0
+          title: Plan Count
+          type: integer
+        plans:
+          items:
+            $ref: '#/components/schemas/PlanRowOut'
+          title: Plans
+          type: array
+        province:
+          title: Province
+          type: string
+        ranking:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ranking
+        school_type:
+          title: School Type
+          type: string
+        score_count:
+          default: 0
+          title: Score Count
+          type: integer
+        scores:
+          items:
+            $ref: '#/components/schemas/ScoreRowOut'
+          title: Scores
+          type: array
+        special_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Special Type
+        website:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Website
+      required:
+      - id
+      - name
+      - province
+      - level
+      - school_type
+      - data_availability
+      title: SchoolDetailOut
       type: object
 info:
   description: AI 高考志愿顾问 — 考研规划 — 职业方向
@@ -1214,6 +1726,30 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Login
+      tags:
+      - admin
+  /api/v1/admin/auth/logout:
+    post:
+      operationId: logout_api_v1_admin_auth_logout_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Logout
       tags:
       - admin
   /api/v1/admin/auth/me:
@@ -1620,7 +2156,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchoolDetailOut'
+                $ref: '#/components/schemas/server__admin__schemas__SchoolDetailOut'
           description: Successful Response
         '422':
           content:
@@ -1795,6 +2331,34 @@ paths:
       summary: Submit Highlight
       tags:
       - chat
+  /api/v1/data/filters:
+    get:
+      description: Filter values actually present in the current database.
+      operationId: get_filters_api_v1_data_filters_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterOptionsOut'
+          description: Successful Response
+      summary: Get Filters
+      tags:
+      - data
+  /api/v1/data/overview:
+    get:
+      description: Data coverage, provenance, and per-year record counts.
+      operationId: get_overview_api_v1_data_overview_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataOverviewOut'
+          description: Successful Response
+      summary: Get Overview
+      tags:
+      - data
   /api/v1/data/plans:
     get:
       description: Query enrollment plans for a school with cursor-based pagination.
@@ -1866,10 +2430,10 @@ paths:
       - data
   /api/v1/data/schools:
     get:
-      description: Search schools by name, province, or level with cursor-based pagination.
+      description: Search schools by name, province, level or type with cursor pagination.
       operationId: get_schools_api_v1_data_schools_get
       parameters:
-      - description: 学校名称关键词
+      - description: 学校名称关键词（兼容旧接口）
         in: query
         name: school_name
         required: false
@@ -1877,8 +2441,19 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: 学校名称关键词
+          description: 学校名称关键词（兼容旧接口）
           title: School Name
+      - description: 院校或城市关键词
+        in: query
+        name: q
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 64
+            type: string
+          - type: 'null'
+          description: 院校或城市关键词
+          title: Q
       - description: 省份
         in: query
         name: province
@@ -1899,12 +2474,22 @@ paths:
           - type: 'null'
           description: 学校层次
           title: Level
+      - description: 学校类型
+        in: query
+        name: school_type
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 学校类型
+          title: School Type
       - description: 每页数量
         in: query
         name: limit
         required: false
         schema:
-          default: 50
+          default: 20
           description: 每页数量
           maximum: 200
           minimum: 1
@@ -1933,6 +2518,34 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Get Schools
+      tags:
+      - data
+  /api/v1/data/schools/{school_id}:
+    get:
+      description: One school with bounded score and plan samples plus availability
+        flags.
+      operationId: get_school_detail_api_v1_data_schools__school_id__get
+      parameters:
+      - in: path
+        name: school_id
+        required: true
+        schema:
+          title: School Id
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server__domain__data_catalog__SchoolDetailOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get School Detail
       tags:
       - data
   /api/v1/data/scores:
@@ -2010,6 +2623,80 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Get Scores
+      tags:
+      - data
+  /api/v1/data/trends:
+    get:
+      description: Multi-year score trend, always separated by subject type.
+      operationId: get_trends_api_v1_data_trends_get
+      parameters:
+      - description: 学校名称
+        in: query
+        name: school_name
+        required: true
+        schema:
+          description: 学校名称
+          maxLength: 100
+          minLength: 1
+          title: School Name
+          type: string
+      - description: 省份
+        in: query
+        name: province
+        required: true
+        schema:
+          description: 省份
+          maxLength: 20
+          minLength: 1
+          title: Province
+          type: string
+      - description: 科类；不传则按科类分别返回
+        in: query
+        name: subject_type
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 10
+            type: string
+          - type: 'null'
+          description: 科类；不传则按科类分别返回
+          title: Subject Type
+      - description: 专业名称；不传则按院校最低分聚合
+        in: query
+        name: major
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 100
+            type: string
+          - type: 'null'
+          description: 专业名称；不传则按院校最低分聚合
+          title: Major
+      - description: 回看年数
+        in: query
+        name: years
+        required: false
+        schema:
+          default: 3
+          description: 回看年数
+          maximum: 10
+          minimum: 1
+          title: Years
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendOut'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Trends
       tags:
       - data
   /api/v1/health:

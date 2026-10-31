@@ -47,12 +47,13 @@ ADMIN_TABLES: tuple[str, ...] = (
 )
 
 SECURITY_TABLES: tuple[str, ...] = ("admin_token_revocations",)
+METADATA_TABLES: tuple[str, ...] = ("dataset_snapshots",)
 
 # The legacy baseline that existed before 20261031_0003. ``adopt-existing``
-# must accept old create_all databases that do not yet have the revocation
-# table; 0003 creates it afterwards.
+# must accept older create_all databases that lack the revocation and dataset
+# metadata tables; migrations 0003/0005 create them afterwards.
 BASELINE_TABLES: tuple[str, ...] = HISTORICAL_TABLES + ADMIN_TABLES
-ALL_TABLES: tuple[str, ...] = BASELINE_TABLES + SECURITY_TABLES
+ALL_TABLES: tuple[str, ...] = BASELINE_TABLES + SECURITY_TABLES + METADATA_TABLES
 
 
 def _type_signature(value: Any) -> tuple[str, int | None]:

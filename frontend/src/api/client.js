@@ -182,15 +182,47 @@ export const dataAPI = {
    * FTS-based single match) or `{items, next_cursor, has_more}` (cursor
    * pagination when listing by province/level).
    */
-  async searchSchools({ schoolName, province, level, limit = 50, cursor } = {}) {
+  async searchSchools({ schoolName, q, province, level, schoolType, limit = 20, cursor } = {}) {
     const qs = _toQuery({
       school_name: schoolName,
+      q,
       province,
       level,
+      school_type: schoolType,
       limit,
       cursor,
     })
     return _request(`/data/schools${qs}`)
+  },
+
+  /** Coverage, provenance and per-year counts. */
+  async overview() {
+    return _request('/data/overview')
+  },
+
+  /** Filter values actually present in the current database. */
+  async filters() {
+    return _request('/data/filters')
+  },
+
+  /** One school with bounded score/plan samples and availability flags. */
+  async schoolDetail(id) {
+    return _request(`/data/schools/${encodeURIComponent(id)}`)
+  },
+
+  /**
+   * Multi-year trend. The backend returns one series per subject type; callers
+   * must never merge unlike subject types into a single line.
+   */
+  async trend({ schoolName, province, subjectType, major, years = 3 }) {
+    const qs = _toQuery({
+      school_name: schoolName,
+      province,
+      subject_type: subjectType,
+      major,
+      years,
+    })
+    return _request(`/data/trends${qs}`)
   },
 
   /** Admission scores for a school in a province. */

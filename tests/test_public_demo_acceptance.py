@@ -19,6 +19,7 @@ import pytest
 
 from scripts.seed_demo_data import (
     DEMO_PROVINCES,
+    DEMO_YEARS,
     SYNTHETIC_MARKER,
     build_payload,
     seed_database,
@@ -68,10 +69,30 @@ class TestSyntheticDataset:
         finally:
             conn.close()
 
-    def test_no_real_admissions_year_inference(self) -> None:
-        """A single fixed demo year, so nothing reads as an official figure."""
-        years = {row["year"] for row in build_payload()["admission_scores"]}
-        assert len(years) == 1
+    def test_demo_years_are_bounded_and_declared(self) -> None:
+        """Multi-year synthetic data stays bounded and self-declared."""
+        payload = build_payload()
+        years = {row["year"] for row in payload["admission_scores"]}
+        assert years == set(DEMO_YEARS)
+        assert payload["metadata"]["years"] == list(DEMO_YEARS)
+        assert payload["metadata"]["latest_year"] == max(DEMO_YEARS)
+        assert max(years) - min(years) <= 5
+
+    def test_seed_registers_snapshot_provenance(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "demo.db"
+        seed_database(db_path, reset=True)
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute(
+                "SELECT dataset_version, profile, source_note, is_synthetic FROM dataset_snapshots"
+            ).fetchone()
+        finally:
+            conn.close()
+        assert row is not None
+        assert row[0]
+        assert row[1] == "SYNTHETIC_DEMO"
+        assert row[2] and "合成演示数据" in row[2]
+        assert row[3] == 1
 
 
 # ── 2. Session identity (upstream PR #11) ────────────────────────────────

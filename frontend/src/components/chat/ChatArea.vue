@@ -16,14 +16,16 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useChatStore } from '../../stores/chat'
 import MessageBubble from './MessageBubble.vue'
 const chat = useChatStore()
 const container = ref(null)
-const messages = chat.messages
-const isStreaming = chat.isStreaming
-watch(() => messages.length, async () => {
+// Keep the ref, not the current array: creating a session replaces the array
+// (`messages.value = []`), so an aliased array would never see later messages.
+const { messages, isStreaming } = storeToRefs(chat)
+watch(() => messages.value.length, async () => {
   await nextTick()
-  container.value?.scrollTo({ top: container.value.scrollHeight, behavior: 'smooth' })
+  container.value?.scrollTo?.({ top: container.value.scrollHeight, behavior: 'smooth' })
 })
 </script>

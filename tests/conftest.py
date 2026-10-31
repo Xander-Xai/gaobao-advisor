@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 
 import pytest
@@ -14,6 +15,7 @@ from db.models import (  # noqa: F401 - register all tables on Base.metadata
     AdmissionScore,
     DataQualityIssue,
     DataQualityJob,
+    DatasetSnapshot,
     EnrollmentPlan,
     Major,
     OperationAuditLog,
@@ -110,6 +112,19 @@ def _seed(session) -> None:
             )
             for row in payload["subject_rankings"]
         ]
+    )
+    session.add(
+        DatasetSnapshot(
+            id=1,
+            dataset_version="test",
+            profile="SYNTHETIC_DEMO",
+            source_note="test fixture",
+            generated_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+            year_from=min(row["year"] for row in payload["admission_scores"]),
+            year_to=max(row["year"] for row in payload["admission_scores"]),
+            seed=20240617,
+            is_synthetic=1,
+        )
     )
     # Deliberate anomalies so the quality job produces deterministic findings.
     session.add(

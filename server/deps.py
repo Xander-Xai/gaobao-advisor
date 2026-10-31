@@ -2,13 +2,18 @@
 
 import os
 
-from db.database import SessionLocal
+import db.database as database
 from server.soul_query import SoulQueryEngine
 
 
 def get_db():
-    """Yield a SQLAlchemy session, auto-close on request end."""
-    db = SessionLocal()
+    """Yield a SQLAlchemy session, auto-close on request end.
+
+    Resolve the session factory at call time so tests and embedders can bind
+    ``db.database.SessionLocal`` to an isolated database without overriding the
+    dependency in every test.
+    """
+    db = database.SessionLocal()
     try:
         yield db
     finally:
