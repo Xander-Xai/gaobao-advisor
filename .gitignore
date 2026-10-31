@@ -28,12 +28,18 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# 运行时数据库（自动生成）
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
-data/*.db.backup.*
+# 运行时数据库、导出与备份（自动生成；禁止提交）
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
+*.dump
+*.bak
+*.backup
 data/import_checkpoint.json
 gaokao_cache.db
 
@@ -68,3 +74,7 @@ data/*.db
 data/*.db-*
 data/reports/
 !data/sample/
+
+# Security quarantine / forensic work must stay outside the repository.
+gaobao-security-quarantine/
+security-quarantine/

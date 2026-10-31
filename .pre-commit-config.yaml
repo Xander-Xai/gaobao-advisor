@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sensitive-file-guard
+        name: Block sensitive data files
+        entry: python scripts/check_sensitive_files.py --staged
+        language: system
+        pass_filenames: false
