@@ -95,7 +95,7 @@ def test_scene_detection_career(graph):
     """Scene should be detected as career when keywords are present."""
     result = graph.invoke(
         {
-            "input_text": "我正在找工作，简历怎么写",
+            "input_text": "我在考虑职业方向，想了解行业前景",
             "scene": "general",
             "session_id": "t5",
             "slots": {},

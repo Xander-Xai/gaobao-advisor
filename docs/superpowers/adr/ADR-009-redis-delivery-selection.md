@@ -75,8 +75,7 @@ gates.
 ## Consequences
 
 - Keep the documented at-least-once semantics; not exactly-once.
-- Keep recovery latency visible in `performance.md` and
-  `docs/performance/redis-queue-recovery.md`.
+- Keep recovery latency visible in `docs/performance/redis-queue-recovery.md`.
 - Revisit when any of these triggers is met:
   - a recovery p95 SLO below 60s is explicitly required;
   - queue depth/throughput exceeds the measured List baseline;
@@ -88,7 +87,6 @@ gates.
 
 - Issue #40
 - ADR-008
-- `docs/interview-readiness/performance.md`
 - `docs/performance/redis-queue-recovery.md`
 - `benchmarks/queue_recovery/`
 - `tests/test_worker_integration.py`

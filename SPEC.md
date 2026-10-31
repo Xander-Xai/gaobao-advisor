@@ -30,7 +30,7 @@ The source retains an import path for user-supplied or licensed data, and the pr
 - **nginx reverse proxy** (`nginx.conf`) — serves frontend static assets, proxies `/api/` to FastAPI, proxies `/ws/` with WebSocket upgrade
 
 ### Data Pipeline
-- **Data importers** (`scrapers/`) — Baidu Gaokao parallel scrapers with checkpoint-based resume for 30 provinces
+- **Data importers** (`scrapers/`) — Baidu Gaokao parallel scrapers with checkpoint-based continuation for 30 provinces
 - **Database schema** — 14 tables (school, major, admission_score, enrollment_plan, subject_ranking, graduate_program, graduate_score, career_trend, yi_fen_yi_duan, conversation, conversation_message, feedback, highlight, quality_score)
 
 ## Key Design Decisions

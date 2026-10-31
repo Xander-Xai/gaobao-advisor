@@ -77,7 +77,7 @@ npm ci
 npm run dev
 ```
 
-前端 Vite 默认使用其终端显示的地址（通常为 http://localhost:5173/），如 API 请求不通，需检查开发代理与后端端口配置。Windows PowerShell 虚拟环境激活命令不同，见 Python 官方 venv 文档。
+前端 Vite 使用 http://localhost:3080/（配置见 `frontend/vite.config.js`），`/api` 会代理到 `http://127.0.0.1:8000`。如 API 请求不通，请检查后端端口与开发代理配置。Windows PowerShell 虚拟环境激活命令不同，见 Python 官方 venv 文档。
 
 ## 测试
 
@@ -89,7 +89,7 @@ cd frontend && npm ci && npx vitest run && npm run build
 
 可在 [GitHub Actions](https://github.com/Xander-Xai/gaobao-advisor/actions/workflows/ci.yml) 查看最新版 CI 结果。
 
-## 面试演示脚本（可复现，面向 RAG / Agent 岗位）
+## 可复现演示脚本
 
 下面的脚本只依赖标准库，对着无 Key 的本地/Docker 后端运行即可复现「问题 → 槽位抽取 →
 LangGraph 路由 → 结构化查询 / BM25 RAG → 证据组装 → 生成或确定性降级 → SSE → Vue 展示」
@@ -166,13 +166,12 @@ curl -s http://localhost:8000/api/v1/health
 | 无 Key 运行 / 模型失败降级 | `server/routes/chat.py`、`server/graph/nodes/llm_node.py`；`tests/test_chat_llm_path.py` |
 | 合成数据与真实录取边界 | `scripts/seed_demo_data.py`、`knowledge/synthetic_demo/manifest.json`；`tests/test_public_demo_acceptance.py` |
 
-## 代码归属与治理边界（如实说明）
+## 代码归属与治理边界
 
-本仓库基于上游开源工程（见 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`）演化而来，**不是**从零个人作品。
-可独立指出的后续治理工作集中在：会话/报告/元数据接口的鉴权与存储边界、SSE 流式解析的
-无损化与失败态处理、RAG 语料完整性与离线 Provider 默认值、启动期配置 fail-fast，以及
-相应的回归测试。演示时应区分「继承的既有架构」与「本轮独立改动」，两者都可在 git 历史与
-测试中核对。
+本仓库基于上游 MIT 许可工程（见 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`）演化而来。
+当前实现包含持续的工程重构与治理工作：会话/报告/元数据接口的鉴权与存储边界、SSE
+流式解析的无损化与失败态处理、RAG 语料完整性与离线 Provider 默认值、启动期配置
+fail-fast，以及相应的回归测试。相关决策和证据可在 ADR、测试和 CI 中核对。
 
 ## 使用边界
 

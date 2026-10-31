@@ -19,12 +19,12 @@
 ```
 server/          → FastAPI 后端（routes/graph/services/middleware）
 server/graph/    → LangGraph 工作流（state + 17 nodes + graph.py）
-db/              → SQLAlchemy ORM 层（models/crud/database） — 14 张表
+db/              → SQLAlchemy ORM 层（models/crud/database） — 20 张表
 quality/         → 质量控制模块（emotion/risk/validator/decision/pattern/knowledge/model）
 slots/           → 槽位提取（extractor/patterns）
 skills/          → Gaokao 方法论技能框架（4 份方法论文档 + service）
 config/          → 配置加载（loader + YAML + constants）
-tests/           → 所有测试文件（78 个 test_*.py，975 collected / 974 passed / 1 skipped）
+tests/           → 所有测试文件（数量与结果以 CI 为准）
 frontend/        → Vue 3 SPA（Pinia + Tailwind CSS）
 knowledge/       → 随仓原创 SYNTHETIC_DEMO 语料（G1-G8；无第三方语录）
 scripts/         → 数据导入/工具脚本
