@@ -5,12 +5,12 @@
 > final action. It is intentionally factual; branch/PR/issue state must be
 > rechecked after every mutation.
 
-## 0. Snapshot
+## 0. Verified post-governance baseline (2026-10-31)
 
 | Item | Observed |
 |---|---|
 | Default branch | `master` |
-| `master` SHA | `4d05916a304519c30489129c79a2ad9b90473d40` |
+| `master` SHA | `f43be0128e7fd853097cce009a1417bf1245515f` (verified before the follow-up PR) |
 | Open PRs | 0 |
 | Open issues | #36–#40 |
 | Closed issues | #10, #22, #24 |
@@ -18,7 +18,7 @@
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
 | Branch protection | **ENABLED** on `master` (required checks, no force/delete, admins enforced) |
 | Required checks | 9: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution |
-| Latest master CI | **SUCCESS** (`4d05916`, run 41120768687) |
+| Baseline master CI | **9/9 SUCCESS** (`f43be01`, [run 41123250301](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41123250301)) |
 | PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
 | PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
 
@@ -26,7 +26,7 @@
 
 | Branch | HEAD | merge-base | ahead/behind vs master | Unique assets | Decision |
 |---|---|---|---|---|---|
-| `master` | `1622c3f` | — | — | canonical | protected by process; no force push |
+| `master` | `f43be01` | — | — | canonical baseline; full SHA in Section 0 | protected by process; no force push |
 | `fix/haibote-acceptance-hardening-20261031` | `1f3afab` | `1622c3f` | merged via #35 | PR #35 fixes + reliability work | **deleted** after merge |
 | `docs/portfolio-reference-boundaries-20261030` | `51b8936` | `65bdb40` | merged via #31 | README boundary section only | **deleted** after merge |
 | `feat/vue3-ts-readonly-data-workbench-20261030` | `8fe4f61` | `65bdb40` | 1 ahead / 10 behind | old read-only TS prototype + design doc | **deleted**; archived tag `archive/vue3-ts-readonly-20261030` |
@@ -65,14 +65,18 @@ reliability PR is merged and no PR depends on it.
 |---|---|---|---|
 | #35 | **MERGED** | `1f3afab` | merged `b98225a`; CI 9/9 |
 | #31 | **MERGED** | `51b8936` | merged `4d05916`; CI 9/9 |
+| #41 | **MERGED** | — | governance ledger, merged `d41f4ef` |
+| #42 | **MERGED** | — | branch protection documentation, merged `f43be01` |
 | #34/#33/#32 | MERGED | — | verify commits in master; phase branches deletable |
 | #30/#29/#28/#27/#26/#25/#23/#21/#20/#19/#18/#17/#16/#15/#14/#13/#12/#11/#9/#8/#7/#6/#4/#2/#1 | MERGED | — | no action |
 | #5 | CLOSED (draft, conflicting) | — | record; no unique asset to merge |
 | #3 | CLOSED (unmerged) | — | record; no unique asset to merge |
 
-No review threads exist on #35 or #31. Neither PR has an explicit review
-approval; repository has no branch protection or required checks. This is a
-governance gap: CI success is the only current merge gate.
+No review threads or explicit approval submissions existed on #35/#31 when
+reviewed. That was a historical governance gap, not the final state: `master`
+protection was subsequently enabled, with required checks as recorded below.
+The connected GitHub read-only inventory does not independently expose the
+protection-rule details; re-check GitHub branch settings before relying on them.
 
 ## 3. Issue inventory
 
@@ -117,9 +121,30 @@ re-verified and commented with current master evidence; they remain closed.
 ## 6. Rollback and safety
 
 - No force push, no history rewrite, no deletion before asset check.
-- PR #35 rollback: revert `1622c3f..<merge-base>` using older..newer range
-  after merge; for squash merge revert the squash commit.
+- PR #35 was merged with a **merge commit** (`b98225a69c0f3dc4e82e1763e9d9f9cad31d8e75`),
+  not a linear or squash range. If a rollback is actually required, first inspect
+  dependent commits, branch protection, database compatibility and current refs;
+  the merge-specific command is `git revert -m 1 b98225a69c0f3dc4e82e1763e9d9f9cad31d8e75`.
+  Do **not** run it blindly: subsequent PRs may depend on the change. A squash
+  commit instead uses `git revert <squash_sha>`, while ordinary linear commits
+  must be identified in the actual landed history. The historical expression
+  `1622c3f..<merge-base>` was not a valid general rollback recipe.
 - Branch deletion is recoverable from the recorded SHA; phase branches are
   ancestors of `master` and already merged.
 - Local `.env.full` is generated, gitignored, mode 0600, and restored after
   Compose tests; no test secrets are committed.
+
+## 7. Follow-up work: full Compose CI
+
+- Baseline observed from GitHub before this work: `master@f43be01`, 0 open PRs,
+  1 remote branch (`master`), 5 open issues (#36–#40), and 9 successful CI jobs
+  in run 41123250301.
+- [Issue #37](https://github.com/Xander-Xai/gaobao-advisor/issues/37) tracks
+  full-profile Compose automation. The follow-up changes are prepared through
+  a protected PR workflow, not an unreviewed direct `master` commit.
+- The new `Full Compose E2E` job is additional to the existing nine jobs; its
+  status and any decision to close #37 must be based on the **new PR run**,
+  not on the earlier baseline run.
+- Remaining #36 and #38–#40 stay open until their own acceptance criteria are
+  independently satisfied. No production SLA or full historic MySQL migration
+  is implied by a passing Compose smoke test.
