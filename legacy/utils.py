@@ -83,8 +83,8 @@ def sanitize_html(text: str) -> str:
         return ""
     # 移除所有 script/style 标签及内容。Closing tags may contain whitespace
     # (</script >) and HTML tag names are case-insensitive.
-    text = re.sub(r"<\s*script\b[^>]*>.*?<\s*/\s*script\s*>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<\s*style\b[^>]*>.*?<\s*/\s*style\s*>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<\s*script\b[^>]*>.*?<\s*/\s*script[^>]*>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<\s*style\b[^>]*>.*?<\s*/\s*style[^>]*>", "", text, flags=re.DOTALL | re.IGNORECASE)
     # 移除 on* 事件属性（onclick, onerror, onload 等）
     text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', "", text, flags=re.IGNORECASE)
     text = re.sub(r"\bon\w+\s*=\s*\S+", "", text, flags=re.IGNORECASE)
