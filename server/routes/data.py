@@ -1,6 +1,8 @@
 """Data query endpoints with cursor-based pagination."""
 
-from fastapi import APIRouter, Query
+import re
+
+from fastapi import APIRouter, HTTPException, Query
 
 from db.pagination import paginate_cursor
 from server.services.data_query import (
@@ -8,6 +10,25 @@ from server.services.data_query import (
 )
 
 router = APIRouter(prefix="/api/v1/data", tags=["data"])
+
+_CURSOR_RE = re.compile(r"[0-9]{1,19}")
+
+
+def _parse_cursor(cursor: str | None) -> int | None:
+    """Validate an opaque cursor before it reaches SQL.
+
+    IDs are positive integers. Malformed/negative values used to raise an
+    uncaught ValueError (HTTP 500) or silently compare an integer with a
+    string and return an empty page. Both hide the caller's mistake.
+    """
+    if cursor is None or cursor == "":
+        return None
+    if not _CURSOR_RE.fullmatch(cursor):
+        raise HTTPException(status_code=400, detail="Invalid cursor: expected a non-negative integer")
+    value = int(cursor)
+    if value < 0 or value > 2**63 - 1:
+        raise HTTPException(status_code=400, detail="Invalid cursor: out of range")
+    return value
 
 
 @router.get("/schools")
@@ -24,6 +45,7 @@ async def get_schools(
 
     session = SessionLocal()
     try:
+        cursor_id = _parse_cursor(cursor)
         # Build filters
         filters = {}
         if province:
@@ -43,7 +65,7 @@ async def get_schools(
             School,
             order_by=School.id,
             limit=limit,
-            cursor=cursor,
+            cursor=cursor_id,
             filters=filters if filters else None,
         )
 
@@ -73,6 +95,7 @@ async def get_scores(
 
     session = SessionLocal()
     try:
+        cursor_id = _parse_cursor(cursor)
         # Find school by name
         school = session.query(School).filter(School.name == school_name).first()
         if not school:
@@ -93,9 +116,9 @@ async def get_scores(
             # relationship, so it must never be compared against a plain string.
             query = query.join(Major, AdmissionScore.major_id == Major.id).filter(Major.name == major)
 
-        # Apply cursor
-        if cursor:
-            query = query.filter(AdmissionScore.id > int(cursor))
+        # Apply cursor (validated before any early return)
+        if cursor_id is not None:
+            query = query.filter(AdmissionScore.id > cursor_id)
 
         # Order and limit
         query = query.order_by(AdmissionScore.id).limit(limit + 1)
@@ -152,6 +175,7 @@ async def get_plans(
 
     session = SessionLocal()
     try:
+        cursor_id = _parse_cursor(cursor)
         # Find school by name
         school = session.query(School).filter(School.name == school_name).first()
         if not school:
@@ -165,9 +189,9 @@ async def get_plans(
         if year:
             query = query.filter(EnrollmentPlan.year == year)
 
-        # Apply cursor
-        if cursor:
-            query = query.filter(EnrollmentPlan.id > int(cursor))
+        # Apply cursor (validated before any early return)
+        if cursor_id is not None:
+            query = query.filter(EnrollmentPlan.id > cursor_id)
 
         # Order and limit
         query = query.order_by(EnrollmentPlan.id).limit(limit + 1)
