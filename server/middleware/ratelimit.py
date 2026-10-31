@@ -2,8 +2,11 @@
 
 import time
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+from server.admin.client_ip import resolve_client_ip
 
 # Evict entries idle longer than this (seconds)
 _MAX_IDLE_SECONDS = 3600  # 1 hour
@@ -50,14 +53,23 @@ class TokenBucketLimiter:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """FastAPI middleware enforcing token bucket rate limits per IP."""
+    """FastAPI middleware enforcing token bucket rate limits per IP.
+
+    A middleware cannot raise ``HTTPException`` and expect FastAPI's exception
+    handlers to see it: the exception escapes outside the router and becomes a
+    500. Return a real 429 response instead so clients can back off.
+    """
 
     def __init__(self, app, rate: float = 20, capacity: int = 40):
         super().__init__(app)
         self.limiter = TokenBucketLimiter(rate=rate, capacity=capacity)
 
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = resolve_client_ip(request)
         if not self.limiter.allow(client_ip):
-            raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "请求过于频繁，请稍后再试"},
+                headers={"Retry-After": "1"},
+            )
         return await call_next(request)

@@ -41,7 +41,10 @@ def _parse_ip(value: str) -> IPAddress | None:
 
 
 def trusted_proxy_networks() -> tuple[IPNetwork, ...]:
-    raw = os.getenv("ADMIN_TRUSTED_PROXIES", "").strip()
+    # ``TRUSTED_PROXIES`` is the generic setting for public endpoints;
+    # ADMIN_TRUSTED_PROXIES remains supported for existing deployments and
+    # takes precedence when both are present.
+    raw = os.getenv("ADMIN_TRUSTED_PROXIES", "").strip() or os.getenv("TRUSTED_PROXIES", "").strip()
     if not raw:
         return ()
     networks: list[IPNetwork] = []
