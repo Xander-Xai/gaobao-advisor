@@ -67,6 +67,13 @@ except ImportError:
     SUBJECT_SINGLE_33 = ["物理", "化学", "生物", "政治", "历史", "地理"]
 
 # ── 选科组合正则 ──
+# Explicit self-corrections. Deliberately narrow: "北京" in a passing sentence
+# does not match, while "改成/其实是/记错了" signals the user's latest value.
+_CORRECTION_CUE_RE = re.compile(
+    r"(?:改成|改为|换成|更正为|纠正为|调整为|更新为|其实是|应该是|说错|记错|"
+    r"不是.{0,8}(?:而是|是))"
+)
+
 _SUBJECT_COMBO_33_RE = re.compile(
     r"(物化生|物化政|物化地|物生政|物生地|物政地|"
     r"化生政|化生地|化政地|生政地|"
@@ -193,6 +200,22 @@ class SlotExtractor:
         )
         self._interest_negative_re = re.compile(INTEREST_NEGATIVE_PATTERN)
         self._interest_positive_re = re.compile(INTEREST_POSITIVE_PATTERN)
+
+    def detect_override_fields(self, msg: str) -> set[str]:
+        """Return slots the message explicitly corrects or re-states.
+
+        Ordinary mentions never override an already-collected profile (a
+        passing reference to "北京" must not replace the user's province). An
+        explicit correction cue, or a new positive/negative interest statement,
+        is different: it is the user's latest word on that field.
+        """
+        fresh, _ = self.extract(msg)
+        filled = {key for key, slot in fresh.items() if slot.get("filled")}
+        if _CORRECTION_CUE_RE.search(msg):
+            return filled
+        if self._interest_positive_re.search(msg) or self._interest_negative_re.search(msg):
+            return {"interest"} & filled
+        return set()
 
     def extract(self, msg: str, slots: dict | None = None) -> tuple[dict[str, dict[str, Any]], list[str]]:
         """从用户消息中提取槽位信息。
@@ -438,26 +461,36 @@ class SlotExtractor:
                 return
 
     def _extract_interest(self, msg: str, s: dict, updated: list[str]) -> None:
-        """兴趣/厌恶检测：支持正面/负面表达 + 关键词兜底。"""
+        """兴趣/厌恶检测：支持正面/负面表达 + 关键词兜底。
+
+        A negative phrase contains the positive substring ("不想学" contains
+        "想学"), so positive matches inside a negative span are discarded. If
+        the user states a new preference after a negative one ("不想学计算机，
+        想学金融"), the later positive preference wins.
+        """
         if s["interest"]["filled"]:
             return
 
-        # 负面兴趣优先检查（"不想学"包含"想学"子串）
+        negative_spans = [m.span() for m in self._interest_negative_re.finditer(msg)]
+        positive_matches = [
+            match
+            for match in self._interest_positive_re.finditer(msg)
+            if not any(start <= match.start() < end for start, end in negative_spans)
+        ]
+
+        if positive_matches:
+            val = positive_matches[-1].group(1)
+            s["interest"]["value"] = f"想学{val}"
+            s["interest"]["filled"] = True
+            updated.append(f"兴趣→想学{val}")
+            return
+
         neg_match = self._interest_negative_re.search(msg)
         if neg_match:
             val = neg_match.group(1)
             s["interest"]["value"] = f"不想学{val}"
             s["interest"]["filled"] = True
             updated.append(f"兴趣→不想学{val}")
-            return
-
-        # 正面兴趣
-        pos_match = self._interest_positive_re.search(msg)
-        if pos_match:
-            val = pos_match.group(1)
-            s["interest"]["value"] = f"想学{val}"
-            s["interest"]["filled"] = True
-            updated.append(f"兴趣→想学{val}")
             return
 
         # 关键词兜底。排除已经作为选科提取的词（例如“物理类”里的“物理”），

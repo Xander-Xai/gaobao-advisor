@@ -13,9 +13,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from db.crud import get_or_create_conversation, save_message, save_slots
+from db.crud import get_or_create_conversation, load_conversation_slots, save_message, save_slots
 from db.database import get_session
 from server.agent.llm_reliability import estimate_messages_tokens
+from slots.persistence import normalize_slots
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,13 @@ def memory_node(state: dict[str, Any]) -> dict[str, Any]:
             save_message(db, session_id, "user", input_text)
         if reply:
             save_message(db, session_id, "assistant", reply)
-        save_slots(db, session_id, slots)
+        # Store canonical slot records and merge whatever the graph did not
+        # touch, so a partially-filled state cannot erase an existing profile.
+        existing = load_conversation_slots(db, session_id) or {}
+        canonical = normalize_slots(slots, existing=existing)
+        if query_state:
+            canonical["_query_state"] = query_state
+        save_slots(db, session_id, canonical)
 
         # Check conversation length for summarization need
         msg_count = len(conv.messages) if conv.id else 0

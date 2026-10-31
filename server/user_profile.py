@@ -73,24 +73,44 @@ class UserProfile:
             "family": "family",
             "goal": "goal",
         }
+
+        def _value(slot_key: str):
+            """Read a slot record, or a legacy flat value."""
+            raw = slots.get(slot_key)
+            if isinstance(raw, dict):
+                if not raw.get("filled"):
+                    return None
+                return raw.get("value")
+            return raw
+
         for slot_key, profile_key in field_map.items():
-            slot = slots.get(slot_key, {})
-            if slot.get("filled") and slot.get("value"):
-                value = slot["value"]
-                # Extract numeric score from strings like "580分"
-                # but NOT from "位次3000" (which contains a rank number, not a score)
-                if profile_key == "score":
+            value = _value(slot_key)
+            if value is None or value == "":
+                continue
+            if profile_key == "score":
+                # Extract numeric score from strings like "580分" but NOT from
+                # "位次3000" (a rank, not a score).
+                if "分" in str(value):
                     import re
 
-                    # Only parse if the value explicitly contains "分"
-                    if "分" in str(value):
-                        m = re.search(r"(\d{2,3})", str(value))
-                        if m:
-                            score = int(m.group(1))
-                            if 100 <= score <= 750:
-                                setattr(profile, profile_key, score)
-                else:
-                    setattr(profile, profile_key, str(value))
+                    m = re.search(r"(\d{2,3})", str(value))
+                    if m:
+                        score = int(m.group(1))
+                        if 100 <= score <= 750:
+                            setattr(profile, profile_key, score)
+            else:
+                setattr(profile, profile_key, str(value))
+
+        # Legacy chat rows may only carry a numeric `score` without score_rank.
+        if profile.score is None:
+            raw_score = _value("score")
+            if raw_score is not None:
+                try:
+                    score = int(raw_score)
+                except (TypeError, ValueError):
+                    score = None
+                if score is not None and 100 <= score <= 750:
+                    profile.score = score
         return profile
 
     def to_dict(self) -> dict[str, Any]:
