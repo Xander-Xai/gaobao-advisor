@@ -11,9 +11,9 @@ if [ -e .env.full ]; then
 fi
 
 TMP="$(mktemp -d)"
-LOG_DIR="\${RUNNER_TEMP:-/tmp}/gaobao-full-compose-logs"
+LOG_DIR="${RUNNER_TEMP:-/tmp}/gaobao-full-compose-logs"
 mkdir -p "$LOG_DIR"
-export COMPOSE_PROJECT_NAME="gaobao-full-ci-\${GITHUB_RUN_ID:-local}-$$"
+export COMPOSE_PROJECT_NAME="gaobao-full-ci-${GITHUB_RUN_ID:-local}-$$"
 
 compose() {
   docker compose --env-file .env.full -f docker-compose.yml -f docker-compose.full.yml --profile full "$@"
