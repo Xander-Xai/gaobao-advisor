@@ -9,7 +9,18 @@ The service writes only what the running application produces locally:
   feature is used
 
 Both paths are gitignored and neither is committed. The container generates the
-database on start and discards it with the container.
+database on start and discards it with the container. The historical object
+described above predates this policy and is not covered by this statement.
+
+## Historical exposure (open, see Issue #58)
+
+The current `master` tree contains no real admissions database and no user
+messages. However, a 72 MiB `data/gaokao.db` removed in `b222bde` remains
+reachable through historical commit `5278ae1` on the public GitHub repository.
+That object contains real-looking admissions rows and user messages. It is
+tracked in Issue #58; remediation requires an owner-authorised history rewrite
+and GitHub Support coordination. Deleting the file from `master` is **not** a
+history purge.
 
 ## No telemetry
 

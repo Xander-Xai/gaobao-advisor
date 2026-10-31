@@ -9,6 +9,14 @@ repository. If that is unavailable, contact the maintainer privately first.
 Please do not include real personal data, working credentials, or exploit
 payloads against any third-party system in a report.
 
+## Known open incident
+
+Issue #58 tracks a historical public Git object containing a removed 72 MiB
+admissions/user-message database. The current tree is clean, but the object is
+still served for a historical commit SHA. History rewrite/force-push is
+intentionally blocked pending explicit owner authorisation and GitHub Support
+coordination; do not treat the current-tree cleanup as a purge.
+
 ## Threat model of this demo
 
 This repository is a **demonstration**, not a production service. Its security

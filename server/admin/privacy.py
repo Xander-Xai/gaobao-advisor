@@ -12,7 +12,10 @@ from typing import Any
 
 _PHONE = re.compile(r"(?<!\d)(1[3-9]\d{9})(?!\d)")
 _ID_CARD = re.compile(r"(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)")
-_EMAIL = re.compile(r"([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})")
+_EMAIL = re.compile(r"([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{0,63}(@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24})")
+# Audit details are bounded before redaction so a pathological payload cannot
+# turn a redaction regex into an unbounded CPU sink.
+_MAX_REDACT_LENGTH = 20_000
 _TOKEN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
 _API_KEY = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,})")
 _SENSITIVE_KEYS = {
@@ -65,6 +68,7 @@ def mask_email(value: str) -> str:
 
 
 def redact_sensitive_text(value: str) -> str:
+    value = value[:_MAX_REDACT_LENGTH]
     value = _TOKEN.sub(lambda m: m.group(1) + "***", value)
     value = _API_KEY.sub("sk-***", value)
     value = mask_phone(value)

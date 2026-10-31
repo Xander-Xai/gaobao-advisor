@@ -1,3 +1,7 @@
+# Version-update PRs are intentionally limited to zero: Python dependencies
+# are locked through `uv pip compile` and must be regenerated/audited as one
+# change, while frontend upgrades need a manual test pass. Repository-level
+# Dependabot *security* updates remain enabled and still open advisories.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -5,43 +9,23 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 2
-    groups:
-      python-minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: npm
     directory: "/frontend"
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 2
-    groups:
-      frontend-minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: docker
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 0

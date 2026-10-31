@@ -63,7 +63,7 @@ def detect_injection(text: str) -> bool:
 
 
 # --- Input Sanitization ---
-_TAG_RE = re.compile(r"<[^>]+>")
+_TAG_RE = re.compile(r"<[^<>]*>")
 
 
 def sanitize_input(text: str) -> str:
