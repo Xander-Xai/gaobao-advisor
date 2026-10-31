@@ -17,4 +17,5 @@ class StructuredPlanningCard(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
     confidence: float = 0.0

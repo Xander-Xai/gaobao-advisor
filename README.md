@@ -134,6 +134,11 @@ curl "http://localhost:8000/api/v1/data/schools?limit=3"
 }
 ```
 
+`data_profile` 从 `schools.special_type` 实际检测，不是常量：空库为 `EMPTY`，
+全部为合成数据时为 `SYNTHETIC_DEMO`，导入自有真实数据后为 `CUSTOM`，两者混合为
+`MIXED`，表不可查询时为 `UNKNOWN`。上面的示例对应 Docker 首次启动生成的合成库；
+未初始化数据库时不会谎报为合成数据。
+
 **fail-closed：** 语料缺失、损坏或未带 `SYNTHETIC_DEMO` 标记时，
 `rag.status()` 返回 `RAG_ERROR`、检索请求抛出 `RagCorpusError`、
 `/api/v1/knowledge/search` 返回 `503`——不会静默退化成无证据的模型答案。设置

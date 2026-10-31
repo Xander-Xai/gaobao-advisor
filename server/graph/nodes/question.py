@@ -61,7 +61,7 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
                 query_state = _load_query_state(state)
                 question = engine.get_next_question(profile, query_state)
                 if question:
-                    _save_query_state_into_state(state, query_state)
+                    query_state_update = _query_state_dict(query_state)
                     trace = list(state.get("trace", []))
                     trace.append(
                         {
@@ -71,7 +71,11 @@ def question_generate_node(state: dict[str, Any]) -> dict[str, Any]:
                             "round": query_state.round_count,
                         }
                     )
-                    return {"reply": question, "trace": trace}
+                    return {
+                        "reply": question,
+                        "trace": trace,
+                        "_query_state": query_state_update,
+                    }
         except Exception:
             pass  # Fall through to static bank
 
@@ -109,12 +113,12 @@ def _load_query_state(state: dict[str, Any]) -> QueryState:
     )
 
 
-def _save_query_state_into_state(state: dict[str, Any], qs: QueryState) -> None:
-    """Save QueryState back into the state dict."""
-    state["_query_state"] = {
+def _query_state_dict(qs: QueryState) -> dict[str, Any]:
+    """Serialize QueryState for the graph state / persistence layer."""
+    return {
         "round_count": qs.round_count,
-        "asked_fields": qs.asked_fields,
-        "skipped_fields": qs.skipped_fields,
+        "asked_fields": list(qs.asked_fields),
+        "skipped_fields": list(qs.skipped_fields),
     }
 
 

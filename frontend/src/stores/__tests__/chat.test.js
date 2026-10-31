@@ -136,6 +136,36 @@ describe('chat stream integrity', () => {
     expect(store.lastError).toBeNull()
   })
 
+  it('buffers a structured event emitted before the first token', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(777)
+    const store = useChatStore()
+    store.createSession()
+
+    const card = {
+      title: '高考志愿规划建议',
+      summary: '河北 620 分，意向计算机',
+      facts: ['省份：河北', '分数：620'],
+      suggestions: ['推荐：北辰示例科技大学（合成）'],
+      risks: ['数据有限，建议以官方最新信息为准'],
+      next_actions: ['核对招生计划'],
+      sources: ['数据库位次法（合成）'],
+      confidence: 0.86,
+    }
+    chatAPI.send.mockImplementationOnce(
+      mockSend([
+        { type: 'structured', result: card },
+        { type: 'token', content: '根据你的信息……' },
+        { type: 'done', session_id: 'session-structured', session_token: 'tok-structured' },
+      ])
+    )
+    await store.sendMessage('河北620分想学计算机')
+
+    const last = store.messages.at(-1)
+    expect(last.role).toBe('assistant')
+    expect(last.structured).toEqual(card)
+    expect(store.lastError).toBeNull()
+  })
+
   it('records a network failure as lastError instead of silently succeeding', async () => {
     const store = useChatStore()
     store.createSession()

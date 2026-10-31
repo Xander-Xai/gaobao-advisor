@@ -53,7 +53,7 @@ class TestDefaultStartupAndHealth:
 
         with TestClient(app) as client:
             body = client.get("/api/v1/health").json()
-        assert body["data_profile"] == "SYNTHETIC_DEMO"
+        assert body["data_profile"] in {"SYNTHETIC_DEMO", "EMPTY"}
         assert body["optional_services"]["rag"]["state"] == "RAG_ENABLED"
         assert body["optional_services"]["rag"]["integrity_ok"] is True
         assert body["optional_services"]["rag"]["documents"] >= 1
