@@ -10,15 +10,15 @@
 | Item | Observed |
 |---|---|
 | Default branch | `master` |
-| `master` SHA | `ab80a55e8aacbd14e42ff6a045dbf3e15197b9f2` |
+| `master` SHA | `8bbdd9791f17e05534cc8c9d096fc1bf64ab3c80` |
 | Open PRs | 0 |
-| Open issues | #38, #40 |
-| Closed issues | #10, #22, #24, #36, #37, #39 |
+| Open issues | #40 |
+| Closed issues | #10, #22, #24, #36, #37, #38, #39 |
 | Remote branches | 1 (`master`) + archive tag |
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
 | Branch protection | **ENABLED** on `master` (required checks, no force/delete, admins enforced) |
 | Required checks | 10: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution, Full Compose E2E |
-| Baseline master CI | **10/10 SUCCESS** (`ab80a55`, [run 41160889301](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41160889301)) |
+| Baseline master CI | **10/10 SUCCESS** (`8bbdd97`, [run 41167467864](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41167467864)) |
 | PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
 | PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
 | PR #43 CI | 10/10 success at `000d5a4` (run 41151056672), merged `e647226` |
@@ -97,12 +97,13 @@ protection-rule details; re-check GitHub branch settings before relying on them.
 | #24 synthetic E2E/no-key behavior | CLOSED | PR #25, `test_public_demo_acceptance.py` | keep closed |
 | #36 14-table MySQL migration | CLOSED | PR #44, `test_mysql_migrations.py` | completed 2026-10-31 |
 | #37 full Compose in CI | CLOSED | PR #43, Full Compose E2E | completed 2026-10-31 |
-| #38 capacity benchmarks | OPEN | local SQLite only | keep open P2 |
+| #38 capacity benchmarks | CLOSED | PR #49, `benchmarks/`, `docs/performance/mysql-benchmark.md` | completed 2026-10-31 |
 | #39 distributed auth hardening | CLOSED | PR #46, `test_admin_security.py`, `test_admin_limits_redis.py` | completed 2026-10-31 |
-| #40 consumer-group evaluation | OPEN | ADR-009 comparison | keep open P2 |
+| #40 consumer-group evaluation | OPEN | ADR-009 + PR #49 worker throughput; no Streams/ACK recovery/duplicate experiment | keep open P2 |
 
-Open issues at audit time: **0**. #36/#37/#39 are now closed with evidence;
-#38 (capacity) and #40 (consumer-group evaluation) remain open P2. #10/#22/#24
+Open issues at audit time: **0**. #36/#37/#38/#39 are now closed with evidence;
+#40 (consumer-group evaluation) remains open P2 because PR #49 measured
+throughput but not Streams/ACK recovery latency or duplicate rate. #10/#22/#24
 were re-verified and commented with current master evidence.
 
 ## 4. CI/CD and security snapshot
@@ -136,13 +137,18 @@ were re-verified and commented with current master evidence.
 | Phase 4 | branch cleanup | `ci/full-compose...`, `feat/mysql...`, `fix/admin-distributed-security` deleted; only `master` remains |
 | Phase 8 | security merge | PR #46 merged `ab80a55`; 10/10 CI; #39 closed with tests/evidence |
 | Phase 9 | security docs | `docs/security/admin-auth-hardening.md`, ADR-007/008 updated; #38/#40 remain open |
+| Phase 10 | P0 test isolation | PR #48 merged `c7a052a`; MySQL/Redis namespace guards; 10/10 CI run 41163132208; integration 27 |
+| Phase 11 | P1 benchmark | PR #49 merged `8bbdd97`; MySQL/Worker benchmarks + audit index `0004`; 10/10 CI run 41167467864; #38 closed |
+| Phase 12 | final verification | pytest 1112/28, coverage 80.91%; frontend 88; integration 27; remote only `master`; #40 remains open |
 
 ## 6. Rollback and safety
 
 - No force push, no history rewrite, no deletion before asset check.
 - PR #43 merge `e647226c3e235d0bf7811730f7733d2a9848452c`; PR #44 merge
   `6e1760cf1440b99029b0a8d77f1fa78350d24e32`; PR #46 merge
-  `ab80a55e8aacbd14e42ff6a045dbf3e15197b9f2`.
+  `ab80a55e8aacbd14e42ff6a045dbf3e15197b9f2`; PR #48 merge
+  `c7a052a1722967e782970ac45a3e9df2c6ae566c`; PR #49 merge
+  `8bbdd9791f17e05534cc8c9d096fc1bf64ab3c80`.
 - Alembic `0002`/`0003` downgrade is intentionally refused; use verified
   backup/restore.
 - PR #35 was merged with a **merge commit** (`b98225a69c0f3dc4e82e1763e9d9f9cad31d8e75`),
@@ -167,8 +173,9 @@ were re-verified and commented with current master evidence.
   10/10 passed (run 41151378153). #37 was closed with that evidence.
 - PR #44 added the full 18-table MySQL Alembic baseline and merged `6e1760c`;
   master CI 10/10 passed (run 41155246215). #36 was closed with that evidence.
-  PR #46 later added `20261031_0003` for token revocation; current schema is 19 tables.
-- Current open issues are #38 and #40. #39 was closed by PR #46 (Redis limiting,
-  persistent revocation, trusted proxy); #40 has ADR-009 comparison and remains
-  open until measured throughput/latency justifies a queue change.
+  PR #46 later added `20261031_0003` for token revocation; PR #49 added
+  `20261031_0004` audit index; current schema is 19 tables.
+- Current open issue is #40. #38 was closed by PR #49 with MySQL/Worker benchmark
+  evidence; #40 has ADR-009 comparison plus throughput data, but remains open
+  until recovery-latency/duplicate-rate data justifies a queue change.
 - No production SLA or production database migration is implied by CI tests.
