@@ -144,7 +144,9 @@ class TestSubsystemStateIsHonest:
         payload = asyncio.run(health_check())
         assert payload["optional_services"]["rag"]["state"] == "RAG_ENABLED"
         assert payload["optional_services"]["rag"]["integrity_ok"] is True
-        assert payload["data_profile"] == "SYNTHETIC_DEMO"
+        # An empty local database honestly reports EMPTY; a seeded demo reports
+        # SYNTHETIC_DEMO. It must never claim synthetic data it does not have.
+        assert payload["data_profile"] in {"SYNTHETIC_DEMO", "EMPTY"}
 
     def test_health_reports_rag_error_when_disabled(self, monkeypatch) -> None:
         """A switched-off RAG must be visible as degraded, not folded into ok."""
@@ -429,7 +431,7 @@ class TestSessionAuthRoundTrip:
         response = client.get("/api/v1/health")
         assert response.status_code == 200
         body = response.json()
-        assert body["data_profile"] == "SYNTHETIC_DEMO"
+        assert body["data_profile"] in {"SYNTHETIC_DEMO", "EMPTY"}
         assert "rag" in body["optional_services"]
 
 

@@ -296,8 +296,10 @@ def get_stats(session: Session) -> dict[str, Any]:
     for level, count in session.query(School.level, func.count(School.id)).group_by(School.level):
         schools_by_level[str(level)] = int(count)
 
+    from server.services.data_profile import detect_data_profile
+
     return {
-        "data_profile": "SYNTHETIC_DEMO",
+        "data_profile": detect_data_profile(session),
         "schools": int(session.query(func.count(School.id)).scalar() or 0),
         "majors": int(session.query(func.count(Major.id)).scalar() or 0),
         "admission_scores": int(session.query(func.count(AdmissionScore.id)).scalar() or 0),
