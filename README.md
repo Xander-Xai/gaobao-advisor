@@ -363,19 +363,20 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1132 passed / 34 skipped**，覆盖率 **80.91%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1162 passed / 34 skipped**，覆盖率 **81.76%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
-| `vitest run`（frontend）| **14 files / 88 tests passed**；`npm run build` 通过 |
+| `vitest run`（frontend）| **15 files / 92 tests passed**；`npm run build` 通过 |
 | `make test-integration` | **33 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 + Queue recovery 6）|
 | `pytest tests/test_mysql_guard.py tests/test_benchmark_guard.py` | **16 passed**（测试/基准库 marker 内容与伪造拒绝）|
 | `pytest tests/test_queue_recovery.py`（真实 Redis） | **6 passed**（List/BLMOVE/Streams ACK/PEL）|
 | `MYSQL_BENCH_URL=... python -m benchmarks.mysql_admin_benchmark` | Medium 2k 校 / 50k 审计；审计第一页 p95 **56.3→13.3 ms**（索引前后）|
 | `... benchmarks.worker_throughput --workers 1 2 4` | 4 Worker ~**8.9 jobs/s**（50 jobs，500 校；0 error）|
 | `... benchmarks.queue_recovery.runner --suite fault` | 172 次故障注入；0 重复业务执行/0 丢失；默认 List 恢复 60.56–62.10s |
+| GitHub Actions `master` | **13 required checks（含 CodeQL）success**；Secret scanning / Code scanning 0 open |
 | `... benchmarks.queue_recovery.runner --suite load` | 3 方案 × 3 负载 × 3 次；510 jobs/方案，0 error |
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|

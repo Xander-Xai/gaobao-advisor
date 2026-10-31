@@ -1,5 +1,13 @@
 # Repository governance audit — 2026-10-31
 
+> **Final addendum (2026-10-31, end of day):** the authoritative final report is
+> [`docs/audits/2026-10-31-gaobao-final-governance.md`](../audits/2026-10-31-gaobao-final-governance.md).
+> Current state: `master` code baseline `a56d38c` (report merge follows), **0 Open
+> PRs**, **Issue #58 OPEN/BLOCKED** (historical 72 MiB database exposure),
+> **13 required checks** (original 10 + CodeQL), secret scanning/push protection
+> and Dependabot security updates enabled, CodeQL **0 open alerts**. Do not reuse
+> the earlier "0 open issues / 10 checks" snapshot as current.
+>
 > Scope: `Xander-Xai/gaobao-advisor`, default branch `master`.
 > This ledger records the state found in Phase 0, the asset decision, and the
 > final action. It is intentionally factual; branch/PR/issue state must be

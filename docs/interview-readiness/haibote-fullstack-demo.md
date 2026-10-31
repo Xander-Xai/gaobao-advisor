@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1132 passed / 34 skipped；`vitest` 88 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1162 passed / 34 skipped；`vitest` 92 tests |
 
 ## 1. 三分钟演示路径
 
