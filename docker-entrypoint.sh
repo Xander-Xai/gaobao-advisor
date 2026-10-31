@@ -39,7 +39,7 @@ case "${DATABASE_URL}" in
         done
         if [ "${AUTO_SEED_DEMO:-false}" = "true" ]; then
             echo "[entrypoint] ensuring SYNTHETIC_DEMO dataset exists"
-            python -m scripts.seed_demo_data --database-url "${DATABASE_URL}"
+            python -m scripts.seed_demo_data --database-url "${DATABASE_URL}" --no-create-schema
         fi
         ;;
     sqlite:///*)

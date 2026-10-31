@@ -22,9 +22,16 @@
 - SQLite 仍用 `Base.metadata.create_all`（兼容原行为）；MySQL 用户通过
   `python -m db.migrate` / `alembic upgrade head` 管理 schema。
 - `DB_AUTO_CREATE=true` 仅用于自包含 demo 容器；生产不建议。
-- **迁移范围**：本轮 Alembic 初始 revision 只覆盖新增的 4 张运营表。14 张历史表的
-  MySQL 生产迁移不在本轮承诺内；演示 full profile 由 seed 脚本 `create_all` 引导。
-  这一点在 README/本 ADR 明确标注，避免声称「全量 MySQL 兼容」。
+- **迁移范围（2026-10-31 更新）**：`20261030_0001` 创建 4 张运营表，
+  `20261031_0002` 创建 14 张历史业务表；Alembic 现在覆盖全部 18 张表。
+- **已有 schema 策略**：legacy `create_all` 数据库必须显式运行
+  `python -m db.migrate adopt-existing`；该命令先通过 `db/schema_contract.py` 对比
+  列/PK/索引/唯一约束/FK，全部匹配后才 `stamp 20261030_0001`，随后 `upgrade` 验证并
+  跳过已有表。不直接 `stamp head`。
+- **迁移失败与回滚**：MySQL DDL 非事务；`0002` 先预检所有已有表，再按 FK 顺序创建缺失表，
+  中途失败可安全重跑。`0002` 的 downgrade 被明确拒绝，回滚走备份/恢复，避免删除已有数据。
+- **seed 边界**：MySQL 容器 seed 使用 `--no-create-schema`，证明迁移后不需要 `create_all`
+  补建表；SQLite 默认 demo 仍保留 `create_all` 引导。
 
 ### 2. 异步任务：Redis List + 事务 Outbox + 执行 Fencing
 
@@ -92,17 +99,19 @@
 | 先入队后写库 | 队列成功而 DB 失败会产生孤儿任务 |
 | 多队列/多 broker | 本轮只有一个业务任务，过度设计 |
 | Redis 不可用就同步等待并返回 SUCCEEDED | 违反「不伪造成功」 |
-| 立即迁移 14 张历史表 | 成本高、无真实数据验证；先保证新增表双库工作并明确范围 |
+| 直接 `stamp head` 而不对比 schema | 可能把缺列/缺索引的数据库标记为已完成；改用显式 `adopt-existing` + schema contract |
 
 ## 后果
 
 - 正面：默认演示零依赖；MySQL/Redis 可按需启用；任务状态、审计、失败语义可测试。
-- 负面：MySQL 全量历史表迁移未完成；Worker 租约/重试是应用层实现，不是企业级调度；
-  Outbox 由 Worker 轮询而不是 CDC；BRPOP 丢消息靠补偿扫描而非 Redis 消费组确认。
+- 负面：Worker 租约/重试是应用层实现，不是企业级调度；Outbox 由 Worker 轮询而不是 CDC；
+  BRPOP 丢消息靠补偿扫描而非 Redis 消费组确认；0002 不支持破坏性 downgrade。
 - 边界：不承诺生产 SLA、不承诺 MySQL 所有历史查询路径完全等价；实际运行证据见
   `docs/interview-readiness/performance.md` 与最终报告。
 - 2026-10-31 可靠性复核：真实 MySQL 8.4 + Redis 7 上验证双 Worker 争抢、并发恢复、
   重复投递、BRPOP 丢消息、Fencing 旧结果、重试耗尽、MySQL 短暂不可用；
   `tests/test_worker_integration.py` 5 passed，SQLite 单测覆盖周期恢复/耗尽/失败。
-- 剩余边界：14 张历史表生产迁移、完整 Compose 未进 CI、at-least-once 非 exactly-once、
+- 2026-10-31 迁移复核：真实 MySQL 8.4 上验证空库 upgrade、重复 upgrade、seed
+  `--no-create-schema`、已有 create_all schema 数据保留、索引 drift 拒绝；SQLite 默认
+  回归保持通过。剩余边界：完整 Compose 未进 CI、at-least-once 非 exactly-once、
   分布式限流/Token 撤销未实现。

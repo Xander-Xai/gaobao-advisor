@@ -225,11 +225,12 @@ MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset
 PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
 ```
 
-**迁移范围（重要）：** Alembic 初始 revision 只覆盖本轮新增的 4 张运营表
-（`data_quality_jobs` / `data_quality_issues` / `operation_audit_logs` /
-`quality_task_outbox`）。14 张历史表的 MySQL 生产迁移不在本轮承诺内；full profile
-的演示数据由 `scripts/seed_demo_data.py --database-url ...` 引导创建。详见
-[ADR-008](docs/superpowers/adr/ADR-008-mysql-redis-worker.md)。
+**迁移范围：** Alembic 现在覆盖全部 18 张表：`20261030_0001` 创建 4 张运营表，
+`20261031_0002` 创建 14 张历史业务表。已有 `create_all` 数据库需先运行
+`python -m db.migrate adopt-existing`（会校验列/索引/唯一约束/FK 后再 stamp），
+再 `upgrade`；MySQL 容器 seed 使用 `--no-create-schema`，不依赖隐式建表。
+Schema Matrix 与回滚限制见 [database-schema-matrix.md](docs/database-schema-matrix.md)，
+设计取舍见 [ADR-008](docs/superpowers/adr/ADR-008-mysql-redis-worker.md)。
 
 **队列语义：** 创建任务时 DB + Outbox + 审计同事务；Redis 不可用时 `async` 模式返回
 `202 + PENDING + warning`，不会伪造成功；开发环境 `auto` 才显式内联降级并标记
@@ -354,16 +355,18 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1085 passed / 14 skipped**，覆盖率 **81.11%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1088 passed / 17 skipped**，覆盖率 **80.82%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
 | `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
-| `make test-integration` | **13 passed**（MySQL 5 + Redis 3 + 双 Worker/恢复 5）|
+| `make test-integration` | **16 passed**（MySQL 8 + Redis 3 + 双 Worker/恢复 5）|
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
+| `MYSQL_TEST_URL=... pytest tests/test_mysql_migrations.py` | 3 passed（全量 18 表、seed 无 create_all、adopt 数据保留、drift 拒绝）|
+| `pytest tests/test_migrations.py` | 5 passed（SQLite 全量迁移/adopt/seed）|
 | `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；MySQL/Redis 无宿主机端口；异步任务、审核、审计、Redis 故障恢复通过 |
 | 真实 BRPOP 丢消息注入（Redis+MySQL） | job PENDING/DISPATCHED → Worker 启动日志 `requeued 1 orphaned dispatched job(s)` → **SUCCEEDED** |
 | 真实双 Worker 并发（3 jobs / 2 processes） | issues 15 = SUM(issue_count)，success 审计每 job 1 次，无重复 |
