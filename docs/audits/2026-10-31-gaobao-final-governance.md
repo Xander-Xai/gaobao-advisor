@@ -170,7 +170,7 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 
 | 命令/检查 | 结果 | 环境 |
 |---|---|---|
-| `.venv/bin/python -m pytest tests/ --tb=short -q` | **1162 passed / 34 skipped**，coverage **81.76%** | Python 3.11.15 |
+| `.venv/bin/python -m pytest tests/ --tb=short -q` | **1177 passed / 34 skipped**；CI 覆盖率门禁通过（新增 guard 前本地实测 81.76%） | Python 3.11.15 |
 | `MYSQL_TEST_URL=... REDIS_TEST_URL=... pytest <integration files>` | **33 passed**（MySQL 8.4 / Redis 7） | 专用 `gaobao-audit-*` 容器 |
 | `cd frontend && npm test -- --run` | **15 files / 92 tests passed**（vue-tsc + vitest） | Node 20.20.2 |
 | `cd frontend && npm run build` | Vite build passed | Node 20 |
