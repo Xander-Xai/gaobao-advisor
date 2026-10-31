@@ -2,8 +2,9 @@
 
 > **Final addendum (2026-10-31, end of day):** the authoritative final report is
 > [`docs/audits/2026-10-31-gaobao-final-governance.md`](../audits/2026-10-31-gaobao-final-governance.md).
-> Current state: `master` code baseline `a56d38c` (report merge follows), **0 Open
-> PRs**, **Issue #58 OPEN/BLOCKED** (historical 72 MiB database exposure),
+> Current state: `master` code baseline `0c7ff79` (Issue #58 report follows), **0 Open
+> PRs**, **Issue #58 OPEN/BLOCKED** (historical 72 MiB database exposure; Phase A–D
+> evidence in `docs/audits/gaobao-issue-58-remediation.md`),
 > **13 required checks** (original 10 + CodeQL), secret scanning/push protection
 > and Dependabot security updates enabled, CodeQL **0 open alerts**. Do not reuse
 > the earlier "0 open issues / 10 checks" snapshot as current.
