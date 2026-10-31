@@ -24,7 +24,7 @@
 # Optional tooling that is not part of the runtime goes in its own file and is
 # audited separately — do not add it back here.
 
-openai>=1.0.0,<3.0.0
+openai>=1.0.0,<4.0.0
 sqlalchemy>=2.0.0,<3.0.0
 numpy>=1.24.0,<3.0.0
 fastapi>=0.115.0
