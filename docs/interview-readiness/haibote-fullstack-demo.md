@@ -12,7 +12,7 @@
 | Phase 1 | 分支 `feat/haibote-phase1-admin-workbench-20261030`，PR #32 |
 | Phase 2 | 分支 `feat/haibote-phase2-mysql-redis-worker-20261030`，PR #33 |
 | Phase 3 | 分支 `feat/haibote-phase3-acceptance-20261030`（本手册、性能与 AI 证据） |
-| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1112 passed / 28 skipped；`vitest` 88 tests |
+| 本地实测 | Python 3.11；SQLite 默认 + 真实 MySQL 8.4 + Redis 7；`pytest` 1132 passed / 34 skipped；`vitest` 88 tests |
 
 ## 1. 三分钟演示路径
 
@@ -156,12 +156,12 @@ adopt 数据保留均通过，full profile 的 MySQL+Redis+Worker 已实际启�
 
 ### Q10. 测试和 CI 覆盖到什么程度？哪些没做到？
 
-Python 1112 passed / 28 skipped（覆盖率 80.91%），覆盖 401/403/404/409/422、幂等、
+Python 1132 passed / 34 skipped（覆盖率 80.91%），覆盖 401/403/404/409/422、幂等、
 回滚、乐观锁、Worker 重试/租约、BRPOP 丢消息补偿、Alembic、MySQL DDL/URL、真实
 MySQL 8.4 与 Redis 7；前端 88 tests 覆盖登录、筛选、空/错/重试、权限、创建、审核、审计。
 full compose 已实际启动并验证异步任务、Redis 故障恢复与真实 BRPOP 丢消息恢复；生产
 Compose 凭据正/负控制通过。CI 已新增 MySQL 8.4 + Redis 7 service job 和 admin smoke；
-真实集成测试也可用 `make test-integration` 一键复现（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 = 27 passed）。
+真实集成测试也可用 `make test-integration` 一键复现（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 + Queue recovery 6 = 33 passed）。
 未做到：14 张历史表的 MySQL 生产迁移、生产容量/SLA、CI 中启动完整 Compose（本机已实测）。
 CI 现有 lint/test/secret/security/frontend/container 门禁仍保留。
 

@@ -164,3 +164,23 @@ Full report and raw JSON: `docs/performance/mysql-benchmark.md` and
   897 MiB, Redis 0.71% CPU / 3.5 MiB, DB threads 2–3.
 - Limits: synthetic data, repository/SQL latency only (no HTTP), WSL2, MySQL
   DATETIME second precision makes wait/exec p95 coarse; not a production SLA.
+
+## 10. Redis queue recovery comparison (Issue #40, 2026-10-31)
+
+Full report: `docs/performance/redis-queue-recovery.md`; raw JSON:
+`docs/performance/results/queue-recovery-final.json`.
+
+- Three schemes: current List + Outbox, BLMOVE processing list, Redis Streams
+  consumer group. Same MySQL claim/fencing/audit path.
+- Fault matrix: 172 real SIGKILL runs (List 50 PASS + 2 N/A, BLMOVE 60 PASS,
+  Streams 60 PASS); 0 duplicate business executions, 0 lost jobs, 0 wrong
+  terminal states.
+- Shortened 4s lease: recovery p50/p95/p99 = List 2.615/3.884/4.301s,
+  BLMOVE 2.338/6.459/6.471s, Streams 2.328/6.598/6.720s.
+- Production-default List (60/30/600): **60.56–62.10s** over 3 runs. 60s is
+  not a strict maximum; scan scheduling, startup and MySQL second precision
+  can exceed it.
+- Load 20/1, 50/2, 100/4 (3 repeats): List 7.16/14.62/24.49 jobs/s;
+  BLMOVE 6.39/13.77/22.51; Streams 6.44/13.10/25.94; 0 errors.
+- Decision A: keep List + Outbox. No recovery SLO exists; BLMOVE is the first
+  upgrade candidate if a <60s SLO is required. No production queue switch.

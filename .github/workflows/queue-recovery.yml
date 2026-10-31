@@ -1,0 +1,65 @@
+name: Queue Recovery (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: Fault repeats per scenario
+        default: "5"
+      load_repeats:
+        description: Load repeats per size
+        default: "3"
+      default_repeats:
+        description: Production-default repeats
+        default: "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: queue-recovery-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  queue-recovery:
+    name: Redis List / BLMOVE / Streams comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,mysql,worker]"
+      - name: Start isolated MySQL 8.4 + Redis 7 (AOF)
+        run: docker compose -p gaobao-qr-ci -f benchmarks/queue_recovery/docker-compose.yml up -d
+      - name: Wait for services
+        run: |
+          for i in $(seq 1 60); do
+            docker exec gaobao-qr-ci-mysql-1 mysqladmin ping -uroot -pqrroot --silent >/dev/null 2>&1 \
+              && docker exec gaobao-qr-ci-redis-1 redis-cli ping >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Run comparison
+        env:
+          MYSQL_BENCH_URL: mysql+pymysql://root:qrroot@127.0.0.1:3310/gaobao_queue_recovery_benchmark?charset=utf8mb4&read_timeout=5&write_timeout=5
+          REDIS_BENCH_URL: redis://127.0.0.1:6382/0
+          REDIS_CONTAINER: gaobao-qr-ci-redis-1
+          MYSQL_CONTAINER: gaobao-qr-ci-mysql-1
+        run: |
+          python -m benchmarks.queue_recovery.runner \
+            --suite all --schemes list blmove streams \
+            --repeats "${{ github.event.inputs.repeats }}" \
+            --load-repeats "${{ github.event.inputs.load_repeats }}" \
+            --default-repeats "${{ github.event.inputs.default_repeats }}" \
+            --json-out queue-recovery-results.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: queue-recovery-results
+          path: queue-recovery-results.json
+          retention-days: 14
+      - name: Cleanup isolated services
+        if: always()
+        run: docker compose -p gaobao-qr-ci -f benchmarks/queue_recovery/docker-compose.yml down -v
