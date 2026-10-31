@@ -479,6 +479,31 @@ class AdminTokenRevocation(Base):
         return f"<AdminTokenRevocation({self.username}, expires={self.expires_at})>"
 
 
+class DatasetSnapshot(Base):
+    """Public data snapshot metadata.
+
+    Records how the admissions tables were populated so the public data
+    explorer can show provenance and generation time without guessing from
+    row contents. Only ``scripts.seed_demo_data`` writes this table; imported
+    datasets may leave it empty (reported as "unregistered").
+    """
+
+    __tablename__ = "dataset_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_version = Column(String(20), nullable=False)
+    profile = Column(String(20), nullable=False, default="SYNTHETIC_DEMO")
+    source_note = Column(String(200), nullable=True)
+    generated_at = Column(DateTime, nullable=False, default=_utcnow)
+    year_from = Column(Integer, nullable=True)
+    year_to = Column(Integer, nullable=True)
+    seed = Column(Integer, nullable=True)
+    is_synthetic = Column(Integer, nullable=False, default=0)
+
+    def __repr__(self) -> str:
+        return f"<DatasetSnapshot({self.profile}, {self.dataset_version}, {self.generated_at})>"
+
+
 class QualityTaskOutbox(Base):
     """事务 Outbox：任务落库与投递解耦，Worker/Dispatcher 可重试。"""
 

@@ -531,13 +531,57 @@
         }
       }
     },
+    "/api/v1/data/overview": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Overview",
+        "description": "Data coverage, provenance, and per-year record counts.",
+        "operationId": "get_overview_api_v1_data_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataOverviewOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/filters": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Filters",
+        "description": "Filter values actually present in the current database.",
+        "operationId": "get_filters_api_v1_data_filters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterOptionsOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/data/schools": {
       "get": {
         "tags": [
           "data"
         ],
         "summary": "Get Schools",
-        "description": "Search schools by name, province, or level with cursor-based pagination.",
+        "description": "Search schools by name, province, level or type with cursor pagination.",
         "operationId": "get_schools_api_v1_data_schools_get",
         "parameters": [
           {
@@ -553,10 +597,29 @@
                   "type": "null"
                 }
               ],
-              "description": "学校名称关键词",
+              "description": "学校名称关键词（兼容旧接口）",
               "title": "School Name"
             },
-            "description": "学校名称关键词"
+            "description": "学校名称关键词（兼容旧接口）"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "院校或城市关键词",
+              "title": "Q"
+            },
+            "description": "院校或城市关键词"
           },
           {
             "name": "province",
@@ -595,6 +658,24 @@
             "description": "学校层次"
           },
           {
+            "name": "school_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "学校类型",
+              "title": "School Type"
+            },
+            "description": "学校类型"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -603,7 +684,7 @@
               "maximum": 200,
               "minimum": 1,
               "description": "每页数量",
-              "default": 50,
+              "default": 20,
               "title": "Limit"
             },
             "description": "每页数量"
@@ -633,6 +714,49 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/schools/{school_id}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get School Detail",
+        "description": "One school with bounded score and plan samples plus availability flags.",
+        "operationId": "get_school_detail_api_v1_data_schools__school_id__get",
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server__domain__data_catalog__SchoolDetailOut"
+                }
               }
             }
           },
@@ -866,6 +990,118 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/trends": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get Trends",
+        "description": "Multi-year score trend, always separated by subject type.",
+        "operationId": "get_trends_api_v1_data_trends_get",
+        "parameters": [
+          {
+            "name": "school_name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "学校名称",
+              "title": "School Name"
+            },
+            "description": "学校名称"
+          },
+          {
+            "name": "province",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20,
+              "description": "省份",
+              "title": "Province"
+            },
+            "description": "省份"
+          },
+          {
+            "name": "subject_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "科类；不传则按科类分别返回",
+              "title": "Subject Type"
+            },
+            "description": "科类；不传则按科类分别返回"
+          },
+          {
+            "name": "major",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "专业名称；不传则按院校最低分聚合",
+              "title": "Major"
+            },
+            "description": "专业名称；不传则按院校最低分聚合"
+          },
+          {
+            "name": "years",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "description": "回看年数",
+              "default": 3,
+              "title": "Years"
+            },
+            "description": "回看年数"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendOut"
+                }
               }
             }
           },
@@ -1242,6 +1478,48 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/auth/logout": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_v1_admin_auth_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -1724,7 +2002,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SchoolDetailOut"
+                  "$ref": "#/components/schemas/server__admin__schemas__SchoolDetailOut"
                 }
               }
             }
@@ -2500,6 +2778,264 @@
         ],
         "title": "ChatRequest"
       },
+      "DataAvailabilityOut": {
+        "properties": {
+          "has_scores": {
+            "type": "boolean",
+            "title": "Has Scores"
+          },
+          "has_plans": {
+            "type": "boolean",
+            "title": "Has Plans"
+          },
+          "available_years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Available Years"
+          },
+          "subject_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Types"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_scores",
+          "has_plans"
+        ],
+        "title": "DataAvailabilityOut"
+      },
+      "DataCountsOut": {
+        "properties": {
+          "schools": {
+            "type": "integer",
+            "title": "Schools",
+            "default": 0
+          },
+          "majors": {
+            "type": "integer",
+            "title": "Majors",
+            "default": 0
+          },
+          "admission_scores": {
+            "type": "integer",
+            "title": "Admission Scores",
+            "default": 0
+          },
+          "enrollment_plans": {
+            "type": "integer",
+            "title": "Enrollment Plans",
+            "default": 0
+          },
+          "subject_rankings": {
+            "type": "integer",
+            "title": "Subject Rankings",
+            "default": 0
+          },
+          "score_rank_rows": {
+            "type": "integer",
+            "title": "Score Rank Rows",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "DataCountsOut"
+      },
+      "DataOverviewOut": {
+        "properties": {
+          "data_profile": {
+            "type": "string",
+            "title": "Data Profile"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/DataCountsOut"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years"
+          },
+          "year_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year From"
+          },
+          "year_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year To"
+          },
+          "provinces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Provinces"
+          },
+          "levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Levels"
+          },
+          "school_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "School Types"
+          },
+          "subject_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Types"
+          },
+          "scores_by_year": {
+            "items": {
+              "$ref": "#/components/schemas/YearCountOut"
+            },
+            "type": "array",
+            "title": "Scores By Year"
+          },
+          "schools_with_scores": {
+            "type": "integer",
+            "title": "Schools With Scores",
+            "default": 0
+          },
+          "schools_with_plans": {
+            "type": "integer",
+            "title": "Schools With Plans",
+            "default": 0
+          },
+          "latest_admission_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Admission Year"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetSnapshotOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_profile",
+          "notice",
+          "counts"
+        ],
+        "title": "DataOverviewOut"
+      },
+      "DatasetSnapshotOut": {
+        "properties": {
+          "dataset_version": {
+            "type": "string",
+            "title": "Dataset Version"
+          },
+          "profile": {
+            "type": "string",
+            "title": "Profile"
+          },
+          "source_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Note"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "year_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year From"
+          },
+          "year_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year To"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "is_synthetic": {
+            "type": "boolean",
+            "title": "Is Synthetic",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_version",
+          "profile",
+          "generated_at"
+        ],
+        "title": "DatasetSnapshotOut"
+      },
       "EnrollmentPlanOut": {
         "properties": {
           "id": {
@@ -2635,6 +3171,54 @@
         ],
         "title": "FeedbackRequest",
         "description": "用户反馈请求"
+      },
+      "FilterOptionsOut": {
+        "properties": {
+          "provinces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Provinces"
+          },
+          "levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Levels"
+          },
+          "school_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "School Types"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years"
+          },
+          "subject_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Types"
+          },
+          "majors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Majors"
+          }
+        },
+        "type": "object",
+        "title": "FilterOptionsOut"
       },
       "GenerateRequest": {
         "properties": {
@@ -2814,6 +3398,95 @@
           "data"
         ],
         "title": "OnboardingRequest"
+      },
+      "PlanRowOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "major_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major Name"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "plan_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Count"
+          },
+          "subject_requirement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Requirement"
+          },
+          "batch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "tuition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tuition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "province",
+          "year"
+        ],
+        "title": "PlanRowOut"
       },
       "ProfileResponse": {
         "properties": {
@@ -3321,7 +3994,627 @@
         ],
         "title": "ReviewRequest"
       },
-      "SchoolDetailOut": {
+      "SchoolListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "school_type": {
+            "type": "string",
+            "title": "School Type"
+          },
+          "ranking": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranking"
+          },
+          "is_985": {
+            "type": "integer",
+            "title": "Is 985"
+          },
+          "is_211": {
+            "type": "integer",
+            "title": "Is 211"
+          },
+          "is_double_first_class": {
+            "type": "integer",
+            "title": "Is Double First Class"
+          },
+          "special_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Special Type"
+          },
+          "data_source_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Source Note"
+          },
+          "score_count": {
+            "type": "integer",
+            "title": "Score Count"
+          },
+          "plan_count": {
+            "type": "integer",
+            "title": "Plan Count"
+          },
+          "latest_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Year"
+          },
+          "latest_min_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Min Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "province",
+          "city",
+          "level",
+          "school_type",
+          "ranking",
+          "is_985",
+          "is_211",
+          "is_double_first_class",
+          "special_type",
+          "data_source_note",
+          "score_count",
+          "plan_count",
+          "latest_year",
+          "latest_min_score"
+        ],
+        "title": "SchoolListItem"
+      },
+      "SchoolPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SchoolListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "title": "SchoolPageOut"
+      },
+      "ScoreRowOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "major_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major Name"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "batch": {
+            "type": "string",
+            "title": "Batch"
+          },
+          "subject_type": {
+            "type": "string",
+            "title": "Subject Type"
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "max_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Score"
+          },
+          "min_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Rank"
+          },
+          "plan_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "province",
+          "year",
+          "batch",
+          "subject_type"
+        ],
+        "title": "ScoreRowOut"
+      },
+      "SkipFieldRequest": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Field"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "title": "SkipFieldRequest"
+      },
+      "StatsOut": {
+        "properties": {
+          "data_profile": {
+            "type": "string",
+            "title": "Data Profile"
+          },
+          "schools": {
+            "type": "integer",
+            "title": "Schools"
+          },
+          "majors": {
+            "type": "integer",
+            "title": "Majors"
+          },
+          "admission_scores": {
+            "type": "integer",
+            "title": "Admission Scores"
+          },
+          "enrollment_plans": {
+            "type": "integer",
+            "title": "Enrollment Plans"
+          },
+          "jobs_total": {
+            "type": "integer",
+            "title": "Jobs Total"
+          },
+          "jobs_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Jobs By Status"
+          },
+          "issues_by_severity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Issues By Severity"
+          },
+          "schools_by_level": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Schools By Level"
+          },
+          "pending_review": {
+            "type": "integer",
+            "title": "Pending Review"
+          },
+          "audit_events": {
+            "type": "integer",
+            "title": "Audit Events"
+          },
+          "last_job_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Job At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_profile",
+          "schools",
+          "majors",
+          "admission_scores",
+          "enrollment_plans",
+          "jobs_total",
+          "jobs_by_status",
+          "issues_by_severity",
+          "schools_by_level",
+          "pending_review",
+          "audit_events",
+          "last_job_at"
+        ],
+        "title": "StatsOut"
+      },
+      "SystemStatusOut": {
+        "properties": {
+          "admin_enabled": {
+            "type": "boolean",
+            "title": "Admin Enabled"
+          },
+          "config_source": {
+            "type": "string",
+            "title": "Config Source"
+          },
+          "database_dialect": {
+            "type": "string",
+            "title": "Database Dialect"
+          },
+          "task_mode": {
+            "type": "string",
+            "title": "Task Mode"
+          },
+          "queue_state": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "UNAVAILABLE",
+              "DISABLED"
+            ],
+            "title": "Queue State"
+          },
+          "worker_hint": {
+            "type": "string",
+            "title": "Worker Hint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "admin_enabled",
+          "config_source",
+          "database_dialect",
+          "task_mode",
+          "queue_state",
+          "worker_hint"
+        ],
+        "title": "SystemStatusOut"
+      },
+      "TrendOut": {
+        "properties": {
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          },
+          "aggregation": {
+            "type": "string",
+            "title": "Aggregation"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/TrendSeriesOut"
+            },
+            "type": "array",
+            "title": "Series"
+          },
+          "missing_years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missing Years"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name",
+          "province",
+          "scope",
+          "aggregation",
+          "notice"
+        ],
+        "title": "TrendOut"
+      },
+      "TrendPointOut": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "max_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Score"
+          },
+          "min_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Rank"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "year"
+        ],
+        "title": "TrendPointOut"
+      },
+      "TrendSeriesOut": {
+        "properties": {
+          "subject_type": {
+            "type": "string",
+            "title": "Subject Type"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/TrendPointOut"
+            },
+            "type": "array",
+            "title": "Points"
+          },
+          "direction": {
+            "type": "string",
+            "title": "Direction",
+            "default": "数据不足"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject_type"
+        ],
+        "title": "TrendSeriesOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "YearCountOut": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "count"
+        ],
+        "title": "YearCountOut"
+      },
+      "server__admin__schemas__SchoolDetailOut": {
         "properties": {
           "id": {
             "type": "integer",
@@ -3484,7 +4777,7 @@
         ],
         "title": "SchoolDetailOut"
       },
-      "SchoolListItem": {
+      "server__domain__data_catalog__SchoolDetailOut": {
         "properties": {
           "id": {
             "type": "integer",
@@ -3500,7 +4793,8 @@
           },
           "city": {
             "type": "string",
-            "title": "City"
+            "title": "City",
+            "default": ""
           },
           "level": {
             "type": "string",
@@ -3522,16 +4816,19 @@
             "title": "Ranking"
           },
           "is_985": {
-            "type": "integer",
-            "title": "Is 985"
+            "type": "boolean",
+            "title": "Is 985",
+            "default": false
           },
           "is_211": {
-            "type": "integer",
-            "title": "Is 211"
+            "type": "boolean",
+            "title": "Is 211",
+            "default": false
           },
           "is_double_first_class": {
-            "type": "integer",
-            "title": "Is Double First Class"
+            "type": "boolean",
+            "title": "Is Double First Class",
+            "default": false
           },
           "special_type": {
             "anyOf": [
@@ -3557,11 +4854,13 @@
           },
           "score_count": {
             "type": "integer",
-            "title": "Score Count"
+            "title": "Score Count",
+            "default": 0
           },
           "plan_count": {
             "type": "integer",
-            "title": "Plan Count"
+            "title": "Plan Count",
+            "default": 0
           },
           "latest_year": {
             "anyOf": [
@@ -3584,6 +4883,45 @@
               }
             ],
             "title": "Latest Min Score"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreRowOut"
+            },
+            "type": "array",
+            "title": "Scores"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanRowOut"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "data_availability": {
+            "$ref": "#/components/schemas/DataAvailabilityOut"
           }
         },
         "type": "object",
@@ -3591,240 +4929,11 @@
           "id",
           "name",
           "province",
-          "city",
           "level",
           "school_type",
-          "ranking",
-          "is_985",
-          "is_211",
-          "is_double_first_class",
-          "special_type",
-          "data_source_note",
-          "score_count",
-          "plan_count",
-          "latest_year",
-          "latest_min_score"
+          "data_availability"
         ],
-        "title": "SchoolListItem"
-      },
-      "SchoolPageOut": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SchoolListItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "page": {
-            "type": "integer",
-            "title": "Page"
-          },
-          "page_size": {
-            "type": "integer",
-            "title": "Page Size"
-          },
-          "pages": {
-            "type": "integer",
-            "title": "Pages"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "page",
-          "page_size",
-          "pages"
-        ],
-        "title": "SchoolPageOut"
-      },
-      "SkipFieldRequest": {
-        "properties": {
-          "field": {
-            "type": "string",
-            "maxLength": 32,
-            "minLength": 1,
-            "title": "Field"
-          }
-        },
-        "type": "object",
-        "required": [
-          "field"
-        ],
-        "title": "SkipFieldRequest"
-      },
-      "StatsOut": {
-        "properties": {
-          "data_profile": {
-            "type": "string",
-            "title": "Data Profile"
-          },
-          "schools": {
-            "type": "integer",
-            "title": "Schools"
-          },
-          "majors": {
-            "type": "integer",
-            "title": "Majors"
-          },
-          "admission_scores": {
-            "type": "integer",
-            "title": "Admission Scores"
-          },
-          "enrollment_plans": {
-            "type": "integer",
-            "title": "Enrollment Plans"
-          },
-          "jobs_total": {
-            "type": "integer",
-            "title": "Jobs Total"
-          },
-          "jobs_by_status": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Jobs By Status"
-          },
-          "issues_by_severity": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Issues By Severity"
-          },
-          "schools_by_level": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Schools By Level"
-          },
-          "pending_review": {
-            "type": "integer",
-            "title": "Pending Review"
-          },
-          "audit_events": {
-            "type": "integer",
-            "title": "Audit Events"
-          },
-          "last_job_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Job At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "data_profile",
-          "schools",
-          "majors",
-          "admission_scores",
-          "enrollment_plans",
-          "jobs_total",
-          "jobs_by_status",
-          "issues_by_severity",
-          "schools_by_level",
-          "pending_review",
-          "audit_events",
-          "last_job_at"
-        ],
-        "title": "StatsOut"
-      },
-      "SystemStatusOut": {
-        "properties": {
-          "admin_enabled": {
-            "type": "boolean",
-            "title": "Admin Enabled"
-          },
-          "config_source": {
-            "type": "string",
-            "title": "Config Source"
-          },
-          "database_dialect": {
-            "type": "string",
-            "title": "Database Dialect"
-          },
-          "task_mode": {
-            "type": "string",
-            "title": "Task Mode"
-          },
-          "queue_state": {
-            "type": "string",
-            "enum": [
-              "READY",
-              "UNAVAILABLE",
-              "DISABLED"
-            ],
-            "title": "Queue State"
-          },
-          "worker_hint": {
-            "type": "string",
-            "title": "Worker Hint"
-          }
-        },
-        "type": "object",
-        "required": [
-          "admin_enabled",
-          "config_source",
-          "database_dialect",
-          "task_mode",
-          "queue_state",
-          "worker_hint"
-        ],
-        "title": "SystemStatusOut"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
+        "title": "SchoolDetailOut"
       }
     }
   }

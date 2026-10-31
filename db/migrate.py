@@ -46,7 +46,7 @@ def adopt_existing() -> None:
 
     This is an explicit, non-destructive DBA command for databases previously
     bootstrapped by ``Base.metadata.create_all`` (legacy demo/full profile).
-    It verifies all 18 tables against the schema contract before stamping the
+    It verifies all baseline tables against the schema contract before stamping the
     admin baseline revision. It never drops or creates a table.
     """
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)

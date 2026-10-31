@@ -86,6 +86,30 @@ describe('dataAPI', () => {
     expect(url).not.toContain('province=')
     expect(url).not.toContain('year=')
   })
+
+  it('overview and filters use read-only catalog endpoints', async () => {
+    const fetchMock = mockFetchResponse({ body: { data_profile: 'SYNTHETIC_DEMO' } })
+    global.fetch = fetchMock
+    await dataAPI.overview()
+    await dataAPI.filters()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/data/overview')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/data/filters')
+  })
+
+  it('schoolDetail encodes the id and trend keeps subject filters explicit', async () => {
+    const fetchMock = mockFetchResponse({ body: { series: [] } })
+    global.fetch = fetchMock
+    await dataAPI.schoolDetail(12)
+    await dataAPI.trend({ schoolName: '北辰（合成）', province: '示例省·甲', subjectType: '物理类', major: '计算机（合成）' })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/data/schools/12')
+    const trendUrl = fetchMock.mock.calls[1][0]
+    expect(trendUrl).toContain('/api/v1/data/trends')
+    expect(trendUrl).toContain('school_name=')
+    expect(trendUrl).toContain('province=')
+    expect(trendUrl).toContain('subject_type=')
+    expect(trendUrl).toContain('major=')
+    expect(trendUrl).toContain('years=3')
+  })
 })
 
 describe('knowledgeAPI', () => {
