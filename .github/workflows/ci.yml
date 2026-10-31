@@ -45,7 +45,7 @@ jobs:
         run: python -m pytest tests/ --tb=short --cov-fail-under=70
       - name: Upload coverage report
         if: matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: htmlcov/
@@ -142,7 +142,7 @@ jobs:
         run: bash scripts/verify_full_compose_ci.sh
       - name: Upload full Compose failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: full-compose-e2e-logs
           path: ${{ runner.temp }}/gaobao-full-compose-logs/

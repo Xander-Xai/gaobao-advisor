@@ -54,7 +54,7 @@ jobs:
             --load-repeats "${{ github.event.inputs.load_repeats }}" \
             --default-repeats "${{ github.event.inputs.default_repeats }}" \
             --json-out queue-recovery-results.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: queue-recovery-results
