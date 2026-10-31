@@ -10,25 +10,26 @@
 | Item | Observed |
 |---|---|
 | Default branch | `master` |
-| `master` SHA | `6e1760cf1440b99029b0a8d77f1fa78350d24e32` |
+| `master` SHA | `ab80a55e8aacbd14e42ff6a045dbf3e15197b9f2` |
 | Open PRs | 0 |
-| Open issues | #38, #39, #40 |
-| Closed issues | #10, #22, #24, #36, #37 |
+| Open issues | #38, #40 |
+| Closed issues | #10, #22, #24, #36, #37, #39 |
 | Remote branches | 1 (`master`) + archive tag |
 | Worktrees | only `/home/dev/projects/gaobao/gaobao-advisor` |
 | Branch protection | **ENABLED** on `master` (required checks, no force/delete, admins enforced) |
 | Required checks | 10: Lint, Test 3.10/3.11, MySQL+Redis+Admin Smoke, Security, Secret, Frontend, Container, Redistribution, Full Compose E2E |
-| Baseline master CI | **10/10 SUCCESS** (`6e1760c`, [run 41155246215](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41155246215)) |
+| Baseline master CI | **10/10 SUCCESS** (`ab80a55`, [run 41160889301](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41160889301)) |
 | PR #35 CI | 9/9 success at `1f3afab` (run 41119912593), merged `b98225a` |
 | PR #31 CI | 9/9 success at `51b8936` (run 41120400909), merged `4d05916` |
 | PR #43 CI | 10/10 success at `000d5a4` (run 41151056672), merged `e647226` |
 | PR #44 CI | 10/10 success at `d44fe14` (run 41155009440), merged `6e1760c` |
+| PR #46 CI | 10/10 success at `886ab63` (run 41160654590), merged `ab80a55` |
 
 ## 1. Remote branch inventory
 
 | Branch | HEAD | merge-base | ahead/behind vs master | Unique assets | Decision |
 |---|---|---|---|---|---|
-| `master` | `6e1760c` | — | — | canonical baseline; full SHA in Section 0 | protected; no force push/delete |
+| `master` | `ab80a55` | — | — | canonical baseline; full SHA in Section 0 | protected; no force push/delete |
 | `fix/haibote-acceptance-hardening-20261031` | `1f3afab` | `1622c3f` | merged via #35 | PR #35 fixes + reliability work | **deleted** after merge |
 | `docs/portfolio-reference-boundaries-20261030` | `51b8936` | `65bdb40` | merged via #31 | README boundary section only | **deleted** after merge |
 | `feat/vue3-ts-readonly-data-workbench-20261030` | `8fe4f61` | `65bdb40` | 1 ahead / 10 behind | old read-only TS prototype + design doc | **deleted**; archived tag `archive/vue3-ts-readonly-20261030` |
@@ -37,6 +38,7 @@
 | `feat/haibote-phase3-acceptance-20261030` | `4a3c6d5` | `4a3c6d5` | ancestor of master | none | **deleted** |
 | `ci/full-compose-e2e-and-governance-20261031` | `000d5a4` | `f43be01` | merged via #43 | Full Compose E2E + governance docs | **deleted** |
 | `feat/mysql-full-alembic-migration` | `d44fe14` | `e647226` | merged via #44 | full 18-table migration + schema contract | **deleted** |
+| `fix/admin-distributed-security` | `886ab63` | `00b89ba` | merged via #46 | Redis limiting, revocation, trusted proxy | **deleted** |
 
 Local stale branches `docs/mark-private-env-docs-historical-20261021` and
 `fix/dependency-security-runtime-20261021` point at already-merged commits and
@@ -73,6 +75,8 @@ reliability PR is merged and no PR depends on it.
 | #42 | **MERGED** | — | branch protection documentation, merged `f43be01` |
 | #43 | **MERGED** | `000d5a4` | Full Compose E2E + governance, merged `e647226`; CI 10/10 |
 | #44 | **MERGED** | `d44fe14` | full 18-table Alembic migration, merged `6e1760c`; CI 10/10 |
+| #45 | **MERGED** | `a2d5e15` | governance ledger + ADR-009, merged `00b89ba`; CI 10/10 |
+| #46 | **MERGED** | `886ab63` | distributed security hardening, merged `ab80a55`; CI 10/10 |
 | #34/#33/#32 | MERGED | — | verify commits in master; phase branches deletable |
 | #30/#29/#28/#27/#26/#25/#23/#21/#20/#19/#18/#17/#16/#15/#14/#13/#12/#11/#9/#8/#7/#6/#4/#2/#1 | MERGED | — | no action |
 | #5 | CLOSED (draft, conflicting) | — | record; no unique asset to merge |
@@ -94,14 +98,12 @@ protection-rule details; re-check GitHub branch settings before relying on them.
 | #36 14-table MySQL migration | CLOSED | PR #44, `test_mysql_migrations.py` | completed 2026-10-31 |
 | #37 full Compose in CI | CLOSED | PR #43, Full Compose E2E | completed 2026-10-31 |
 | #38 capacity benchmarks | OPEN | local SQLite only | keep open P2 |
-| #39 distributed auth hardening | OPEN | ADR-007 trade-off | keep open P2 |
+| #39 distributed auth hardening | CLOSED | PR #46, `test_admin_security.py`, `test_admin_limits_redis.py` | completed 2026-10-31 |
 | #40 consumer-group evaluation | OPEN | ADR-009 comparison | keep open P2 |
 
-Open issues at audit time: **0**. After audit, 5 executable long-term issues
-were created (no duplicates): #36 MySQL historical migration, #37 full Compose
-in CI, #38 capacity/load benchmarks, #39 distributed rate limit/token
-revocation, #40 consumer-group ACK evaluation. Closed #10/#22/#24 were
-re-verified and commented with current master evidence; they remain closed.
+Open issues at audit time: **0**. #36/#37/#39 are now closed with evidence;
+#38 (capacity) and #40 (consumer-group evaluation) remain open P2. #10/#22/#24
+were re-verified and commented with current master evidence.
 
 ## 4. CI/CD and security snapshot
 
@@ -126,19 +128,23 @@ re-verified and commented with current master evidence; they remain closed.
 | Phase 3 | PR #31 sync/merge | **MERGED** `4d05916`; CI 9/9 (run 41120400909) |
 | Phase 4 | branch cleanup | 6 remote branches deleted; archive tag pushed; only `master` remains |
 | Phase 5 | issue governance | #36–#40 created; #10/#22/#24 re-verified/commented |
-| Phase 7 | final master verification | pytest 1085/14, coverage 81.11%; frontend 86; integration 13; CI success 41120768687 |
+| Phase 7 | final master verification | pytest 1108/27, coverage 80.91%; frontend 88; integration 26; CI success 41160889301 |
 | Phase 7 | branch protection | enabled on `master`: 10 required checks (incl. Full Compose E2E), strict, enforce admins, no force/delete |
 | Phase 1 (#43) | full Compose E2E | merged `e647226`; six services healthy, Nginx async chain, 10/10 CI |
 | Phase 2 (#44) | full MySQL migration | merged `6e1760c`; 18 tables, adopt-existing, seed no create_all, 10/10 CI |
 | Phase 3 | issue closure | #37 and #36 closed with run/SHA/test evidence; #38–#40 remain open |
-| Phase 4 | branch cleanup | `ci/full-compose...` and `feat/mysql...` deleted; only `master` remains |
+| Phase 4 | branch cleanup | `ci/full-compose...`, `feat/mysql...`, `fix/admin-distributed-security` deleted; only `master` remains |
+| Phase 8 | security merge | PR #46 merged `ab80a55`; 10/10 CI; #39 closed with tests/evidence |
+| Phase 9 | security docs | `docs/security/admin-auth-hardening.md`, ADR-007/008 updated; #38/#40 remain open |
 
 ## 6. Rollback and safety
 
 - No force push, no history rewrite, no deletion before asset check.
 - PR #43 merge `e647226c3e235d0bf7811730f7733d2a9848452c`; PR #44 merge
-  `6e1760cf1440b99029b0a8d77f1fa78350d24e32`.
-- Alembic `0002` downgrade is intentionally refused; use verified backup/restore.
+  `6e1760cf1440b99029b0a8d77f1fa78350d24e32`; PR #46 merge
+  `ab80a55e8aacbd14e42ff6a045dbf3e15197b9f2`.
+- Alembic `0002`/`0003` downgrade is intentionally refused; use verified
+  backup/restore.
 - PR #35 was merged with a **merge commit** (`b98225a69c0f3dc4e82e1763e9d9f9cad31d8e75`),
   not a linear or squash range. If a rollback is actually required, first inspect
   dependent commits, branch protection, database compatibility and current refs;
@@ -161,6 +167,8 @@ re-verified and commented with current master evidence; they remain closed.
   10/10 passed (run 41151378153). #37 was closed with that evidence.
 - PR #44 added the full 18-table MySQL Alembic baseline and merged `6e1760c`;
   master CI 10/10 passed (run 41155246215). #36 was closed with that evidence.
-- Current open issues are #38–#40. #40 has the ADR-009 technical comparison;
-  #38 and #39 remain open for measured capacity/security work.
+  PR #46 later added `20261031_0003` for token revocation; current schema is 19 tables.
+- Current open issues are #38 and #40. #39 was closed by PR #46 (Redis limiting,
+  persistent revocation, trusted proxy); #40 has ADR-009 comparison and remains
+  open until measured throughput/latency justifies a queue change.
 - No production SLA or production database migration is implied by CI tests.
