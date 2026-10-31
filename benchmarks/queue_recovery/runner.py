@@ -911,6 +911,16 @@ def _run_fault_once(
                         )
                     )
             snapshot, terminal_at, cleanup_at, pending = _wait_terminal(factory, adapter, job_id, timeout=45)
+        # Reconcile the transactional outbox after an alternative delivery
+        # path recovered the job. A terminal job must not be left looking
+        # undelivered merely because Streams/BLMOVE, not the List dispatcher,
+        # performed the successful delivery.
+        if scheme != "list" and snapshot.get("jobs") and snapshot["jobs"][0].get("status") == "SUCCEEDED":
+            from benchmarks.queue_recovery.workload import mark_dispatched
+            from benchmarks.queue_recovery.workload import snapshot as take_snapshot
+
+            mark_dispatched(factory, [job_id])
+            snapshot = take_snapshot(factory, [job_id])
         result = _base_result(
             scheme=scheme,
             scenario=scenario,
