@@ -14,6 +14,12 @@
 > GitHub Support 处理。详见 [gaobao-issue-58-remediation.md](gaobao-issue-58-remediation.md)。
 > 因此 `SECURITY_REVIEW` 与 `REPOSITORY_READY` 仍为 **BLOCKED**，`ISSUE_58_RESOLVED`
 > 为 **BLOCKED**；不得将沙盒成功或当前树干净表述为历史已清除。
+>
+> **Support-first 复核（2026-10-31 晚）：** `master@44ae6a1` 与唯一 tag 均无敏感对象；
+> 17 个敏感 commit 全部只通过 14 个 PR refs 可达，当前 forks=0，满足 GitHub 官方
+> “先清理非 PR 引用、再由 Support 处理 PR/缓存”的前提。**不需要 force push master**；
+> 应申请 Support 删除/取消引用 PR refs、执行服务端 GC 并清理缓存。Support 工单
+> 尚未提交（无授权/无门户访问），`ISSUE_58_RESOLVED` 仍为 BLOCKED。
 
 ---
 

@@ -28,7 +28,7 @@
 | `REMOTE_HISTORY_REWRITTEN` | **NO / BLOCKED** | 未 force-push、未改远端 ref |
 | `GITHUB_PR_REFS_CLEANED` | **BLOCKED** | 需 GitHub Support；普通 Git Push 不能清理 `refs/pull/*` |
 | `GITHUB_CACHE_PURGED` | **BLOCKED** | 需 GitHub Support |
-| `SUPPORT_CASE_VERIFIED` | **BLOCKED** | 无 GitHub Support #4849701 的访问/可验证进展 |
+| `SUPPORT_CASE_VERIFIED` | **BLOCKED** | 无 GitHub Support #4849701 的访问/可验证进展；Support-first 复核见 6A |
 | `FORK_RESIDUAL_RISK_REVIEWED` | **PASS** | 当前 forks=0；历史 clone/第三方副本无法保证清除 |
 | `PREVENTION_CONTROLS_ENABLED` | **PASS（PR #77 已合并）** | 文件守卫、pre-commit、CI、`.gitignore`、文档 |
 | `MASTER_CI_VERIFIED` | **PASS** | `0c7ff79` CI 13/13（run 41198100431）+ CodeQL（run 41198100449）success |
@@ -293,37 +293,140 @@ PR/commit/CI 链接失效；`refs/pull/*` 仍保留旧对象。因此**不推荐
 
 ---
 
-## 7. GitHub Support 信息草稿（未提交）
+## 6A. Support-first 实时复核与技术判断（2026-10-31 晚）
+
+### 6A.1 实时状态
+
+| 项 | 实测 |
+|---|---|
+| `master` | `44ae6a1419fcdbf3415acfaa19a7471627cd8060`（CI + CodeQL success） |
+| 普通远端 refs | 仅 `refs/heads/master` + annotated tag `archive/vue3-ts-readonly-20261030` |
+| 普通 refs 敏感对象 | **0**（master/tag 的 `rev-list --objects` 均无命中） |
+| PR refs | 66 个 `refs/pull/*/head` |
+| 受影响 PR refs | **14**（#1–#9、#11–#15） |
+| 受影响 commit | **17**；逐个验证均为全部 14 个受影响 PR ref 的祖先 |
+| 旧 commit API 可访问性 | 17/17 仍可访问 |
+| Forks | 0 |
+| Releases / Pages | 0 / disabled |
+| LFS | 不适用 |
+| 当前树敏感对象 | 0 |
+
+### 6A.2 技术判断：**不需要 Force Push**
+
+GitHub 官方文档说明：当所有 **非 PR 引用** 已清理、且没有 fork 引用敏感数据时，
+Support 可以删除/取消引用受影响的 PR、在服务端执行 GC、移除缓存视图。
+
+本仓库当前满足该前置条件：
+
+- `master` 与 tag 没有敏感对象；
+- 17 个敏感 commit 全部只通过 14 个 PR refs 可达；
+- 当前 forks = 0；
+- 敏感对象全部是 PR 历史的一部分，不是当前默认分支内容。
+
+因此**推荐保持 `master@44ae6a1` 不变**，由 Support 清理 PR refs、旧 commit 缓存和
+不可达对象；不应对当前 master 做 force-push。旧沙盒 `40989b7` 不得直接覆盖最新
+master；若 Support 要求重写，必须从当前 `44ae6a1` 重新建立隔离副本并重新验证。
+
+已知限制：Support 的政策只处理其认定为 sensitive 的数据；若 Support 认为历史数据
+非敏感或可用其他方式缓解，可能拒绝或要求进一步证明。不得假设 Support 必然删除。
+
+### 6A.3 Support 访问状态
+
+- 本环境没有 GitHub Support 门户的已认证浏览器会话，也没有可用于读取
+  Support Case 的 API/CLI。
+- `SUPPORT_TICKET_ACCESS = BLOCKED`。
+- 未读取、未更新历史工单 **#4849701**；未提交重复工单。
+- 未向外部发送任何数据或工单。
+
+### 6A.4 Support 工单草稿（可直接提交，待 owner 授权）
 
 ```text
-Repository: https://github.com/Xander-Xai/gaobao-advisor
+Subject: Request to purge sensitive historical data from PR refs and caches
+Repository: Xander-Xai/gaobao-advisor
 Issue: https://github.com/Xander-Xai/gaobao-advisor/issues/58
-Request: purge historical sensitive data from internal PR refs/caches/unreachable objects.
+Existing support case (if applicable): #4849701
 
-Sensitive data:
-- Removed SQLite databases/backups and one placeholder .env.production.
-- 21 blobs, ~386 MiB; largest ~86.5 MiB.
-- Real-looking admissions data (2022-2025) and test-like conversation rows.
-- No valid credentials confirmed.
+Summary
+-------
+A removed SQLite admissions database, two compressed SQLite backups, WAL/SHM files,
+and a placeholder .env.production were committed in early history. They are no longer
+in master or any tag, and no forks exist. They remain reachable only through 14
+historical pull request refs and cached commit views.
 
-Affected public refs:
-- refs/pull/1/head .. refs/pull/9/head, refs/pull/11/head .. refs/pull/15/head (14 PR refs).
-- refs/heads/master is clean; no release assets; no forks currently.
+Sensitive object inventory (redacted)
+-------------------------------------
+- 21 Git blobs, approximately 386.12 MiB total
+- Largest blob: 86,499,328 bytes
+- Affected commits: 17; all are ancestors of the 14 affected PR head refs
+- Affected PRs: #1, #2, #3, #4, #5, #6, #7, #8, #9, #11, #12, #13, #14, #15
+- First changed commits:
+  - 308ba5a828dac2f5f03aad2af3e115fbe0e55fa0 (2026-06-11, first database)
+  - 2e21ba8f71f99af2c6d52d7a45599f6d88eae9ff (2026-06-13, .env.production)
+  - 5278ae1b9e3d95c7098803c4c25a0a9556230eb6 (2026-06-16, 72 MiB revision)
+  - 6059d9fb4c224185069b02f7f2b8ceca8fdbdc9a / 18c35884892278d0c66387ddac692e5f641e9a7a
+    (2026-06-17, backups/corrupted database)
 
-First changed commits (UTC dates):
-- 2026-06-11 308ba5a828da (first DB)
-- 2026-06-13 2e21ba8f71f9 (.env.production)
-- 2026-06-16 5278ae1b9e3d (72 MiB DB revision)
-- 2026-06-17 6059d9f/18c3588 (backups/corrupted DB)
+Current state
+-------------
+- master: 44ae6a1419fcdbf3415acfaa19a7471627cd8060
+- master and the only tag are clean; no ordinary branch or tag references the data.
+- 0 forks, 0 releases, Pages disabled, no LFS objects.
+- A sandbox rewrite and full test/build/integration verification were completed
+  locally; no remote history rewrite or force push has been performed.
+- We want to preserve the current master history and SHA.
 
-Please purge/expire the affected PR refs, cached commit views, and unreachable Git objects
-where policy permits, and advise on remaining limitations. The current master tree is clean;
-we are not requesting repository deletion.
+Request
+-------
+Given the prerequisites in GitHub's "Removing sensitive data from a repository"
+document, please confirm whether you can directly:
+1. Dereference or delete the 14 affected PR records/refs;
+2. Run server-side garbage collection on the unreachable objects;
+3. Remove cached views and any remaining server-side copies of these objects.
+
+If direct cleanup is not possible, please state exactly which Git refs must be
+updated or which history rewrite is required first. Do not delete the repository.
+No raw database or user-message content is attached to this request.
+
+Please update case #4849701 if it is the existing case for this repository;
+otherwise advise whether a new case is appropriate.
 ```
 
-- 现有 Support 工单 **#4849701**：本环境无 Support 门户访问权限，无法验证其状态或更新；
-  不将其视为已解决。
-- 未提交新工单，避免重复；待 owner 授权后优先更新已有工单。
+### 6A.5 Support 可能答复与处置
+
+| 情况 | 处置 |
+|---|---|
+| A. Support 确认可直接清理 | 取得 owner 对具体范围的批准后提交；完成后验证 17 个 commit、14 个 PR refs、缓存视图和对象可访问性 |
+| B. Support 要求先重写 | **不得**直接推送旧沙盒 `40989b7`；从当前 `44ae6a1` 重建隔离副本，重新盘点/过滤/tree 对比/全量验证，再走审批 |
+| C. Support 拒绝或未答复 | 保持 #58 OPEN，记录原因/等待状态；不得为结案删除 Issue |
+
+只有 Support 的实际服务端清理证据才能改变 `ISSUE_58_RESOLVED`；404 或临时不可访问
+不等于对象已从所有服务端副本删除。
+
+### 6A.6 Phase 1–3 状态
+
+| 状态 | 结果 | 证据 |
+|---|---|---|
+| `SUPPORT_TICKET_ACCESS` | **BLOCKED** | 无 Support 门户认证/API；未读取 #4849701 |
+| `SUPPORT_REQUEST_PREPARED` | **PASS** | 本节英文草稿 |
+| `SUPPORT_REQUEST_SUBMITTED` | **BLOCKED** | 未获 owner 提交授权 |
+| `SUPPORT_CLEANUP_APPROVED` | **BLOCKED** | 未获 owner 清理授权 |
+| `NON_PR_REFS_CLEAN` | **PASS** | master/tag 0 敏感对象；远端仅 master+tag |
+| `PR_REFS_CLEAN` | **BLOCKED** | 14 个 PR refs 仍受影响 |
+| `GITHUB_CACHE_CLEAN` | **BLOCKED** | 需 Support |
+| `SENSITIVE_OBJECTS_UNREACHABLE` | **BLOCKED** | 17 个 commit 仍可通过 GitHub API 访问 |
+| `MASTER_INTEGRITY` | **PASS** | `44ae6a1` tree/CI 完整，未强制改写 |
+| `CI_HEALTH` | **PASS** | CI 41199412493 + CodeQL 41199412496 success |
+| `DATA_AUTHORIZATION_REVIEW` | **PARTIAL** | 已分类；院校数据授权/用户消息性质仍待 owner 确认 |
+| `ISSUE_58_RESOLVED` | **BLOCKED** | 服务端 PR refs/缓存未清理 |
+| `SECURITY_REVIEW` | **BLOCKED** | 历史对象仍可访问 |
+| `REPOSITORY_READY` | **BLOCKED** | 同上 |
+
+---
+
+## 7. GitHub Support 信息草稿位置
+
+可直接提交的英文草稿位于 **6A.4**；本节保留编号以维持既有索引。草稿未提交，
+`SUPPORT_TICKET_ACCESS=BLOCKED`，不得将草稿视为已发送。
 
 ---
 
