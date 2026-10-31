@@ -86,13 +86,15 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
         # Add nonce to <script> tags without src
         body = re.sub(
-            r"<script([^>]*)>",
+            r"<script\b([^>]*)>",
             lambda m: f'<script{m.group(1)} nonce="{nonce}">' if "src=" not in m.group(1) else f"<script{m.group(1)}>",
             body,
+            flags=re.IGNORECASE,
         )
 
-        # Add nonce to <style> tags
-        body = re.sub(r"<style([^>]*)>", f'<style\\1 nonce="{nonce}">', body)
+        # Add nonce to <style> tags (opening tags only; closing tags carry no
+        # attributes). Case-insensitive HTML is valid, so match it explicitly.
+        body = re.sub(r"<style\b([^>]*)>", f'<style\\1 nonce="{nonce}">', body, flags=re.IGNORECASE)
 
         # Update response body
         response.body = body.encode("utf-8")

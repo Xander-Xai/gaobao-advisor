@@ -36,6 +36,13 @@ python -m scripts.seed_demo_data --db data/demo.db --reset
 not carry the `SYNTHETIC_DEMO` marker, so an unmarked or rights-unclear corpus
 cannot silently masquerade as demo knowledge.
 
+## Historical commit caveat
+
+The statements above describe the **current tree**. A 72 MiB admissions database
+removed in `b222bde` is still reachable through historical commit `5278ae1` on
+the public repository; it is not synthetic and is not covered by the CC0 grant.
+See Issue #58 for the open remediation and history-purge blocker.
+
 ## What is deliberately NOT here
 
 The upstream private project contained a knowledge corpus and a quotation
