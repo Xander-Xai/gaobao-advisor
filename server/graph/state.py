@@ -19,6 +19,10 @@ class AdvisorState(TypedDict, total=False):
     slots: dict
     profile_snapshot: dict
     missing_fields: list[str]
+    # Soul-query counter and already-asked fields. Persisted inside
+    # Conversation.slots_json; it must be a declared channel or LangGraph
+    # drops it between nodes.
+    _query_state: dict
 
     # ── Quality pipeline ───────────────────────────────────────
     emotion_state: str

@@ -3,6 +3,7 @@
     <div :class="['max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
       message.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm']">
       <div v-html="renderedContent" />
+      <StructuredCard v-if="message.structured" :card="message.structured" />
       <!-- stream metadata: errors, degradation, retrieval sources -->
       <div
         v-if="message.error || message.incomplete || message.degraded || (message.sources && message.sources.length) || (message.ragStatus && message.ragStatus.state === 'NO_EVIDENCE')"
@@ -43,6 +44,7 @@
 import { ref, computed } from 'vue'
 import { renderMarkdown } from '../../utils/sanitize'
 import { feedbackAPI, highlightAPI } from '../../api/client'
+import StructuredCard from './StructuredCard.vue'
 
 const props = defineProps({ message: Object })
 const feedback = ref(null)

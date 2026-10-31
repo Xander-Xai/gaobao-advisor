@@ -16,6 +16,7 @@ from server.auth import create_session_token, require_session_auth, verify_sessi
 from server.graph.graph import get_advisor_graph
 from server.graph.nodes.llm_node import llm_node_stream
 from server.graph.nodes.render import _DISCLAIMER
+from slots.persistence import extract_query_state, flatten_slots
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,34 @@ class ChatRequest(BaseModel):
     slots: dict | None = None
 
 
+def _load_chat_state(session_id: str, provided_slots: dict | None) -> tuple[dict, dict]:
+    """Load persisted slots/query state and flatten them for the graph.
+
+    The database is the source of truth for an authenticated session. Client
+    slots only fill keys the database does not know yet, which keeps a stale
+    browser tab from overwriting a profile edited through ``/api/v1/profile``.
+    """
+    from db.crud import load_conversation_slots
+    from db.database import get_session
+
+    stored: dict = {}
+    db = None
+    try:
+        db = get_session()
+        stored = load_conversation_slots(db, session_id) or {}
+    except Exception:
+        logger.warning("Could not load persisted slots for session %s", session_id, exc_info=True)
+    finally:
+        if db is not None:
+            db.close()
+
+    slots = flatten_slots(stored)
+    for key, value in (provided_slots or {}).items():
+        if key not in slots and value not in (None, "", False):
+            slots[key] = value
+    return slots, extract_query_state(stored)
+
+
 async def _sse_generator(
     session_id: str,
     scene: str,
@@ -51,14 +80,17 @@ async def _sse_generator(
     on subsequent requests (profile/voice endpoints).
     """
     graph = get_advisor_graph()
+    persisted_slots, query_state = await asyncio.to_thread(_load_chat_state, session_id, existing_slots)
     initial_state = {
         "session_id": session_id,
         "input_text": message,
         "scene": scene,
-        "slots": existing_slots or {},
+        "slots": persisted_slots,
         "messages": [],
         "trace": [],
     }
+    if query_state:
+        initial_state["_query_state"] = query_state
 
     # Phase 1: Run graph (synchronous, offloaded to thread)
     try:

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Response
 from db.database import is_db_connected
 from server import __version__
 from server.services import rag
+from server.services.data_profile import current_data_profile
 
 router = APIRouter(tags=["health"])
 
@@ -83,7 +84,7 @@ async def health_check():
         "status": "ok" if db_status == "connected" else "degraded",
         "version": __version__,
         "database": db_status,
-        "data_profile": "SYNTHETIC_DEMO",
+        "data_profile": current_data_profile(),
         "optional_services": optional_services,
         "degraded_services": degraded,
     }

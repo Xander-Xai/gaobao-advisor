@@ -24,8 +24,9 @@ curl -X POST http://localhost:8000/api/v1/knowledge/search \
   -d '{"query":"平行志愿的投档规则是什么"}'
 ```
 
-预期健康检查中的 `data_profile` 为 `SYNTHETIC_DEMO`，知识检索状态为
-`RAG_ENABLED`（`documents`/`chunks` 为随仓合成语料数量，`integrity_ok=true`）。
+Docker 首次启动会生成合成库，预期 `data_profile` 为 `SYNTHETIC_DEMO`；
+直接用空 SQLite 启动时如实显示 `EMPTY`。知识检索状态应为 `RAG_ENABLED`
+（`documents`/`chunks` 为随仓合成语料数量，`integrity_ok=true`）。
 院校列表来自程序合成的数据，检索证据来自仓库自带的**原创合成语料**，
 均不对应真实招生结果。
 

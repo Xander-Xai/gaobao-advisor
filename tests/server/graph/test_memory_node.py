@@ -28,7 +28,15 @@ def test_memory_node_persists_conversation(mock_get_session, mock_create, mock_s
 
     mock_create.assert_called_once_with(mock_db, "test-session-001")
     assert mock_save_msg.call_count == 2
-    mock_save_slots.assert_called_once_with(mock_db, "test-session-001", state["slots"])
+    mock_save_slots.assert_called_once_with(
+        mock_db,
+        "test-session-001",
+        {
+            "province": {"value": "湖北", "filled": True},
+            "subject": {"value": "物理", "filled": True},
+            "score_rank": {"value": "580分", "filled": True},
+        },
+    )
     mock_db.close.assert_called_once()
     assert result["trace"][-1]["event"] == "persisted"
 

@@ -141,7 +141,7 @@ class TestRagNodeSurface:
         payload = asyncio.run(health_check())
         assert payload["optional_services"]["rag"]["state"] == "RAG_ENABLED"
         assert payload["optional_services"]["rag"]["documents"] >= 1
-        assert payload["data_profile"] == "SYNTHETIC_DEMO"
+        assert payload["data_profile"] in {"SYNTHETIC_DEMO", "EMPTY"}
 
 
 class TestEnvironmentHonesty:

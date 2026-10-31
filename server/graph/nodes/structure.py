@@ -38,6 +38,7 @@ def structure_output_node(state: dict[str, Any]) -> dict[str, Any]:
         suggestions = _extract_suggestions(scene, data, reasoning)
         risks = _extract_risks(scene, data, slots)
         next_actions = _extract_next_actions(scene, slots, data)
+        sources = _extract_sources(data, state.get("rag_sources", []))
         summary = _build_summary(scene, slots, data)
 
         filled_count = len([v for v in slots.values() if v])
@@ -52,6 +53,7 @@ def structure_output_node(state: dict[str, Any]) -> dict[str, Any]:
             suggestions=suggestions,
             risks=risks,
             next_actions=next_actions,
+            sources=sources,
             confidence=confidence,
         )
         structured = card.model_dump()
@@ -127,6 +129,28 @@ def _extract_suggestions(scene: str, data: dict, reasoning: str) -> list[str]:
         suggestions.append("建议补充更多信息以获得精准推荐")
 
     return suggestions
+
+
+def _extract_sources(data: dict, rag_sources: list[dict] | None) -> list[str]:
+    """Collect traceable origins for the facts in this card."""
+    sources: list[str] = []
+    for school in data.get("match_schools", [])[:5]:
+        source = school.get("data_source")
+        if source and source not in sources:
+            sources.append(str(source))
+    rank = data.get("rank_info")
+    if isinstance(rank, dict):
+        source = rank.get("source")
+        if source and source not in sources:
+            sources.append(str(source))
+    for citation in rag_sources or []:
+        if isinstance(citation, dict):
+            source = citation.get("source") or citation.get("section_title")
+            if source and source not in sources:
+                sources.append(str(source))
+    if not sources:
+        sources.append("SYNTHETIC_DEMO 合成演示数据（无真实招生来源）")
+    return sources
 
 
 def _extract_risks(scene: str, data: dict, slots: dict) -> list[str]:
