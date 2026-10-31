@@ -86,7 +86,7 @@ jobs:
         run: |
           MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset=utf8mb4' \
           REDIS_TEST_URL='redis://127.0.0.1:6380/0' \
-            python -m pytest tests/test_admin_mysql.py tests/test_mysql_migrations.py tests/test_admin_limits_redis.py tests/test_redis_worker.py tests/test_worker_integration.py \
+            python -m pytest tests/test_admin_mysql.py tests/test_mysql_migrations.py tests/test_admin_limits_redis.py tests/test_redis_worker.py tests/test_worker_integration.py tests/test_queue_recovery.py \
               -q --no-header --no-cov
       - name: Admin login -> quality job -> review -> audit smoke
         run: python scripts/admin_smoke.py
@@ -111,6 +111,20 @@ jobs:
           assert result["index_experiment"]["after"]["audit_page_1"]["samples"] == 3
           assert result["concurrency"]["error_rate"] == 0
           print("benchmark smoke ok")
+          PY
+      - name: Queue recovery smoke
+        run: |
+          MYSQL_BENCH_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_benchmark?charset=utf8mb4' \
+          REDIS_BENCH_URL='redis://127.0.0.1:6380/0' \
+            python -m benchmarks.queue_recovery.runner \
+              --suite fault --schemes list --scenarios published_not_consumed duplicate_delivery \
+              --repeats 1 --json-out /tmp/queue-recovery-smoke.json
+          python - <<'PY'
+          import json
+          result = json.load(open("/tmp/queue-recovery-smoke.json"))
+          assert result["faults"], "no queue recovery results"
+          assert all(row["status"] == "PASS" for row in result["faults"]), result["faults"]
+          print("queue recovery smoke ok")
           PY
 
   full-compose-e2e:

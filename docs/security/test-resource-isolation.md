@@ -98,7 +98,7 @@ worker benchmark explicitly opts in.
 
 ```bash
 make test-integration
-# 27 passed: MySQL 8 + Redis limiter 11 + Redis worker 3 + dual-worker 5
+# 33 passed: MySQL 8 + Redis limiter 11 + Redis worker 3 + dual-worker 5 + queue adapters 6
 
 pytest tests/test_mysql_guard.py tests/test_benchmark_guard.py -q
 pytest tests/test_admin_limits_redis.py -q

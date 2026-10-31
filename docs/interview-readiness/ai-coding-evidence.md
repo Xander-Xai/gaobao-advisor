@@ -232,7 +232,7 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1112 passed, 28 skipped**，覆盖率 **80.91%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1132 passed, 34 skipped**，覆盖率 **80.91%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
 | `pytest tests/test_migrations.py` | **5 passed** |
@@ -247,7 +247,7 @@ cd frontend && npm test -- --run && npm run build
 | 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
 | MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
-| `make test-integration` | **27 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5） |
+| `make test-integration` | **33 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5 + Queue recovery 6） |
 | 全量迁移（MySQL 8.4） | 19 表 upgrade / 重复 upgrade / seed 无 create_all / adopt 数据保留 |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
