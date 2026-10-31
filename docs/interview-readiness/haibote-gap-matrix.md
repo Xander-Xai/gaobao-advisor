@@ -49,7 +49,7 @@
 | 5b | 单元测试 | 1010 pytest + 70 vitest；覆盖 80%+ | ALREADY_VERIFIED | `tests/`、`frontend/src/**/__tests__`、CI test/frontend job | 新增模块需同等覆盖 |
 | 5c | Bug 排查 / Code Review | 历史 PR 有修复记录；无本轮新增证据 | PARTIAL | `git log`、PR #26/#27/#28 | Phase 1-3 需留下实际失败/修复记录 |
 | 6a | 技术文档 | README/SPEC/TUTORIAL/ADR 齐全 | ALREADY_VERIFIED | `README.md`、`SPEC.md`、`docs/superpowers/adr/*` | 需补运营后台/双数据库/队列/面试讲解 |
-| 6b | 性能优化 | 有 cursor pagination、WAL、joinedload；但无本轮实测基准 | PARTIAL | `db/pagination.py`、`docs/superpowers/adr/ADR-003-sqlite-wal-joinedload.md` | Phase 3 需可复现测量，不能只写结论 |
+| 6b | 性能优化 | 有 cursor pagination、WAL、joinedload；MySQL 8.4 基准与审计索引 Before/After 已完成 | **PASS（本机）** | `benchmarks/`、`docs/performance/mysql-benchmark.md` | 仅本机合成数据，不声称生产 SLA |
 | 6c | 兼容性 / 规范化交付 | CI 有 lint/test/secret/security/frontend/container/redistribution | ALREADY_VERIFIED | `.github/workflows/ci.yml:16-181` | 需加入 typecheck、MySQL/Redis 集成、admin smoke |
 | 7 | 医疗文本 / GCP / 临床方案 | 无医疗业务、无 GCP、无临床方案 | NOT_APPLICABLE | 全局无医疗模块 | 不在高考项目伪造医疗经历；用独立项目展示 |
 
@@ -150,7 +150,7 @@
 
 实测结果：
 
-- Python：**1108 passed / 27 skipped**，覆盖率 **80.91%**（门禁 70%）。
+- Python：**1112 passed / 28 skipped**，覆盖率 **80.91%**（门禁 70%）。
 - 前端：**14 files / 88 tests passed**；`vue-tsc`、`vite build` 通过。
 - MySQL 8.4：`tests/test_admin_mysql.py` **5 passed**（建表、列表/详情、质检+审核事务、回滚、崩溃窗口补偿）。
 - Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
@@ -188,8 +188,8 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
   ADMIN_TOKEN_SECRET 三种负控制均 fail-closed；有效配置健康启动并 admin 登录成功。
 - full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
 
-最终本地结果：Python **1108 passed / 27 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
-`make test-integration` **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5）；CI **10/10 job 通过**
+最终本地结果：Python **1112 passed / 28 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
+`make test-integration` **27 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5）；CI **10/10 job 通过**
 （[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
 
 全量 19 表迁移已完成（见 §10）；仍未声称生产 SLA/容量、真实招生数据质量。
@@ -208,8 +208,8 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
 | MySQL 秒级精度 | 新 Outbox `next_attempt_at` 被向上取整，误报 UNAVAILABLE | `pending_outbox` 增加 1 秒调度容差 | 双 Worker MySQL 集成测试立即投递 | **PASS** |
 | MySQL 短暂不可用 | Worker 健康检查只看 Redis | 健康检查同时验证 MySQL+Redis；API readiness 503、创建任务 500、恢复后成功 | full profile 故障注入 | **PASS** |
 
-最终结果：Python **1108 passed / 27 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
-集成 **26 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。
+最终结果：Python **1112 passed / 28 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
+集成 **27 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。
 
 ## 10. 2026-10-31 MySQL 全量 Alembic 迁移（Issue #36）
 
@@ -240,3 +240,20 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
 
 边界：无 MFA/OIDC/刷新令牌；`sessionStorage` 仍受 XSS 影响；Redis 单区域；
 撤销表按过期清理，无后台调度；生产容量/SLA 仍未验证。
+
+## 12. 2026-10-31 MySQL / Worker 基准（Issue #38）
+
+| 验收项 | 实际证据 | 状态 |
+|---|---|---|
+| 可配置一键基准 | `benchmarks/mysql_admin_benchmark.py`、`benchmarks/worker_throughput.py`；`make benchmark-mysql` / `benchmark-worker`；CI smoke | **PASS** |
+| p50/p95/p99、吞吐、错误率 | Medium/Large 报告与 `docs/performance/results/*.json`；并发 1/5/10/20/50，错误率 0 | **PASS** |
+| 资源使用 | Worker 4 进程：MySQL 41.75% CPU / 897 MiB，Redis 0.71% / 3.5 MiB；Admin 采样 MySQL 36.76% / 448 MiB | **PASS** |
+| 慢 SQL/索引 Before/After | 审计 `created_at` 索引：第一页 p95 **56.292→13.336 ms**，深页 **124.298→59.143 ms**；jobs 索引实测未被使用，未采用 | **PASS** |
+| 环境/边界 | MySQL 8.4.13 / Redis 7.4.9 / Python 3.11.15 / WSL2；合成数据、Repository SQL、无 HTTP、无生产 SLA | **PASS** |
+
+- 并发 p95：1/5/10/20/50 = 6.965/22.974/70.476/261.167/560.252 ms；
+  吞吐约 120/306/244/285/287 calls/s，默认连接池 5+10 是高并发瓶颈。
+- Worker：1/2/4 进程第二轮约 2.8/4.3/8.9 jobs/s；4 Worker/100 jobs/1k 校为
+  5.15 jobs/s，0 失败/重试。
+- 结论：Issue #38 **PASS**；Issue #40 仍 **OPEN**，List+Outbox 的恢复延迟与
+  重复率尚未做 Streams/processing-list 对比，不把本轮吞吐数据当作替换依据。

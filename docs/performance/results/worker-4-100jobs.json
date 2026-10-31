@@ -1,0 +1,20 @@
+{
+  "scenarios": [
+    {
+      "workers": 4,
+      "jobs": 100,
+      "completed": 100,
+      "succeeded": 100,
+      "failed": 0,
+      "retries": 0,
+      "elapsed_s": 19.414,
+      "jobs_per_s": 5.151,
+      "queue_wait_p95_s": 20.0,
+      "execution_p95_s": 1.0,
+      "end_to_end_p95_s": 20.0,
+      "error_rate": 0.0,
+      "db_threads_connected": "2",
+      "timestamp_precision_note": "MySQL DATETIME is second precision; wait/exec p95 are coarse"
+    }
+  ]
+}

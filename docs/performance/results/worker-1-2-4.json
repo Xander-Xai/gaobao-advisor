@@ -1,0 +1,52 @@
+{
+  "scenarios": [
+    {
+      "workers": 1,
+      "jobs": 50,
+      "completed": 50,
+      "succeeded": 50,
+      "failed": 0,
+      "retries": 0,
+      "elapsed_s": 17.594,
+      "jobs_per_s": 2.842,
+      "queue_wait_p95_s": 17.0,
+      "execution_p95_s": 1.0,
+      "end_to_end_p95_s": 18.0,
+      "error_rate": 0.0,
+      "db_threads_connected": "3",
+      "timestamp_precision_note": "MySQL DATETIME is second precision; wait/exec p95 are coarse"
+    },
+    {
+      "workers": 2,
+      "jobs": 50,
+      "completed": 50,
+      "succeeded": 50,
+      "failed": 0,
+      "retries": 0,
+      "elapsed_s": 11.671,
+      "jobs_per_s": 4.284,
+      "queue_wait_p95_s": 15.0,
+      "execution_p95_s": 1.0,
+      "end_to_end_p95_s": 15.0,
+      "error_rate": 0.0,
+      "db_threads_connected": "2",
+      "timestamp_precision_note": "MySQL DATETIME is second precision; wait/exec p95 are coarse"
+    },
+    {
+      "workers": 4,
+      "jobs": 50,
+      "completed": 50,
+      "succeeded": 50,
+      "failed": 0,
+      "retries": 0,
+      "elapsed_s": 5.611,
+      "jobs_per_s": 8.912,
+      "queue_wait_p95_s": 6.0,
+      "execution_p95_s": 1.0,
+      "end_to_end_p95_s": 6.0,
+      "error_rate": 0.0,
+      "db_threads_connected": "2",
+      "timestamp_precision_note": "MySQL DATETIME is second precision; wait/exec p95 are coarse"
+    }
+  ]
+}

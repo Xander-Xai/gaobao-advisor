@@ -1,7 +1,7 @@
 PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python3 || command -v python; fi)
 
-.PHONY: install install-dev install-legacy-admin test test-cov test-admin test-integration lint lint-fix \
-        format typecheck smoke-admin verify-prod-compose run run-api run-worker admin-env audit-deps lock clean help
+.PHONY: install install-dev install-legacy-admin test test-cov test-admin test-integration benchmark-mysql benchmark-worker \
+        lint lint-fix format typecheck smoke-admin verify-prod-compose run run-api run-worker admin-env audit-deps lock clean help
 
 help:  ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -23,6 +23,12 @@ test-cov:  ## 运行测试（含覆盖率）
 
 test-admin:  ## 运行运营后台测试
 	$(PYTHON) -m pytest tests/test_admin_*.py -q --no-header
+
+benchmark-mysql:  ## 在专属 MySQL benchmark 库运行管理查询基准
+	$(PYTHON) -m benchmarks.mysql_admin_benchmark --mysql-url "$${MYSQL_BENCH_URL:?set MYSQL_BENCH_URL}" --json-out docs/performance/results/medium-admin.json
+
+benchmark-worker:  ## 运行 1/2/4 Worker 吞吐基准
+	$(PYTHON) -m benchmarks.worker_throughput --mysql-url "$${MYSQL_BENCH_URL:?set MYSQL_BENCH_URL}" --redis-url "$${REDIS_BENCH_URL:?set REDIS_BENCH_URL}" --workers 1 2 4 --json-out docs/performance/results/worker-1-2-4.json
 
 test-integration:  ## 用一次性 MySQL 8.4 + Redis 7 容器运行真实集成测试
 	@set -eu; \

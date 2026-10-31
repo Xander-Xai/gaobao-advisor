@@ -90,6 +90,28 @@ jobs:
               -q --no-header --no-cov
       - name: Admin login -> quality job -> review -> audit smoke
         run: python scripts/admin_smoke.py
+      - name: MySQL benchmark smoke
+        run: |
+          python - <<'PY'
+          import pymysql
+          connection = pymysql.connect(host="127.0.0.1", port=3307, user="root", password="testroot")
+          with connection.cursor() as cursor:
+              cursor.execute("CREATE DATABASE IF NOT EXISTS gaobao_benchmark")
+          connection.commit()
+          connection.close()
+          PY
+          MYSQL_BENCH_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_benchmark?charset=utf8mb4' \
+            python -m benchmarks.mysql_admin_benchmark \
+              --schools 100 --scores-per-school 2 --audit-rows 500 --job-rows 20 \
+              --concurrency 2 --warmup 1 --repeat 3 --json-out /tmp/benchmark-smoke.json
+          python - <<'PY'
+          import json
+          result = json.load(open("/tmp/benchmark-smoke.json"))
+          assert result["workloads"]["schools_page_1"]["samples"] == 3
+          assert result["index_experiment"]["after"]["audit_page_1"]["samples"] == 3
+          assert result["concurrency"]["error_rate"] == 0
+          print("benchmark smoke ok")
+          PY
 
   full-compose-e2e:
     name: Full Compose E2E

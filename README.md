@@ -358,14 +358,17 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1108 passed / 27 skipped**，覆盖率 **80.91%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1112 passed / 28 skipped**，覆盖率 **80.91%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
 | `vitest run`（frontend）| **14 files / 88 tests passed**；`npm run build` 通过 |
-| `make test-integration` | **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5）|
+| `make test-integration` | **27 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5）|
+| `pytest tests/test_mysql_guard.py` | **4 passed**（测试库命名/标记/与业务库隔离）|
+| `MYSQL_BENCH_URL=... python -m benchmarks.mysql_admin_benchmark` | Medium 2k 校 / 50k 审计；审计第一页 p95 **56.3→13.3 ms**（索引前后）|
+| `... benchmarks.worker_throughput --workers 1 2 4` | 4 Worker ~**8.9 jobs/s**（50 jobs，500 校；0 error）|
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
 | `MYSQL_TEST_URL=... pytest tests/test_mysql_migrations.py` | 3 passed（全量 19 表、seed 无 create_all、adopt 数据保留、drift 拒绝）|
@@ -376,13 +379,14 @@ ruff check . && ruff format --check .
 | 租约/Fencing/耗尽 | 旧 Worker `EXECUTION_FENCED`；max_attempts=1/3 均正确终态 |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 缺失 env 文件 / 缺 SESSION_SECRET / 缺 ADMIN_TOKEN_SECRET 均 fail-closed；有效配置启动并 admin 登录成功 |
 | `pytest tests/test_admin_security.py` | 20 passed（撤销/幂等/过期边界/可信代理/503）|
-| `REDIS_TEST_URL=... pytest tests/test_admin_limits_redis.py` | 10 passed（Lua 原子、100 并发、双客户端/双进程、TTL、Redis flush 后撤销仍有效）|
+| `REDIS_TEST_URL=... pytest tests/test_admin_limits_redis.py` | 11 passed（Lua 原子、100 并发、双客户端/双进程、TTL、Redis flush 后撤销仍有效）|
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
 | gitleaks（CI Secret Scan，full history） | **通过** |
 
-> 上述数字来自本机实际运行输出。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
+> 上述数字来自本机实际运行输出。MySQL/Worker 基准的完整环境、数据集、并发等级、
+> 资源采样和限制见 `docs/performance/mysql-benchmark.md`。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
 > 生产 Compose 测试只使用临时生成且已删除的测试凭据。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
