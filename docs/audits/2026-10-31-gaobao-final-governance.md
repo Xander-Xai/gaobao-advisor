@@ -1,3 +1,5 @@
+> **Public-product addendum (2026-10-31):** the public README, data explorer and architecture release is recorded in [2026-10-31-public-product-release.md](2026-10-31-public-product-release.md). Issue #58 remains OPEN / ACCEPTED_RISK; the historical object is not claimed as purged or licensed.
+
 # gaobao-advisor 最终治理与可靠性验收报告
 
 - **日期**：2026-10-31（Asia/Shanghai）
