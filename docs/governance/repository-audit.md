@@ -7,7 +7,10 @@
 > evidence in `docs/audits/gaobao-issue-58-remediation.md`),
 > **13 required checks** (original 10 + CodeQL), secret scanning/push protection
 > and Dependabot security updates enabled, CodeQL **0 open alerts**. Do not reuse
-> the earlier "0 open issues / 10 checks" snapshot as current.
+> the earlier "0 open issues / 10 checks" snapshot as current. Issue #58
+> Support-first recheck: non-PR refs are clean; the 17 sensitive commits are
+> reachable only through 14 PR refs; no force push is required. Support request
+> remains unsubmitted pending owner authorization.
 >
 > Scope: `Xander-Xai/gaobao-advisor`, default branch `master`.
 > This ledger records the state found in Phase 0, the asset decision, and the
