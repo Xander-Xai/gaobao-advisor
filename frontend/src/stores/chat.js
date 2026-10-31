@@ -38,13 +38,21 @@ export const useChatStore = defineStore('chat', () => {
     let doneReceived = false
     // Metadata may arrive before the first token (sources/rag_status) — buffer
     // it and fold it onto the assistant message once it exists.
-    const pending = { sources: null, ragStatus: null, degraded: false, qualityGrade: null, rewritten: false }
+    const pending = {
+      sources: null,
+      ragStatus: null,
+      structured: null,
+      degraded: false,
+      qualityGrade: null,
+      rewritten: false,
+    }
 
     const findAssistant = () => messages.value[messages.value.length - 1]
     const applyPendingMeta = msg => {
       if (!msg || msg.role !== 'assistant') return
       if (pending.sources) msg.sources = pending.sources
       if (pending.ragStatus) msg.ragStatus = pending.ragStatus
+      if (pending.structured) msg.structured = pending.structured
       if (pending.degraded) msg.degraded = true
       if (pending.qualityGrade !== null) msg.qualityGrade = pending.qualityGrade
       if (pending.rewritten) msg.rewritten = true
@@ -88,6 +96,11 @@ export const useChatStore = defineStore('chat', () => {
         pending.rewritten = event.rewritten || false
         const last = findAssistant()
         if (last?.role === 'assistant') last.qualityGrade = pending.qualityGrade
+      } else if (event.type === 'structured') {
+        // Backend emits this before the first token. Buffer it until an
+        // assistant bubble exists, then fold it onto that message.
+        pending.structured = event.result || null
+        applyPendingMeta(findAssistant())
       } else if (event.type === 'sources') {
         pending.sources = Array.isArray(event.data) ? event.data : []
         applyPendingMeta(findAssistant())

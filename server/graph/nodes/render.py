@@ -33,6 +33,7 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
     scene = state.get("scene", "general")
     slots = state.get("slots", {})
     structured = state.get("structured_result", {})
+    data = state.get("data_query_results", {}) or {}
     reasoning = state.get("reasoning", "")
 
     parts = []
@@ -54,21 +55,35 @@ def render_reply_node(state: dict[str, Any]) -> dict[str, Any]:
         header += "），我为您分析如下："
         parts.append(header)
 
-        matched = structured.get("matched_schools", [])
+        # ``structure_output`` produces facts/suggestions; the raw matched
+        # schools stay in data_query_results. Read both so the offline
+        # template is as useful as the structured card, not just a header.
+        matched = data.get("match_schools") or structured.get("matched_schools") or []
         if matched:
-            parts.append("\n推荐院校：")
-            for i, s in enumerate(matched[:5], 1):
-                name = s.get("name", "")
-                line = s.get("score_line", "")
-                parts.append(f"{i}. {name}（录取线参考：{line}分）")
+            parts.append("\n推荐院校（来自合成招生数据）：")
+            for i, school in enumerate(matched[:5], 1):
+                name = school.get("school_name") or school.get("name", "")
+                line = school.get("min_score") or school.get("score_line") or ""
+                level = school.get("school_level") or ""
+                level_text = f"，{level}" if level else ""
+                line_text = f"，参考线{line}分" if line else ""
+                parts.append(f"{i}. {name}{level_text}{line_text}")
 
-        rank = structured.get("rank_analysis")
+        rank = data.get("rank_info") or structured.get("rank_analysis")
         if rank:
-            parts.append(f"\n分数位次分析：{rank}")
+            rank_text = rank.get("rank") if isinstance(rank, dict) else rank
+            if rank_text:
+                parts.append(f"\n分数位次分析：位次约{rank_text}")
 
-        major = structured.get("major_analysis")
+        major = data.get("major_info") or structured.get("major_analysis")
         if major and isinstance(major, dict):
             parts.append(f"\n专业信息：{major.get('description', str(major)[:200])}")
+
+        sources = structured.get("sources") or []
+        if sources:
+            parts.append("\n数据与知识来源：")
+            for source in sources[:5]:
+                parts.append(f"- {source}")
 
     elif scene == "kaoyan":
         interest = slots.get("interest", "")
