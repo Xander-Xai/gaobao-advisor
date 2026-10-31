@@ -18,15 +18,57 @@ import re
 from urllib.parse import urlsplit
 
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 
 MARKER_TABLE = "_gaobao_test_ownership"
 EXPECTED_OWNER = "gaobao-test-suite"
+EXTRA_OWNED_TABLES = frozenset({MARKER_TABLE, "alembic_version"})
 _TEST_DB_RE = re.compile(r"(?:^|[_-])test(?:$|[_-])", re.IGNORECASE)
 
 
 def _database_name(url: str) -> str:
     return urlsplit(url).path.lstrip("/").split("/", 1)[0].split("?", 1)[0]
+
+
+def project_tables() -> frozenset[str]:
+    from db.models import Base
+
+    return frozenset(Base.metadata.tables) | EXTRA_OWNED_TABLES
+
+
+def assert_engine_target(engine: Engine, url: str) -> None:
+    expected = make_url(url)
+    actual = engine.url
+    if actual.get_backend_name() != expected.get_backend_name():
+        raise RuntimeError(
+            f"refusing destructive test: connection backend {actual.get_backend_name()!r} "
+            f"does not match {expected.get_backend_name()!r}"
+        )
+    if actual.database != expected.database:
+        raise RuntimeError(
+            f"refusing destructive test: connection database {actual.database!r} does not match {expected.database!r}"
+        )
+    if (actual.host or "") != (expected.host or ""):
+        raise RuntimeError(
+            f"refusing destructive test: connection host {actual.host!r} does not match {expected.host!r}"
+        )
+    if (actual.port or 3306) != (expected.port or 3306):
+        raise RuntimeError(
+            f"refusing destructive test: connection port {actual.port!r} does not match {expected.port!r}"
+        )
+
+
+def assert_only_owned_tables(
+    engine: Engine,
+    *,
+    allowed_tables: frozenset[str] | set[str] | None = None,
+) -> None:
+    allowed = project_tables() if allowed_tables is None else frozenset(allowed_tables)
+    unknown = set(inspect(engine).get_table_names()) - allowed
+    if unknown:
+        raise RuntimeError(
+            f"refusing destructive test: database contains assets outside test ownership: {sorted(unknown)}"
+        )
 
 
 def assert_safe_test_url(url: str) -> None:
@@ -59,12 +101,22 @@ def validate_test_marker(engine: Engine, *, expected_owner: str = EXPECTED_OWNER
         )
 
 
-def ensure_test_database(engine: Engine, url: str, *, expected_owner: str = EXPECTED_OWNER) -> None:
+def ensure_test_database(
+    engine: Engine,
+    url: str,
+    *,
+    expected_owner: str = EXPECTED_OWNER,
+    verify_target: bool = True,
+    allowed_tables: frozenset[str] | set[str] | None = None,
+) -> None:
     """Validate ownership and create the marker on an empty test database."""
     assert_safe_test_url(url)
+    if verify_target:
+        assert_engine_target(engine, url)
     tables = set(inspect(engine).get_table_names())
     if MARKER_TABLE in tables:
         validate_test_marker(engine, expected_owner=expected_owner)
+        assert_only_owned_tables(engine, allowed_tables=allowed_tables)
         return
     if tables:
         raise RuntimeError(
