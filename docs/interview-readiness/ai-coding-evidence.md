@@ -204,7 +204,7 @@ cd frontend && npm test -- --run && npm run build
 - 修复：Redis Lua 原子滑动窗口（IP+身份）、持久化 jti 撤销表 + logout、可信代理
   右向左解析、Redis 不可用 503 / 生产 memory 启动失败。
 - 证据：`test_admin_security.py` 20 passed；真实 Redis `test_admin_limits_redis.py`
-  10 passed（100 并发、双客户端、双进程、TTL、Redis flush 后撤销仍有效）；
+  11 passed（100 并发、双客户端、双进程、TTL、Redis flush 后撤销仍有效）；
   full Compose E2E 覆盖 logout/撤销后 401。
 
 ### 过程阻塞：OAuth token 缺 workflow scope
@@ -232,11 +232,13 @@ cd frontend && npm test -- --run && npm run build
 
 | 命令 | 结果 |
 |---|---|
-| `pytest tests -q --no-header --cov-fail-under=70` | **1108 passed, 27 skipped**，覆盖率 **80.91%** |
+| `pytest tests -q --no-header --cov-fail-under=70` | **1112 passed, 28 skipped**，覆盖率 **80.91%** |
 | `REDIS_TEST_URL=... pytest tests/test_redis_worker.py` | **3 passed**（真实 Redis 7） |
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | **5 passed**（真实 MySQL 8.4） |
-| `pytest tests/test_migrations.py` | **2 passed** |
+| `pytest tests/test_migrations.py` | **5 passed** |
 | `pytest tests/test_database_modes.py` | **7 passed** |
+| `pytest tests/test_mysql_guard.py` | **4 passed**（隔离守卫） |
+| MySQL/Worker benchmark | 审计索引 p95 56.3→13.3 ms；4 Worker ~8.9 jobs/s |
 | `cd frontend && npm test -- --run` | `vue-tsc` + **14 files / 88 tests passed** |
 | `cd frontend && npm run build` | 通过 |
 | `ruff check .` / `ruff format --check .` | 通过 |
@@ -245,7 +247,7 @@ cd frontend && npm test -- --run && npm run build
 | 真实双 Worker（2 processes / 3 jobs） | issues 15 = SUM(issue_count)，每 job succeeded 审计 1 次 |
 | MySQL 短暂不可用 | `/health/ready` 503、创建任务 500；恢复后 202 → SUCCEEDED |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 3 个负控制 fail-closed；有效配置启动 + admin 登录成功 |
-| `make test-integration` | **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5） |
+| `make test-integration` | **27 passed**（MySQL 8 + Redis 限流 11 + Redis Worker 3 + 双 Worker 5） |
 | 全量迁移（MySQL 8.4） | 19 表 upgrade / 重复 upgrade / seed 无 create_all / adopt 数据保留 |
 | 默认 `docker compose up`（SQLite） | healthy；`/admin` 200；inline 质检落库并审核 |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |

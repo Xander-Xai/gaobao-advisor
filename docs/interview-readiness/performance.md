@@ -141,3 +141,26 @@ docker compose --env-file .env.full \
 - Redis 单实例，没有集群/高可用；BRPOP 丢消息靠补偿扫描，不是 Redis 消费组确认；
 - at-least-once 语义允许重复投递；恢复延迟受 60 秒投递租约和 30 秒扫描周期影响；
 - 所有数字来自本机临时 SQLite，不代表真实招生数据规模。
+
+## 9. MySQL 8.4 benchmark (2026-10-31)
+
+Full report and raw JSON: `docs/performance/mysql-benchmark.md` and
+`docs/performance/results/`.
+
+- Environment: MySQL 8.4.13, Redis 7.4.9, Python 3.11.15, WSL2,
+  i5-14600KF / 20 logical CPUs / ~16 GB RAM.
+- Medium: 2,000 schools / 10k scores / 50k audits / 2k jobs.
+  - schools page 1 p95 5.496 ms; detail 13.253 ms; quality scan 135.000 ms.
+  - audit page 1 p95 12.251 ms; audit deep page (OFFSET 19,980) 74.416 ms.
+- Concurrency 1/5/10/20/50: p95 6.965 / 22.974 / 70.476 / 261.167 / 560.252 ms;
+  wall throughput plateau ~285/s; errors 0. Default SQLAlchemy pool (5+10) is a
+  likely bottleneck at high concurrency.
+- Audit index `20261031_0004`: medium audit page 1 p95 **56.292 → 13.336 ms**;
+  deep page p95 **124.298 → 59.143 ms**; Before plan table scan + filesort,
+  After plan reverse index scan. A jobs index was tested and **not adopted**
+  because MySQL did not use it.
+- Worker (500 schools, 50 jobs): 1/2/4 processes ~2.8/4.3/8.9 jobs/s (second
+  run); 4 workers, 100 jobs/1,000 schools: 5.15 jobs/s, MySQL 41.75% CPU /
+  897 MiB, Redis 0.71% CPU / 3.5 MiB, DB threads 2–3.
+- Limits: synthetic data, repository/SQL latency only (no HTTP), WSL2, MySQL
+  DATETIME second precision makes wait/exec p95 coarse; not a production SLA.

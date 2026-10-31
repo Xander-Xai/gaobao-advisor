@@ -1,0 +1,205 @@
+{
+  "environment": {
+    "git_sha": "c7a052a1722967e782970ac45a3e9df2c6ae566c",
+    "python": "3.11.15",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "mysql": "8.4.13",
+    "cpu": "Intel(R) Core(TM) i5-14600KF",
+    "cpu_count": 20,
+    "ram": "16293040 kB"
+  },
+  "dataset": {
+    "schools": 10000,
+    "scores_per_school": 5,
+    "audit_rows": 20000,
+    "job_rows": 1000
+  },
+  "method": {
+    "warmup": 1,
+    "repeat": 3,
+    "concurrency": 10,
+    "measurement": "SQLAlchemy repository latency (ms); no HTTP layer"
+  },
+  "workloads": {
+    "schools_page_1": {
+      "samples": 3,
+      "p50_ms": 5.173,
+      "p95_ms": 5.596,
+      "p99_ms": 5.596,
+      "mean_ms": 5.302,
+      "min_ms": 5.137,
+      "max_ms": 5.596,
+      "throughput_per_s": 188.6
+    },
+    "schools_deep_page": {
+      "samples": 3,
+      "p50_ms": 8.688,
+      "p95_ms": 8.86,
+      "p99_ms": 8.86,
+      "mean_ms": 8.65,
+      "min_ms": 8.402,
+      "max_ms": 8.86,
+      "throughput_per_s": 115.61
+    },
+    "schools_filter_province": {
+      "samples": 3,
+      "p50_ms": 5.255,
+      "p95_ms": 5.503,
+      "p99_ms": 5.503,
+      "mean_ms": 5.252,
+      "min_ms": 4.998,
+      "max_ms": 5.503,
+      "throughput_per_s": 190.4
+    },
+    "schools_filter_sort": {
+      "samples": 3,
+      "p50_ms": 12.893,
+      "p95_ms": 14.394,
+      "p99_ms": 14.394,
+      "mean_ms": 13.235,
+      "min_ms": 12.418,
+      "max_ms": 14.394,
+      "throughput_per_s": 75.56
+    },
+    "school_detail": {
+      "samples": 3,
+      "p50_ms": 17.07,
+      "p95_ms": 20.916,
+      "p99_ms": 20.916,
+      "mean_ms": 16.794,
+      "min_ms": 12.394,
+      "max_ms": 20.916,
+      "throughput_per_s": 59.55
+    },
+    "stats": {
+      "samples": 3,
+      "p50_ms": 24.676,
+      "p95_ms": 29.493,
+      "p99_ms": 29.493,
+      "mean_ms": 25.959,
+      "min_ms": 23.709,
+      "max_ms": 29.493,
+      "throughput_per_s": 38.52
+    },
+    "quality_scan_province": {
+      "samples": 3,
+      "p50_ms": 103.386,
+      "p95_ms": 103.548,
+      "p99_ms": 103.548,
+      "mean_ms": 103.272,
+      "min_ms": 102.882,
+      "max_ms": 103.548,
+      "throughput_per_s": 9.68
+    },
+    "jobs_page_1": {
+      "samples": 3,
+      "p50_ms": 5.405,
+      "p95_ms": 5.552,
+      "p99_ms": 5.552,
+      "mean_ms": 5.327,
+      "min_ms": 5.023,
+      "max_ms": 5.552,
+      "throughput_per_s": 187.74
+    },
+    "audit_page_1": {
+      "samples": 3,
+      "p50_ms": 18.411,
+      "p95_ms": 18.981,
+      "p99_ms": 18.981,
+      "mean_ms": 18.453,
+      "min_ms": 17.968,
+      "max_ms": 18.981,
+      "throughput_per_s": 54.19
+    },
+    "audit_deep_page": {
+      "samples": 3,
+      "p50_ms": 26.671,
+      "p95_ms": 27.454,
+      "p99_ms": 27.454,
+      "mean_ms": 26.759,
+      "min_ms": 26.153,
+      "max_ms": 27.454,
+      "throughput_per_s": 37.37
+    }
+  },
+  "concurrency": {
+    "samples": 50,
+    "p50_ms": 17.202,
+    "p95_ms": 44.924,
+    "p99_ms": 53.325,
+    "mean_ms": 21.215,
+    "min_ms": 9.428,
+    "max_ms": 53.325,
+    "throughput_per_s": 47.14,
+    "concurrency": 10,
+    "iterations": 50,
+    "errors": 0,
+    "error_rate": 0.0,
+    "wall_throughput_per_s": 301.69
+  },
+  "index_experiment": {
+    "before": {
+      "audit_page_1": {
+        "samples": 3,
+        "p50_ms": 19.445,
+        "p95_ms": 30.533,
+        "p99_ms": 30.533,
+        "mean_ms": 22.765,
+        "min_ms": 18.316,
+        "max_ms": 30.533,
+        "throughput_per_s": 43.93
+      },
+      "audit_deep_page": {
+        "samples": 3,
+        "p50_ms": 32.12,
+        "p95_ms": 46.873,
+        "p99_ms": 46.873,
+        "mean_ms": 35.8,
+        "min_ms": 28.408,
+        "max_ms": 46.873,
+        "throughput_per_s": 27.93
+      },
+      "audit_plan": [
+        "-> Limit: 20 row(s)  (cost=3.35 rows=20) (actual time=23.1..23.1 rows=20 loops=1)\n    -> Sort: operation_audit_logs.created_at DESC, operation_audit_logs.id DESC, limit input to 20 row(s) per chunk  (cost=3.35 rows=31) (actual time=23.1..23.1 rows=20 loops=1)\n        -> Table scan on operation_audit_logs  (cost=3.35 rows=31) (actual time=0.0191..11.8 rows=20000 loops=1)\n"
+      ]
+    },
+    "after": {
+      "audit_page_1": {
+        "samples": 3,
+        "p50_ms": 18.2,
+        "p95_ms": 23.105,
+        "p99_ms": 23.105,
+        "mean_ms": 19.726,
+        "min_ms": 17.874,
+        "max_ms": 23.105,
+        "throughput_per_s": 50.69
+      },
+      "audit_deep_page": {
+        "samples": 3,
+        "p50_ms": 35.742,
+        "p95_ms": 37.776,
+        "p99_ms": 37.776,
+        "mean_ms": 35.152,
+        "min_ms": 31.94,
+        "max_ms": 37.776,
+        "throughput_per_s": 28.45
+      },
+      "audit_plan": [
+        "-> Limit: 20 row(s)  (cost=3.35 rows=20) (actual time=16.2..16.2 rows=20 loops=1)\n    -> Sort: operation_audit_logs.created_at DESC, operation_audit_logs.id DESC, limit input to 20 row(s) per chunk  (cost=3.35 rows=31) (actual time=16.2..16.2 rows=20 loops=1)\n        -> Table scan on operation_audit_logs  (cost=3.35 rows=31) (actual time=0.0269..11.7 rows=20000 loops=1)\n"
+      ]
+    },
+    "optimization": "single-column audit created_at index for unfiltered audit pagination",
+    "not_adopted": "data_quality_jobs created_at index was not used by MySQL 8.4 for this query shape"
+  },
+  "query_plans": {
+    "schools": [
+      "-> Limit: 20 row(s)  (cost=0.0846 rows=20) (actual time=0.022..0.0313 rows=20 loops=1)\n    -> Index scan on schools using PRIMARY  (cost=0.0846 rows=20) (actual time=0.0209..0.0288 rows=20 loops=1)\n"
+    ],
+    "audit": [
+      "-> Limit: 20 row(s)  (cost=3.35 rows=20) (actual time=13.7..13.8 rows=20 loops=1)\n    -> Sort: operation_audit_logs.created_at DESC, operation_audit_logs.id DESC, limit input to 20 row(s) per chunk  (cost=3.35 rows=31) (actual time=13.7..13.7 rows=20 loops=1)\n        -> Table scan on operation_audit_logs  (cost=3.35 rows=31) (actual time=0.0175..9.87 rows=20000 loops=1)\n"
+    ],
+    "jobs": [
+      "-> Limit: 20 row(s)  (cost=100 rows=20) (actual time=0.95..0.954 rows=20 loops=1)\n    -> Sort: data_quality_jobs.created_at DESC, data_quality_jobs.id DESC, limit input to 20 row(s) per chunk  (cost=100 rows=1000) (actual time=0.948..0.952 rows=20 loops=1)\n        -> Table scan on data_quality_jobs  (cost=100 rows=1000) (actual time=0.0194..0.706 rows=1000 loops=1)\n"
+    ]
+  }
+}

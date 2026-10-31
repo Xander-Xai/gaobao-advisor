@@ -1,7 +1,7 @@
 # Database Schema Matrix
 
 > Source of truth: `db/models.py`. Generated/verified by `db/schema_contract.py`.
-> Migration history: `20261030_0001` (admin tables) → `20261031_0002` (14 historical tables) → `20261031_0003` (admin token revocation).
+> Migration history: `20261030_0001` (admin tables) → `20261031_0002` (14 historical tables) → `20261031_0003` (admin token revocation) → `20261031_0004` (audit performance index).
 > Target: SQLite default + MySQL 8.4.
 
 ## 1. Table inventory
@@ -24,7 +24,7 @@
 | 14 | `career_trend` | 职业趋势 | `id` | `ix_career_trend_major_name` | — |
 | 15 | `data_quality_jobs` | 质检任务 | `id` | `uq_dq_jobs_idempotency`, status/review/actor indexes | — |
 | 16 | `data_quality_issues` | 质检问题 | `id` | `uq_quality_issue_dedup`, job/severity/rule indexes | job_id→data_quality_jobs |
-| 17 | `operation_audit_logs` | 审计 | `id` | actor/action/request/resource indexes | — |
+| 17 | `operation_audit_logs` | 审计 | `id` | actor/action/request/resource indexes + `ix_audit_created` | — |
 | 18 | `quality_task_outbox` | 事务 Outbox | `id` | `uq_quality_task_outbox_job_id`, status/next indexes | job_id→data_quality_jobs |
 | 19 | `admin_token_revocations` | 管理员 Token 撤销（持久化） | `id` | unique `jti_hash`, username/expires indexes | — |
 
@@ -48,7 +48,9 @@ DATABASE_URL=mysql+pymysql://... python -m db.migrate upgrade
 - `20261030_0001` creates the four admin tables.
 - `20261031_0002` creates the 14 historical tables in FK-safe order.
 - `20261031_0003` creates the persistent admin token revocation table.
-- `alembic_version` ends at `20261031_0003`.
+- `20261031_0004` adds `ix_audit_created`; the jobs `created_at` index was
+  benchmarked and not adopted because MySQL did not use it.
+- `alembic_version` ends at `20261031_0004`.
 
 ### Existing database at revision `20261030_0001`
 
@@ -70,7 +72,7 @@ DATABASE_URL=mysql+pymysql://... python -m db.migrate upgrade
   constraints, FKs) before `stamp 20261030_0001`.
 - It never creates/drops tables and refuses an unexpected Alembic revision.
 - Then `upgrade` verifies/skips existing historical tables and advances to
-  `20261031_0003`.
+  `20261031_0004`.
 
 ### Seed after migration
 
@@ -103,5 +105,6 @@ The container entrypoint uses this flag in MySQL mode.
 | SQLite adopt existing + data preservation | `tests/test_migrations.py` |
 | SQLite seed without `create_all` | `tests/test_migrations.py` |
 | MySQL 8.4 fresh upgrade + seed + repeat (19 tables) | `tests/test_mysql_migrations.py` |
+| Audit index Before/After | `benchmarks/mysql_admin_benchmark.py`, `docs/performance/mysql-benchmark.md` |
 | MySQL adopt existing + data preservation | `tests/test_mysql_migrations.py` |
 | MySQL index-drift rejection | `tests/test_mysql_migrations.py` |

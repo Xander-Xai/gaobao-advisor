@@ -1,0 +1,152 @@
+{
+  "environment": {
+    "git_sha": "c7a052a1722967e782970ac45a3e9df2c6ae566c",
+    "python": "3.11.15",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "mysql": "8.4.13",
+    "cpu": "Intel(R) Core(TM) i5-14600KF",
+    "cpu_count": 20,
+    "ram": "16293040 kB"
+  },
+  "dataset": {
+    "schools": 2000,
+    "scores_per_school": 5,
+    "audit_rows": 20000,
+    "job_rows": 1000
+  },
+  "method": {
+    "warmup": 2,
+    "repeat": 5,
+    "concurrency": 10,
+    "measurement": "SQLAlchemy repository latency (ms); no HTTP layer"
+  },
+  "workloads": {
+    "schools_page_1": {
+      "samples": 5,
+      "p50_ms": 4.346,
+      "p95_ms": 4.943,
+      "p99_ms": 4.943,
+      "mean_ms": 4.385,
+      "min_ms": 4.047,
+      "max_ms": 4.943,
+      "throughput_per_s": 228.04
+    },
+    "schools_deep_page": {
+      "samples": 5,
+      "p50_ms": 4.871,
+      "p95_ms": 5.386,
+      "p99_ms": 5.386,
+      "mean_ms": 4.804,
+      "min_ms": 4.294,
+      "max_ms": 5.386,
+      "throughput_per_s": 208.16
+    },
+    "schools_filter_province": {
+      "samples": 5,
+      "p50_ms": 5.229,
+      "p95_ms": 6.537,
+      "p99_ms": 6.537,
+      "mean_ms": 5.457,
+      "min_ms": 4.758,
+      "max_ms": 6.537,
+      "throughput_per_s": 183.24
+    },
+    "schools_filter_sort": {
+      "samples": 5,
+      "p50_ms": 9.95,
+      "p95_ms": 11.902,
+      "p99_ms": 11.902,
+      "mean_ms": 10.264,
+      "min_ms": 8.669,
+      "max_ms": 11.902,
+      "throughput_per_s": 97.43
+    },
+    "school_detail": {
+      "samples": 5,
+      "p50_ms": 8.674,
+      "p95_ms": 9.307,
+      "p99_ms": 9.307,
+      "mean_ms": 8.911,
+      "min_ms": 8.651,
+      "max_ms": 9.307,
+      "throughput_per_s": 112.22
+    },
+    "stats": {
+      "samples": 5,
+      "p50_ms": 17.22,
+      "p95_ms": 18.541,
+      "p99_ms": 18.541,
+      "mean_ms": 17.654,
+      "min_ms": 16.949,
+      "max_ms": 18.541,
+      "throughput_per_s": 56.65
+    },
+    "quality_scan_province": {
+      "samples": 3,
+      "p50_ms": 103.496,
+      "p95_ms": 127.375,
+      "p99_ms": 127.375,
+      "mean_ms": 108.368,
+      "min_ms": 94.234,
+      "max_ms": 127.375,
+      "throughput_per_s": 9.23
+    },
+    "jobs_page_1": {
+      "samples": 5,
+      "p50_ms": 6.136,
+      "p95_ms": 6.681,
+      "p99_ms": 6.681,
+      "mean_ms": 5.906,
+      "min_ms": 4.605,
+      "max_ms": 6.681,
+      "throughput_per_s": 169.33
+    },
+    "audit_page_1": {
+      "samples": 5,
+      "p50_ms": 19.735,
+      "p95_ms": 20.11,
+      "p99_ms": 20.11,
+      "mean_ms": 19.675,
+      "min_ms": 19.076,
+      "max_ms": 20.11,
+      "throughput_per_s": 50.82
+    },
+    "audit_deep_page": {
+      "samples": 5,
+      "p50_ms": 27.745,
+      "p95_ms": 28.281,
+      "p99_ms": 28.281,
+      "mean_ms": 27.709,
+      "min_ms": 27.129,
+      "max_ms": 28.281,
+      "throughput_per_s": 36.09
+    }
+  },
+  "concurrency": {
+    "samples": 50,
+    "p50_ms": 19.277,
+    "p95_ms": 70.476,
+    "p99_ms": 84.138,
+    "mean_ms": 27.079,
+    "min_ms": 9.62,
+    "max_ms": 84.138,
+    "throughput_per_s": 36.93,
+    "concurrency": 10,
+    "iterations": 50,
+    "errors": 0,
+    "error_rate": 0.0,
+    "wall_throughput_per_s": 243.75
+  },
+  "index_experiment": {},
+  "query_plans": {
+    "schools": [
+      "-> Limit: 20 row(s)  (cost=0.0789 rows=20) (actual time=0.0227..0.0328 rows=20 loops=1)\n    -> Index scan on schools using PRIMARY  (cost=0.0789 rows=20) (actual time=0.0213..0.0298 rows=20 loops=1)\n"
+    ],
+    "audit": [
+      "-> Limit: 20 row(s)  (cost=0.00225 rows=20) (actual time=0.0296..0.063 rows=20 loops=1)\n    -> Index scan on operation_audit_logs using ix_audit_created (reverse)  (cost=0.00225 rows=20) (actual time=0.0281..0.0598 rows=20 loops=1)\n"
+    ],
+    "jobs": [
+      "-> Limit: 20 row(s)  (cost=100 rows=20) (actual time=2.83..2.84 rows=20 loops=1)\n    -> Sort: data_quality_jobs.created_at DESC, data_quality_jobs.id DESC, limit input to 20 row(s) per chunk  (cost=100 rows=1000) (actual time=2.82..2.84 rows=20 loops=1)\n        -> Table scan on data_quality_jobs  (cost=100 rows=1000) (actual time=0.0456..2.03 rows=1000 loops=1)\n"
+    ]
+  }
+}

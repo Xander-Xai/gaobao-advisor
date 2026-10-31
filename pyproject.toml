@@ -68,6 +68,7 @@ include = [
     "scrapers*",
     "analytics*",
     "scripts*",
+    "benchmarks*",
     "prompts*",
     "tests",
 ]

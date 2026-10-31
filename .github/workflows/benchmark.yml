@@ -1,0 +1,76 @@
+name: Benchmark (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      schools:
+        description: Synthetic schools
+        default: "2000"
+      audit_rows:
+        description: Synthetic audit rows
+        default: "50000"
+      jobs:
+        description: Worker jobs per scenario
+        default: "50"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: MySQL + Worker Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testroot
+          MYSQL_DATABASE: gaobao_benchmark
+        ports:
+          - "3307:3306"
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptestroot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6380:6379"
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,mysql,worker]"
+      - name: Admin benchmark
+        env:
+          MYSQL_BENCH_URL: mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_benchmark?charset=utf8mb4
+        run: |
+          python -m benchmarks.mysql_admin_benchmark \
+            --schools "${{ github.event.inputs.schools }}" --scores-per-school 5 \
+            --audit-rows "${{ github.event.inputs.audit_rows }}" --job-rows 1000 \
+            --concurrency 10 --warmup 3 --repeat 10 \
+            --json-out benchmark-admin.json
+      - name: Worker benchmark
+        env:
+          MYSQL_BENCH_URL: mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_benchmark?charset=utf8mb4
+          REDIS_BENCH_URL: redis://127.0.0.1:6380/0
+        run: |
+          python -m benchmarks.worker_throughput \
+            --workers 1 2 4 --jobs "${{ github.event.inputs.jobs }}" --schools 500 \
+            --scores-per-school 5 --json-out benchmark-worker.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: |
+            benchmark-admin.json
+            benchmark-worker.json
+          retention-days: 14

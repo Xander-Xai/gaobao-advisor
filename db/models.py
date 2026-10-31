@@ -457,6 +457,7 @@ class OperationAuditLog(Base):
         Index("ix_audit_action_created", "action", "created_at"),
         Index("ix_audit_request", "request_id"),
         Index("ix_audit_resource", "resource_type", "resource_id"),
+        Index("ix_audit_created", "created_at"),
     )
 
     def __repr__(self) -> str:

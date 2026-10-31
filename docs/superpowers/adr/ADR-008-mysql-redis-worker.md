@@ -116,3 +116,8 @@
   `--no-create-schema`、已有 create_all schema 数据保留、索引 drift 拒绝；SQLite 默认
   回归保持通过。剩余边界：完整 Compose 未进 CI、at-least-once 非 exactly-once、
   分布式限流/Token 撤销未实现。
+
+- 2026-10-31 基准复核：真实 MySQL 8.4 / Redis 7 上完成管理查询与 1/2/4 Worker
+  吞吐测试；审计 `created_at` 索引第一页 p95 56.292→13.336 ms，4 Worker
+  ~8.9 jobs/s。详见 `docs/performance/mysql-benchmark.md`。这是本机合成数据，
+  不是生产 SLA；Issue #40 的 Streams/ACK 对比仍未完成。
