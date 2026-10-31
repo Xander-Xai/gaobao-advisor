@@ -3,6 +3,16 @@
 import logging
 from unittest.mock import patch
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _never_send_sentry_events():
+    """Keep tests offline: a fake DSN must not initialise a real transport."""
+    sentry_sdk = pytest.importorskip("sentry_sdk")
+    with patch.object(sentry_sdk, "init"):
+        yield
+
 
 class TestInitSentry:
     """Tests for init_sentry() function."""
