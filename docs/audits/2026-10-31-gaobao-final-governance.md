@@ -2,12 +2,18 @@
 
 - **日期**：2026-10-31（Asia/Shanghai）
 - **仓库**：`Xander-Xai/gaobao-advisor`（public，default `master`）
-- **代码基线**：`a56d38c`（本文档合并后以 `git log -1 -- docs/audits/2026-10-31-gaobao-final-governance.md` 为准）
+- **代码基线**：`0c7ff79`（Issue #58 Phase A–D 防泄露控制合并后；本文档合并后以 `git log -1 -- docs/audits/2026-10-31-gaobao-final-governance.md` 为准）
 - **执行环境**：Linux/WSL2，Python 3.11.15，MySQL 8.4，Redis 7，Docker 29.5.2，Node 20.20.2
 - **权限**：仓库 `admin=true`；未执行 force-push、历史重写、数据库破坏性操作或仓库可见性修改。
 - **索引**：[repository-audit.md](../governance/repository-audit.md)
 
 > 说明：审计开始时本地 HEAD 为 PR #52 分支 `0144fe3`，`master` 为 `68f12a7`。审计过程中，PR #52/#53 被并发合并（`52b96a5` / `a69a6ed`）。本报告以实时读取和重新执行的结果为准，未复用审计前的“0 Open PR”等快照。
+>
+> **Issue #58 专项更新（2026-10-31 晚）：** 历史暴露的只读取证、数据分类、隔离备份、
+> 沙盒重写和防泄露控制已完成，但远端 PR refs / 缓存 / 不可达对象仍需 owner 授权和
+> GitHub Support 处理。详见 [gaobao-issue-58-remediation.md](gaobao-issue-58-remediation.md)。
+> 因此 `SECURITY_REVIEW` 与 `REPOSITORY_READY` 仍为 **BLOCKED**，`ISSUE_58_RESOLVED`
+> 为 **BLOCKED**；不得将沙盒成功或当前树干净表述为历史已清除。
 
 ---
 
@@ -20,7 +26,7 @@
 | PR 治理 | **PASS** | 本轮合并 #56/#57/#69/#71/#75；关闭依赖噪声 PR；最终 0 Open PR |
 | 分支治理 | **PASS** | 远端仅 `master`；合并后工作分支已删除；本地 `release/unified-public-gaobao` 保留待取证 |
 | Issue 治理 | **PASS** | 已关闭 #40/#54/#55/#70；#58 作为未解决安全事件保持 Open |
-| CI 健康 | **PASS** | `master@a56d38c` 的 CI 与 CodeQL 均 success；Full Compose E2E 通过 |
+| CI 健康 | **PASS** | `master@0c7ff79` CI（run 41198100431）与 CodeQL（run 41198100449）success；Full Compose E2E 通过 |
 | 安全审查 | **BLOCKED** | 历史 Git 对象仍暴露已删除的 72 MiB 数据库/用户消息（Issue #58） |
 | 主分支集成 | **PASS** | 所有本轮修复均已进入 `master` |
 | 仓库可交付 | **BLOCKED** | 历史数据暴露未清除前，不宣称 `REPOSITORY_READY` |
@@ -144,7 +150,7 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 
 | 分支 | 位置 | HEAD | 处置 | 依据 |
 |---|---|---|---|---|
-| `master` | remote/local | `a56d38c`（报告合并前） | **保留** | 默认分支，受保护 |
+| `master` | remote/local | `0c7ff79`（Issue #58 报告合并前） | **保留** | 默认分支，受保护 |
 | `release/unified-public-gaobao` | local only | `858df37` | **保留，禁止推送/删除** | 与 master 无共同 merge-base；含独有 316 个提交及历史 72 MiB DB 对象，取证/清理前不得删 |
 | `test/redis-queue-recovery-comparison` | remote（已删） | `0144fe3` | 已随 #52 合并删除 | 无独有资产 |
 | `fix/p0-chat-state-structured` | remote（已删） | — | 已随 #56 合并删除 | 无独有资产 |
@@ -164,7 +170,7 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 
 | 命令/检查 | 结果 | 环境 |
 |---|---|---|
-| `.venv/bin/python -m pytest tests/ --tb=short -q` | **1162 passed / 34 skipped**，coverage **81.76%** | Python 3.11.15 |
+| `.venv/bin/python -m pytest tests/ --tb=short -q` | **1177 passed / 34 skipped**；CI 覆盖率门禁通过（新增 guard 前本地实测 81.76%） | Python 3.11.15 |
 | `MYSQL_TEST_URL=... REDIS_TEST_URL=... pytest <integration files>` | **33 passed**（MySQL 8.4 / Redis 7） | 专用 `gaobao-audit-*` 容器 |
 | `cd frontend && npm test -- --run` | **15 files / 92 tests passed**（vue-tsc + vitest） | Node 20.20.2 |
 | `cd frontend && npm run build` | Vite build passed | Node 20 |
@@ -172,8 +178,8 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 | 独立队列故障矩阵 | 34/34 applicable PASS；0 violations | 专用 `gaobao-qr` Compose |
 | 独立队列负载 | 9/9 PASS；0 violations | 同上 |
 | 生产默认 List 恢复 | **60.7713s PASS** | 60/30/600 lease |
-| `master@a56d38c` CI | **success**（run 41192194582） | GitHub Actions |
-| `master@a56d38c` CodeQL | **success**（run 41192194640） | GitHub Actions |
+| `master@0c7ff79` CI | **success**（run 41198100431） | GitHub Actions |
+| `master@0c7ff79` CodeQL | **success**（run 41198100449） | GitHub Actions |
 | Full Compose E2E | 每次 PR + master 均 success（Nginx → API → MySQL/Redis/Worker → 审核 → 审计 → Token 撤销） | GitHub Actions |
 
 ### F.2 GitHub 安全状态（实时读取）
@@ -211,9 +217,17 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 | `BRANCH_GOVERNANCE` | **PASS** |
 | `ISSUE_GOVERNANCE` | **PASS** |
 | `CI_HEALTH` | **PASS** |
-| `SECURITY_REVIEW` | **BLOCKED**（历史数据暴露 #58） |
+| `SECURITY_REVIEW` | **BLOCKED**（历史数据暴露 #58；Phase A–D 已完成，远端清理未执行） |
 | `MASTER_INTEGRATION` | **PASS** |
 | `REPOSITORY_READY` | **BLOCKED**（安全项未闭环） |
+
+> Issue #58 专项状态：`SENSITIVE_DATA_CLASSIFIED` PASS；`EXPOSED_OBJECTS_INVENTORIED`
+> PASS；`PRIVATE_BACKUP_VERIFIED` PASS；`LOCAL_UNIQUE_BRANCH_PRESERVED` PASS；
+> `SANDBOX_REWRITE_VERIFIED` PASS（方法降级）；`OWNER_REMOTE_AUTHORIZATION` BLOCKED；
+> `REMOTE_HISTORY_REWRITTEN` NO/BLOCKED；`GITHUB_PR_REFS_CLEANED` BLOCKED；
+> `GITHUB_CACHE_PURGED` BLOCKED；`SUPPORT_CASE_VERIFIED` BLOCKED；
+> `FORK_RESIDUAL_RISK_REVIEWED` PASS；`PREVENTION_CONTROLS_ENABLED` PASS（PR #77）；
+> `ISSUE_58_RESOLVED` BLOCKED。
 
 ---
 
@@ -223,8 +237,8 @@ Issue 标签使用 `bug`、`security`、`reliability`、`priority:p1` 等；#58 
 2. **当前 Open Issue？** 1：**#58**（历史数据暴露，BLOCKED）。
 3. **当前 Branch？** 远端仅 `master`；本地 `master` 与保留的 `release/unified-public-gaobao`（禁止推送/删除）。
 4. **Issue #40 是否真正解决？** 是。独立复验 34/34 适用故障场景、9/9 负载、默认 60.77s 恢复；决策 `KEEP_LIST`，不声称 exactly-once。
-5. **master 最新 SHA？** 本报告合并前为 `a56d38c`；本报告合并提交以 `git log -1 -- docs/audits/2026-10-31-gaobao-final-governance.md` 为准。
-6. **CI 是否全部通过？** 是。`master@a56d38c` CI + CodeQL 全绿；13 项 required checks 生效。
+5. **master 最新 SHA？** Issue #58 专项报告合并前为 `0c7ff79`；本报告合并提交以 `git log -1 -- docs/audits/2026-10-31-gaobao-final-governance.md` 为准。
+6. **CI 是否全部通过？** 是。`master@0c7ff79` CI（41198100431）+ CodeQL（41198100449）全绿；13 项 required checks 生效。
 7. **是否仍有安全/版权风险？** 有。历史 72 MiB 数据库/用户消息仍公开可下载（#58）；当前树无第三方真实数据/凭据，MIT 归属与合成数据许可已记录。
 8. **能否在全新环境可靠运行？** 合成 Demo 可以：MySQL 干净迁移、seed、Compose 冷启动、健康检查、API/前端/Worker 链路均已通过。真实数据/生产 SLA 未验证。
 9. **未完成 P0/P1？** **#58** 是唯一未闭环的 P0 安全项；A12/A13 为已记录的非阻断残余风险。

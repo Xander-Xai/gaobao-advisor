@@ -363,7 +363,7 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1162 passed / 34 skipped**，覆盖率 **81.76%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1177 passed / 34 skipped**；CI 覆盖率门禁 70% 通过（新增 guard 测试前本地实测 81.76%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
