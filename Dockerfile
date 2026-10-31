@@ -1,5 +1,5 @@
 # 基于 Python 3.11 slim
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 # 设置工作目录
 WORKDIR /app
