@@ -18,10 +18,12 @@ from server.admin.auth import (
     get_admin_config,
     issue_admin_token,
     require_role,
+    token_expiry_datetime,
 )
 from server.admin.errors import AdminError
-from server.admin.limits import SlidingWindowLimiter
+from server.admin.limits import AdminLimiter, SecurityBackendUnavailable
 from server.admin.logging import log_event, log_warning
+from server.admin.revocation import revoke_token
 from server.admin.schemas import (
     AdminLoginRequest,
     AdminTokenOut,
@@ -46,8 +48,8 @@ logger = logging.getLogger("server.admin.routes")
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
-_login_limiter = SlidingWindowLimiter(limit=8, window_seconds=60)
-_job_limiter = SlidingWindowLimiter(limit=20, window_seconds=60)
+_login_limiter = AdminLimiter(scope="login", limit=8, window_seconds=60)
+_job_limiter = AdminLimiter(scope="job", limit=20, window_seconds=60)
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -62,20 +64,37 @@ def _auth_config() -> None:
 
 
 def _client_key(request: Request) -> str:
-    host = request.client.host if request.client else "unknown"
-    return hashlib.sha256(host.encode("utf-8", "ignore")).hexdigest()[:24]
+    return client_ip_hash(request)
 
 
-def _require_limit(limiter: SlidingWindowLimiter, key: str, code: str) -> None:
-    allowed, retry_after = limiter.check(key)
+def _identity_key(value: str) -> str:
+    return hashlib.sha256(value.strip().lower().encode("utf-8", "ignore")).hexdigest()[:24]
+
+
+def _require_limit(limiter: AdminLimiter, key: str, code: str) -> None:
+    try:
+        allowed, retry_after = limiter.check(key)
+    except SecurityBackendUnavailable as exc:
+        raise AdminError(
+            503,
+            "SECURITY_BACKEND_UNAVAILABLE",
+            "安全限流后端不可用，已拒绝请求",
+        ) from exc
     if not allowed:
-        raise AdminError(429, code, "操作过于频繁，请稍后重试", details={"retry_after_seconds": retry_after})
+        raise AdminError(
+            429,
+            code,
+            "操作过于频繁，请稍后重试",
+            details={"retry_after_seconds": retry_after},
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 @router.post("/auth/login", response_model=AdminTokenOut)
 def login(payload: AdminLoginRequest, request: Request) -> dict[str, Any]:
     _auth_config()
-    _require_limit(_login_limiter, _client_key(request), "LOGIN_RATE_LIMITED")
+    _require_limit(_login_limiter, f"ip:{_client_key(request)}", "LOGIN_RATE_LIMITED")
+    _require_limit(_login_limiter, f"user:{_identity_key(payload.username)}", "LOGIN_RATE_LIMITED")
     principal = authenticate(payload.username, payload.password)
     if principal is None:
         log_warning("admin.login.failed", username=payload.username[:64], ip_hash=client_ip_hash(request))
@@ -87,6 +106,36 @@ def login(payload: AdminLoginRequest, request: Request) -> dict[str, Any]:
         "expires_in": expires_in,
         "user": {"username": principal.username, "role": principal.role},
     }
+
+
+@router.post("/auth/logout", status_code=204)
+def logout(
+    request: Request,
+    db: DbSession,
+    principal: AdminPrincipal = Depends(require_role("viewer", allow_revoked=True)),
+) -> Response:
+    if principal.jti_hash is None:
+        raise AdminError(401, "ADMIN_TOKEN_INVALID", "管理员 Token 缺少撤销标识")
+    newly_revoked = revoke_token(
+        db,
+        jti_hash=principal.jti_hash,
+        username=principal.username,
+        expires_at=token_expiry_datetime(principal),
+    )
+    repository.record_audit(
+        db,
+        request_id=get_request_id(),
+        actor=principal.username,
+        role=principal.role,
+        action="admin.logout",
+        resource_type="admin_token",
+        resource_id=principal.jti_hash[:16],
+        detail={"revoked": newly_revoked},
+        ip_hash=client_ip_hash(request),
+    )
+    db.commit()
+    log_event("admin.logout", username=principal.username, revoked=newly_revoked)
+    return Response(status_code=204)
 
 
 @router.get("/auth/me", response_model=AdminUserOut)
@@ -194,7 +243,8 @@ def create_quality_job(
     principal: AdminPrincipal = Depends(require_role("operator")),
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict[str, Any]:
-    _require_limit(_job_limiter, f"{principal.username}:{_client_key(request)}", "JOB_RATE_LIMITED")
+    _require_limit(_job_limiter, f"user:{_identity_key(principal.username)}", "JOB_RATE_LIMITED")
+    _require_limit(_job_limiter, f"ip:{_client_key(request)}", "JOB_RATE_LIMITED")
     filters: QualityJobFilters = payload.filters
     result = service.create_quality_job(
         db,

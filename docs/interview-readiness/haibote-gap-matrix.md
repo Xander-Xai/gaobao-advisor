@@ -107,7 +107,7 @@
 - 不重做 RAG/Agent，不改 SSE 语义。
 - 不引入 React、不新增 Java/Go 服务。
 - MySQL 原边界为“只保证新增运营业务表 + 演示查询路径”；该边界已在 2026-10-31 由
-  Issue #36 / `20261031_0002` 全量 18 表迁移关闭（见 `docs/database-schema-matrix.md`）。
+  Issue #36 / `20261031_0002/0003` 全量 19 表迁移关闭（见 `docs/database-schema-matrix.md`）。
 - Redis 只解决「数据质检任务」一个场景，不同时引入 Celery/Kafka/RabbitMQ。
 - 医疗/GCP/临床方案标记 `NOT_APPLICABLE`，不在高考项目伪造。
 - 所有性能结论必须来自本机命令输出；CI 通过不等于生产验证。
@@ -150,8 +150,8 @@
 
 实测结果：
 
-- Python：**1088 passed / 17 skipped**，覆盖率 **80.82%**（门禁 70%）。
-- 前端：**14 files / 86 tests passed**；`vue-tsc`、`vite build` 通过。
+- Python：**1108 passed / 27 skipped**，覆盖率 **80.91%**（门禁 70%）。
+- 前端：**14 files / 88 tests passed**；`vue-tsc`、`vite build` 通过。
 - MySQL 8.4：`tests/test_admin_mysql.py` **5 passed**（建表、列表/详情、质检+审核事务、回滚、崩溃窗口补偿）。
 - Redis 7：`tests/test_redis_worker.py` **3 passed**（入队/出队、Outbox→Worker、不可达显式失败）。
 - full compose：MySQL/Redis/API/Worker/Frontend/Nginx **全部 healthy**；
@@ -188,11 +188,11 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
   ADMIN_TOKEN_SECRET 三种负控制均 fail-closed；有效配置健康启动并 admin 登录成功。
 - full Compose 无宿主机 MySQL/Redis 端口，`docker port` 为空；API/Worker 容器间连接成功。
 
-最终本地结果：Python **1088 passed / 17 skipped**，覆盖率 **80.82%**；前端 **14 files / 86 tests**；
-`make test-integration` **16 passed**（MySQL 8 + Redis 3 + 双 Worker/恢复 5）；CI **10/10 job 通过**
+最终本地结果：Python **1108 passed / 27 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
+`make test-integration` **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5）；CI **10/10 job 通过**
 （[run 41110091065](https://github.com/Xander-Xai/gaobao-advisor/actions/runs/41110091065)）。
 
-全量 18 表迁移已完成（见 §10）；仍未声称生产 SLA/容量、真实招生数据质量。
+全量 19 表迁移已完成（见 §10）；仍未声称生产 SLA/容量、真实招生数据质量。
 
 ## 9. 2026-10-31 Worker 可靠性加固
 
@@ -203,21 +203,21 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
 | RUNNING 周期恢复 | 原实现只在启动时恢复 | Worker 启动 + 运行期每 30s 有界扫描（limit=50），同时恢复 RUNNING 与孤儿 PENDING/DISPATCHED | `test_worker_loop_runs_periodic_recovery_before_consuming`、`test_recover_worker_state_runs_both_bounded_scans` | **PASS** |
 | 重试耗尽 | attempts >= max 时原恢复跳过，任务卡 RUNNING | 未耗尽→PENDING；耗尽→FAILED + `WORKER_LEASE_EXPIRED` + 失败审计；行级 CAS | `test_lease_exhaustion_marks_failed`（max=1/3）、MySQL 耗尽用例 | **PASS** |
 | 过期 Worker 写入 | `complete_job`/`fail_job` 只检查状态，旧 Worker 可覆盖 | `claim_job` 返回 attempts 作为 fencing token；完成/失败使用 `WHERE status=RUNNING AND attempts=?` CAS | Fencing 单测 + MySQL `test_fenced_old_worker_cannot_complete_after_reclaim` | **PASS** |
-| 多 Worker 并发 | 缺少真实 MySQL+Redis 并发验证 | 新增 `tests/test_worker_integration.py`：双 Worker 争抢、并发恢复、重复投递、耗尽 | `make test-integration` 16 passed；真实 full profile 双进程 3 jobs | **PASS** |
+| 多 Worker 并发 | 缺少真实 MySQL+Redis 并发验证 | 新增 `tests/test_worker_integration.py`：双 Worker 争抢、并发恢复、重复投递、耗尽 | `make test-integration` 26 passed；真实 full profile 双进程 3 jobs | **PASS** |
 | 消息恢复边界 | BRPOP 丢消息、at-least-once 语义未明确 | 60s 投递租约补偿；Worker 周期扫描；ADR-008 明确 at-least-once / 非 exactly-once | 真实 BRPOP 注入 + 单测 | **PASS** |
 | MySQL 秒级精度 | 新 Outbox `next_attempt_at` 被向上取整，误报 UNAVAILABLE | `pending_outbox` 增加 1 秒调度容差 | 双 Worker MySQL 集成测试立即投递 | **PASS** |
 | MySQL 短暂不可用 | Worker 健康检查只看 Redis | 健康检查同时验证 MySQL+Redis；API readiness 503、创建任务 500、恢复后成功 | full profile 故障注入 | **PASS** |
 
-最终结果：Python **1088 passed / 17 skipped**，覆盖率 **80.82%**；前端 **14 files / 86 tests**；
-集成 **16 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。
+最终结果：Python **1108 passed / 27 skipped**，覆盖率 **80.91%**；前端 **14 files / 88 tests**；
+集成 **26 passed**；真实 full Compose 双 Worker、BRPOP 丢消息、MySQL 停机恢复均通过。
 
 ## 10. 2026-10-31 MySQL 全量 Alembic 迁移（Issue #36）
 
 | 项目 | 结果 | 证据 |
 |---|---|---|
-| 迁移范围 | `0001` 4 张运营表 + `0002` 14 张历史表 = 18 张 | `migrations/versions/20261031_0002_historical_baseline.py` |
+| 迁移范围 | `0001` 4 张运营表 + `0002` 14 张历史表 + `0003` 撤销表 = 19 张 | `migrations/versions/20261031_0002_historical_baseline.py`、`20261031_0003_admin_token_revocations.py` |
 | Schema Matrix | 由 `db/models.py` 生成，`db/schema_contract.py` 校验列/PK/索引/唯一约束/FK | `docs/database-schema-matrix.md` |
-| 空 MySQL 8.4 | upgrade 创建 18 表 + `alembic_version` | `tests/test_mysql_migrations.py` |
+| 空 MySQL 8.4 | upgrade 创建 19 表 + `alembic_version` | `tests/test_mysql_migrations.py` |
 | 重复 upgrade | 无破坏性变化 | 同上 |
 | seed 不依赖 create_all | `--no-create-schema` 成功写入 8 校 | 同上 |
 | 已有 create_all schema | `adopt-existing` 校验后 stamp，数据保留 | 同上 |
@@ -225,4 +225,18 @@ Compose 纳入 CI，PR #44 完成 14 张历史表的 Alembic 迁移；仍未声�
 | SQLite 默认 | 5 个迁移测试通过，原测试不回退 | `tests/test_migrations.py` |
 | full Compose | 新迁移 + `--no-create-schema` + Nginx 业务链通过 | 本机 full Compose E2E |
 
-状态：**PASS**（`0002` 不支持破坏性 downgrade；回滚使用备份/恢复）。
+状态：**PASS**（`0002/0003` 不支持破坏性 downgrade；回滚使用备份/恢复）。
+
+## 11. 2026-10-31 管理员安全加固（Issue #39）
+
+| 问题 | 实际修复 | 测试证据 | 状态 |
+|---|---|---|---|
+| 分布式登录限流 | Redis Lua 原子滑动窗口；IP + 用户名双维度；429 + `Retry-After` | 100 并发、双客户端、双进程、TTL、窗口边界 | **PASS** |
+| 写接口限流 | 任务创建按管理员身份 + IP 双维度；Redis 共享计数 | `test_job_limiter_*`、Redis 双实例 | **PASS** |
+| Token 撤销 | 持久化 `admin_token_revocations`，只存 HMAC(jti)；logout 幂等；其他 Token 不受影响 | 撤销/重复撤销/跨客户端/Redis flush | **PASS** |
+| 可信代理 | 默认忽略 XFF；仅显式 CIDR；从右向左取第一个非可信 hop | 伪造 XFF、IPv6、异常头测试 | **PASS** |
+| Redis 故障策略 | `auto/redis` 不可用返回 503；生产 memory 启动失败；不静默回退 | 503 测试、生产 fail-closed 测试 | **PASS** |
+| 多副本一致性 | 同一 Redis namespace；两个 API 客户端/两个进程共享计数；撤销走共享 DB | 双客户端/双进程/跨客户端撤销 | **PASS** |
+
+边界：无 MFA/OIDC/刷新令牌；`sessionStorage` 仍受 XSS 影响；Redis 单区域；
+撤销表按过期清理，无后台调度；生产容量/SLA 仍未验证。

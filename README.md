@@ -168,11 +168,14 @@ cd frontend && npm run dev                 # http://localhost:3080/admin
 
 **鉴权边界：**
 
-* 管理员 token 使用独立的 `ADMIN_TOKEN_SECRET` 签名，载荷包含 `sub/role/exp/aud=gaobao-admin`；
+* 管理员 token 使用独立的 `ADMIN_TOKEN_SECRET` 签名，载荷包含 `sub/role/iat/exp/jti/aud=gaobao-admin`；
 * 匿名聊天 token 无法访问 `/api/v1/admin/*`；管理员 token 也无法读取聊天 session 数据；
 * 角色层级 `viewer < operator < admin`：只读 / 创建任务 / 审核 + 审计；
-* 生产环境配置了管理员但缺少 `ADMIN_TOKEN_SECRET` 时**启动失败**；未配置管理员则后台拒绝所有请求（fail-closed）；禁止在 production 使用明文 `ADMIN_PASSWORD`；
-* 审计详情落库前会脱敏手机号、身份证、邮箱、姓名与 token。
+* 登录与任务创建支持 Redis Lua 原子滑动窗口限流（IP + 身份双维度）；生产不允许静默回退内存，Redis 不可用返回 503；
+* `POST /api/v1/admin/auth/logout` 使用持久化 `jti` 撤销表，Redis 重启不会恢复已撤销 Token；
+* 默认不信任 `X-Forwarded-For`，仅 `ADMIN_TRUSTED_PROXIES` 中的直接代理可提供转发链；
+* 生产环境配置了管理员但缺少 `ADMIN_TOKEN_SECRET` 或 Redis 限流后端时**启动失败**；未配置管理员则后台拒绝所有请求（fail-closed）；禁止在 production 使用明文 `ADMIN_PASSWORD`；
+* 审计详情落库前会脱敏手机号、身份证、邮箱、姓名与 token。安全设计见 [admin-auth-hardening.md](docs/security/admin-auth-hardening.md)。
 
 **质检任务模式：** `QUALITY_TASK_MODE=auto|async|inline|disabled`。`auto` 优先 Redis + Worker；开发环境 Redis 不可用时显式内联执行并标记 `execution_mode=inline_degraded`。`async` 模式下 Redis 不可用会返回 `202 + PENDING + warning`，不会伪造成功。
 
@@ -225,8 +228,8 @@ MYSQL_TEST_URL='mysql+pymysql://root:testroot@127.0.0.1:3307/gaobao_test?charset
 PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh
 ```
 
-**迁移范围：** Alembic 现在覆盖全部 18 张表：`20261030_0001` 创建 4 张运营表，
-`20261031_0002` 创建 14 张历史业务表。已有 `create_all` 数据库需先运行
+**迁移范围：** Alembic 现在覆盖全部 19 张表：`20261030_0001` 创建 4 张运营表，
+`20261031_0002` 创建 14 张历史业务表，`20261031_0003` 创建管理员 Token 撤销表。已有 `create_all` 数据库需先运行
 `python -m db.migrate adopt-existing`（会校验列/索引/唯一约束/FK 后再 stamp），
 再 `upgrade`；MySQL 容器 seed 使用 `--no-create-schema`，不依赖隐式建表。
 Schema Matrix 与回滚限制见 [database-schema-matrix.md](docs/database-schema-matrix.md)，
@@ -355,33 +358,35 @@ ruff check . && ruff format --check .
 
 | 检查 | 结果 |
 |---|---|
-| `pytest tests` | **1088 passed / 17 skipped**，覆盖率 **80.82%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
+| `pytest tests` | **1108 passed / 27 skipped**，覆盖率 **80.91%**（门禁 70%；MySQL/Redis 集成测试默认跳过）|
 | `ruff check` / `ruff format --check` | 通过 |
 | Docker 无 Key 启动 `/api/v1/health` | `SYNTHETIC_DEMO` / `RAG_ENABLED`（documents=8, chunks=31, integrity_ok=true）|
 | Docker 无 Key `POST /api/v1/knowledge/search`（「平行志愿的投档规则是什么」）| `has_evidence=true`，返回带 `source` 的片段 |
 | 合成标注集检索命中率（`knowledge/synthetic_demo/eval_queries.json`，组级 top-k）| **12/12 = 1.000**（小规模合成集，非生产 RAG 质量指标）|
 | `npm run typecheck` | 通过（`vue-tsc --noEmit`，新后台模块） |
-| `vitest run`（frontend）| **14 files / 86 tests passed**；`npm run build` 通过 |
-| `make test-integration` | **16 passed**（MySQL 8 + Redis 3 + 双 Worker/恢复 5）|
+| `vitest run`（frontend）| **14 files / 88 tests passed**；`npm run build` 通过 |
+| `make test-integration` | **26 passed**（MySQL 8 + Redis 限流 10 + Redis Worker 3 + 双 Worker 5）|
 | `REDIS_TEST_URL=redis://127.0.0.1:6380/0 pytest tests/test_redis_worker.py` | 3 passed（真实 Redis 7）|
 | `MYSQL_TEST_URL=... pytest tests/test_admin_mysql.py` | 5 passed（真实 MySQL 8.4）|
-| `MYSQL_TEST_URL=... pytest tests/test_mysql_migrations.py` | 3 passed（全量 18 表、seed 无 create_all、adopt 数据保留、drift 拒绝）|
+| `MYSQL_TEST_URL=... pytest tests/test_mysql_migrations.py` | 3 passed（全量 19 表、seed 无 create_all、adopt 数据保留、drift 拒绝）|
 | `pytest tests/test_migrations.py` | 5 passed（SQLite 全量迁移/adopt/seed）|
-| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；MySQL/Redis 无宿主机端口；异步任务、审核、审计、Redis 故障恢复通过 |
+| `docker compose ... --profile full up` | MySQL/Redis/API/Worker/Frontend/Nginx 全部 healthy；异步任务、审核、审计、**logout/撤销后 401**、Redis 故障恢复通过 |
 | 真实 BRPOP 丢消息注入（Redis+MySQL） | job PENDING/DISPATCHED → Worker 启动日志 `requeued 1 orphaned dispatched job(s)` → **SUCCEEDED** |
 | 真实双 Worker 并发（3 jobs / 2 processes） | issues 15 = SUM(issue_count)，success 审计每 job 1 次，无重复 |
 | 租约/Fencing/耗尽 | 旧 Worker `EXECUTION_FENCED`；max_attempts=1/3 均正确终态 |
 | `PROD_API_IMAGE=gb-advisor:ci bash scripts/verify_prod_compose_env.sh` | 缺失 env 文件 / 缺 SESSION_SECRET / 缺 ADMIN_TOKEN_SECRET 均 fail-closed；有效配置启动并 admin 登录成功 |
+| `pytest tests/test_admin_security.py` | 20 passed（撤销/幂等/过期边界/可信代理/503）|
+| `REDIS_TEST_URL=... pytest tests/test_admin_limits_redis.py` | 10 passed（Lua 原子、100 并发、双客户端/双进程、TTL、Redis flush 后撤销仍有效）|
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities**（dompurify 3.4.17）|
 | `pip-audit -r requirements.lock --no-deps --disable-pip` | **No known vulnerabilities found** |
 | `pip-audit -r requirements-legacy-admin.lock` | **No known vulnerabilities found**（streamlit 1.66.1 / pillow 13.0.0）|
-| gitleaks v8.30.1（full history） | **477 commits scanned / no leaks found** |
+| gitleaks（CI Secret Scan，full history） | **通过** |
 
 > 上述数字来自本机实际运行输出。Docker/Compose 项为本机真实启动、健康检查与故障注入结果；
 > 生产 Compose 测试只使用临时生成且已删除的测试凭据。
 
 CI（`.github/workflows/ci.yml`）在 push / PR 上运行同一组门禁：Lint、Test（3.10 & 3.11）、
-MySQL 8.4 + Redis 7 集成测试、双 Worker/恢复回归、Admin Smoke、Secret Scan（gitleaks 全历史）、
+MySQL 8.4 + Redis 7 集成测试、Redis 限流/撤销安全回归、双 Worker/恢复回归、Admin Smoke、Secret Scan（gitleaks 全历史）、
 Security Audit（pip-audit 审计运行时锁 + legacy 锁、npm audit）、Frontend Quality Gate、
 No-Key Container Smoke Test、Redistribution Gate。
 门禁失败即红，不通过跳过或降低阈值来「修绿」。

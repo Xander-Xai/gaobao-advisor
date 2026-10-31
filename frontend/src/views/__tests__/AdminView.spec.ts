@@ -133,6 +133,7 @@ interface RouterOptions {
   schools?: SchoolListItem[]
   failSchools?: number
   failDetails?: number
+  failLogout?: boolean
   audit?: boolean
 }
 
@@ -146,6 +147,10 @@ function installRouter(options: RouterOptions = {}) {
     calls.push({ url, init })
     const path = url.split('?')[0]
     if (path.endsWith('/admin/auth/login')) return response(tokenResponse(role))
+    if (path.endsWith('/admin/auth/logout')) {
+      if (options.failLogout) return response({ code: 'INTERNAL_ERROR', message: 'logout failed' }, 500)
+      return response({}, 204)
+    }
     if (path.endsWith('/admin/auth/me')) return response({ username: role, role })
     if (path.endsWith('/admin/stats')) return response(stats)
     if (path.endsWith('/admin/system/status')) return response(systemStatus)
@@ -239,6 +244,29 @@ describe('AdminView access control', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="login-error"]').text()).toContain('用户名或密码错误')
     expect(useAdminStore().isAuthenticated).toBe(false)
+  })
+
+  it('calls backend logout and clears the local session', async () => {
+    const calls = installRouter()
+    const wrapper = await mountAndLogin('operator')
+    await wrapper.find('[data-testid="admin-logout"]').trigger('click')
+    await flushPromises()
+    const logoutCalls = calls.filter((call) => call.url.endsWith('/admin/auth/logout'))
+    expect(logoutCalls).toHaveLength(1)
+    expect(logoutCalls[0].init.method).toBe('POST')
+    expect((logoutCalls[0].init.headers as Record<string, string>).Authorization).toContain('Bearer')
+    expect(wrapper.find('[data-testid="admin-login-submit"]').exists()).toBe(true)
+    expect(window.sessionStorage.getItem('gaobao.admin.token')).toBeNull()
+  })
+
+  it('warns when remote logout cannot be confirmed', async () => {
+    installRouter({ failLogout: true })
+    const wrapper = await mountAndLogin('operator')
+    await wrapper.find('[data-testid="admin-logout"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="admin-login-submit"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('服务端撤销未确认')
+    expect(window.sessionStorage.getItem('gaobao.admin.token')).toBeNull()
   })
 
   it('hides audit and disables writes for viewer', async () => {

@@ -463,6 +463,21 @@ class OperationAuditLog(Base):
         return f"<OperationAuditLog({self.actor}, {self.action}, {self.outcome})>"
 
 
+class AdminTokenRevocation(Base):
+    """管理员 Token 撤销记录 — 持久化在数据库，Redis 重启不会恢复已撤销 Token。"""
+
+    __tablename__ = "admin_token_revocations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    jti_hash = Column(String(64), nullable=False, unique=True, index=True)
+    username = Column(String(64), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<AdminTokenRevocation({self.username}, expires={self.expires_at})>"
+
+
 class QualityTaskOutbox(Base):
     """事务 Outbox：任务落库与投递解耦，Worker/Dispatcher 可重试。"""
 

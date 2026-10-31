@@ -22,6 +22,11 @@ services:
       - APP_ENV=production
       - UVICORN_HOST=0.0.0.0
       - UVICORN_PORT=8000
+      - REDIS_URL=redis://redis:6379/0
+      - ADMIN_RATE_LIMIT_BACKEND=redis
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/ready"]
       interval: 30s
@@ -37,6 +42,19 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  redis:
+    image: redis:7-alpine
+    container_name: gaokao-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - gaobao_redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   frontend:
     build: ./frontend
     container_name: gaokao-frontend-prod
@@ -46,7 +64,7 @@ services:
     expose:
       - "80"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -70,9 +88,9 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
-
 volumes:
   gaobao_prod_data:
+  gaobao_redis_prod_data:
 
 networks:
   default:

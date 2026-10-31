@@ -137,12 +137,24 @@ export const useAdminStore = defineStore('admin', () => {
     notice.value = ''
   }
 
-  function logout(): void {
+  async function logout(): Promise<void> {
+    const currentToken = token.value
+    let warning = ''
+    if (currentToken) {
+      try {
+        await adminApi.logout(currentToken)
+      } catch (error) {
+        if (!(error instanceof AdminApiError && error.status === 401)) {
+          warning = '已退出本机，但服务端撤销未确认，请重新登录后检查会话状态'
+        }
+      }
+    }
     stopPolling()
     token.value = null
     user.value = null
     persist()
     clearData()
+    if (warning) actionError.value = warning
   }
 
   function handleAuthError(error: unknown): boolean {

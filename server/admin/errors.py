@@ -32,12 +32,14 @@ class AdminError(Exception):
         message: str,
         *,
         details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
         self.message = message
         self.details = details or {}
+        self.headers = headers or {}
 
 
 def is_admin_path(path: str) -> bool:
@@ -79,10 +81,11 @@ def register_admin_error_handlers(app: FastAPI) -> None:
                 request.url.path,
                 get_request_id(),
             )
+        headers = {"X-Request-ID": get_request_id(), **exc.headers}
         return JSONResponse(
             status_code=exc.status_code,
             content=_envelope(exc.code, exc.message, details=exc.details),
-            headers={"X-Request-ID": get_request_id()},
+            headers=headers,
         )
 
     @app.exception_handler(StarletteHTTPException)

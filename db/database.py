@@ -161,6 +161,7 @@ def init_db():
     use ``python -m db.migrate`` instead.
     """
     from db.models import (  # noqa: F401 — import to register tables with Base.metadata
+        AdminTokenRevocation,
         AdmissionScore,
         CareerTrend,
         Conversation,

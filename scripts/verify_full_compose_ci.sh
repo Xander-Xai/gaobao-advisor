@@ -154,6 +154,15 @@ actions = {
 }
 assert {"quality_job.succeeded", "quality_job.reviewed"} <= actions, actions
 
+status, _ = request("POST", "/api/v1/admin/auth/logout", token=token)
+assert status == 204, status
+try:
+    request("GET", "/api/v1/admin/auth/me", token=token)
+except urllib.error.HTTPError as exc:
+    assert exc.code == 401, exc.code
+else:
+    raise AssertionError("revoked token was still accepted")
+
 print(json.dumps({
     "result": "PASS", "profile": "full-compose", "transport": "nginx",
     "job_id": job_id, "execution_mode": job["execution_mode"],

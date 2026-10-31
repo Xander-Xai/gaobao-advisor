@@ -1,7 +1,7 @@
 # Database Schema Matrix
 
 > Source of truth: `db/models.py`. Generated/verified by `db/schema_contract.py`.
-> Migration history: `20261030_0001` (admin tables) → `20261031_0002` (14 historical tables).
+> Migration history: `20261030_0001` (admin tables) → `20261031_0002` (14 historical tables) → `20261031_0003` (admin token revocation).
 > Target: SQLite default + MySQL 8.4.
 
 ## 1. Table inventory
@@ -26,6 +26,7 @@
 | 16 | `data_quality_issues` | 质检问题 | `id` | `uq_quality_issue_dedup`, job/severity/rule indexes | job_id→data_quality_jobs |
 | 17 | `operation_audit_logs` | 审计 | `id` | actor/action/request/resource indexes | — |
 | 18 | `quality_task_outbox` | 事务 Outbox | `id` | `uq_quality_task_outbox_job_id`, status/next indexes | job_id→data_quality_jobs |
+| 19 | `admin_token_revocations` | 管理员 Token 撤销（持久化） | `id` | unique `jti_hash`, username/expires indexes | — |
 
 ## 2. Column/type policy
 
@@ -46,7 +47,8 @@ DATABASE_URL=mysql+pymysql://... python -m db.migrate upgrade
 
 - `20261030_0001` creates the four admin tables.
 - `20261031_0002` creates the 14 historical tables in FK-safe order.
-- `alembic_version` ends at `20261031_0002`.
+- `20261031_0003` creates the persistent admin token revocation table.
+- `alembic_version` ends at `20261031_0003`.
 
 ### Existing database at revision `20261030_0001`
 
@@ -68,7 +70,7 @@ DATABASE_URL=mysql+pymysql://... python -m db.migrate upgrade
   constraints, FKs) before `stamp 20261030_0001`.
 - It never creates/drops tables and refuses an unexpected Alembic revision.
 - Then `upgrade` verifies/skips existing historical tables and advances to
-  `20261031_0002`.
+  `20261031_0003`.
 
 ### Seed after migration
 
@@ -84,7 +86,7 @@ The container entrypoint uses this flag in MySQL mode.
 - MySQL DDL is non-transactional. `0002` preflights all existing tables before
   creating any; if a mid-migration failure leaves partial tables, rerunning
   verifies the created tables and continues.
-- `downgrade` of `0002` is intentionally refused. The baseline may cover
+- `downgrade` of `0002`/`0003` is intentionally refused. The baseline may cover
   pre-existing data; rollback requires a verified backup/restore, not a
   destructive DDL downgrade.
 - Fresh databases can be recreated; existing databases must be backed up before
@@ -100,6 +102,6 @@ The container entrypoint uses this flag in MySQL mode.
 | SQLite idempotent upgrade | `tests/test_migrations.py` |
 | SQLite adopt existing + data preservation | `tests/test_migrations.py` |
 | SQLite seed without `create_all` | `tests/test_migrations.py` |
-| MySQL 8.4 fresh upgrade + seed + repeat | `tests/test_mysql_migrations.py` |
+| MySQL 8.4 fresh upgrade + seed + repeat (19 tables) | `tests/test_mysql_migrations.py` |
 | MySQL adopt existing + data preservation | `tests/test_mysql_migrations.py` |
 | MySQL index-drift rejection | `tests/test_mysql_migrations.py` |

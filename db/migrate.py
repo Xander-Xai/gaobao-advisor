@@ -22,7 +22,7 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine
 
 from db.database import DATABASE_URL, redact_database_url
-from db.schema_contract import ALL_TABLES, verify_tables
+from db.schema_contract import BASELINE_TABLES, verify_tables
 
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,7 +51,7 @@ def adopt_existing() -> None:
     """
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     try:
-        problems = verify_tables(engine, ALL_TABLES)
+        problems = verify_tables(engine, BASELINE_TABLES)
         if problems:
             raise RuntimeError("existing schema cannot be adopted; fix these mismatches first: " + "; ".join(problems))
         with engine.connect() as connection:

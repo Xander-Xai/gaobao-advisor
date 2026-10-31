@@ -23,7 +23,8 @@
   `python -m db.migrate` / `alembic upgrade head` 管理 schema。
 - `DB_AUTO_CREATE=true` 仅用于自包含 demo 容器；生产不建议。
 - **迁移范围（2026-10-31 更新）**：`20261030_0001` 创建 4 张运营表，
-  `20261031_0002` 创建 14 张历史业务表；Alembic 现在覆盖全部 18 张表。
+  `20261031_0002` 创建 14 张历史业务表，`20261031_0003` 创建管理员 Token 撤销表；
+  Alembic 现在覆盖全部 19 张表。
 - **已有 schema 策略**：legacy `create_all` 数据库必须显式运行
   `python -m db.migrate adopt-existing`；该命令先通过 `db/schema_contract.py` 对比
   列/PK/索引/唯一约束/FK，全部匹配后才 `stamp 20261030_0001`，随后 `upgrade` 验证并

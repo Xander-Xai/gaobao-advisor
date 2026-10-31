@@ -46,7 +46,13 @@ ADMIN_TABLES: tuple[str, ...] = (
     "quality_task_outbox",
 )
 
-ALL_TABLES: tuple[str, ...] = HISTORICAL_TABLES + ADMIN_TABLES
+SECURITY_TABLES: tuple[str, ...] = ("admin_token_revocations",)
+
+# The legacy baseline that existed before 20261031_0003. ``adopt-existing``
+# must accept old create_all databases that do not yet have the revocation
+# table; 0003 creates it afterwards.
+BASELINE_TABLES: tuple[str, ...] = HISTORICAL_TABLES + ADMIN_TABLES
+ALL_TABLES: tuple[str, ...] = BASELINE_TABLES + SECURITY_TABLES
 
 
 def _type_signature(value: Any) -> tuple[str, int | None]:
