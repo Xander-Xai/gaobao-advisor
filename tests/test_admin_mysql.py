@@ -28,6 +28,7 @@ from server.admin import repository
 from server.deps import get_db
 from server.main import app
 from tests.conftest import _seed, auth_header, login
+from tests.mysql_guard import ensure_test_database
 
 MYSQL_URL = os.getenv("MYSQL_TEST_URL", "").strip()
 pytestmark = [
@@ -42,9 +43,8 @@ def _database_name(url: str) -> str:
 
 @pytest.fixture
 def mysql_factory():
-    if "test" not in _database_name(MYSQL_URL):
-        pytest.skip("MYSQL_TEST_URL database name must contain 'test'")
     engine = create_engine(MYSQL_URL, pool_pre_ping=True, pool_recycle=1800)
+    ensure_test_database(engine, MYSQL_URL)
     with engine.begin() as conn:
         conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
     Base.metadata.drop_all(bind=engine)

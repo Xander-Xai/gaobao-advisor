@@ -21,10 +21,19 @@ from tests.conftest import auth_header, login
 
 REDIS_TEST_URL = os.getenv("REDIS_TEST_URL", "").strip()
 ROOT = Path(__file__).resolve().parent.parent
+# Every key created by this test session lives under one random root. Cleanup
+# only ever deletes this prefix; no FLUSHDB/FLUSHALL is used.
+TEST_REDIS_ROOT = f"gaobao:test:limits:{uuid.uuid4().hex}"
 pytestmark = [
     pytest.mark.redis,
     pytest.mark.skipif(not REDIS_TEST_URL, reason="REDIS_TEST_URL is not set"),
 ]
+
+
+def _cleanup_test_namespace(client) -> None:
+    keys = list(client.scan_iter(f"{TEST_REDIS_ROOT}:*"))
+    if keys:
+        client.delete(*keys)
 
 
 @pytest.fixture
@@ -35,9 +44,7 @@ def redis_client():
     if not client.ping():
         pytest.skip("Redis is not reachable")
     yield client
-    keys = list(client.scan_iter("gaobao:test:limits:*"))
-    if keys:
-        client.delete(*keys)
+    _cleanup_test_namespace(client)
     client.close()
 
 
@@ -46,7 +53,7 @@ def _limiter(client, *, limit: int, window: int = 60) -> RedisSlidingWindowLimit
         url=REDIS_TEST_URL,
         limit=limit,
         window_seconds=window,
-        namespace=f"gaobao:test:limits:{uuid.uuid4().hex}",
+        namespace=f"{TEST_REDIS_ROOT}:{uuid.uuid4().hex}",
         client=client,
     )
 
@@ -107,7 +114,7 @@ def test_different_clients_are_isolated(redis_client):
 def test_admin_limiter_uses_redis_backend(redis_client, monkeypatch):
     monkeypatch.setenv("ADMIN_RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("REDIS_URL", REDIS_TEST_URL)
-    monkeypatch.setenv("ADMIN_RATE_LIMIT_NAMESPACE", f"gaobao:test:limits:{uuid.uuid4().hex}")
+    monkeypatch.setenv("ADMIN_RATE_LIMIT_NAMESPACE", f"{TEST_REDIS_ROOT}:admin")
     first = AdminLimiter(scope="login", limit=2, window_seconds=60)
     second = AdminLimiter(scope="login", limit=2, window_seconds=60)
     assert first.check("shared")[0] is True
@@ -116,7 +123,7 @@ def test_admin_limiter_uses_redis_backend(redis_client, monkeypatch):
 
 
 def test_two_processes_share_one_redis_counter(redis_client):
-    namespace = f"gaobao:test:limits:{uuid.uuid4().hex}"
+    namespace = f"{TEST_REDIS_ROOT}:processes"
     code = (
         "from server.admin.limits import RedisSlidingWindowLimiter;"
         "import os;"
@@ -137,6 +144,7 @@ def test_two_processes_share_one_redis_counter(redis_client):
 def test_two_api_clients_share_login_limit(admin_factory, admin_env, monkeypatch):
     monkeypatch.setenv("ADMIN_RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("REDIS_URL", REDIS_TEST_URL)
+    monkeypatch.setenv("ADMIN_RATE_LIMIT_NAMESPACE", f"{TEST_REDIS_ROOT}:api")
     _login_limiter.reset()
 
     def override_get_db():
@@ -169,22 +177,27 @@ def test_two_api_clients_share_login_limit(admin_factory, admin_env, monkeypatch
         second.close()
 
 
-def test_revocation_survives_redis_flush(admin_client):
-    import redis
-
-    client = redis.Redis.from_url(REDIS_TEST_URL, decode_responses=True)
-    try:
-        client.flushdb()
-    finally:
-        client.close()
+def test_revocation_survives_redis_key_loss(admin_client, redis_client):
+    # Revocation is persisted in the database. Delete only test-owned Redis
+    # keys to model data loss; never flush a shared Redis instance.
     token = login(admin_client, "admin")
     assert admin_client.post("/api/v1/admin/auth/logout", headers=auth_header(token)).status_code == 204
-    client = redis.Redis.from_url(REDIS_TEST_URL, decode_responses=True)
-    try:
-        client.flushdb()
-    finally:
-        client.close()
+    redis_client.set(f"{TEST_REDIS_ROOT}:revocation-probe", "present")
+    _cleanup_test_namespace(redis_client)
+    assert redis_client.exists(f"{TEST_REDIS_ROOT}:revocation-probe") == 0
     assert admin_client.get("/api/v1/admin/auth/me", headers=auth_header(token)).status_code == 401
+
+
+def test_namespace_cleanup_preserves_foreign_keys(redis_client):
+    foreign_key = f"gaobao:foreign:{uuid.uuid4().hex}"
+    redis_client.set(foreign_key, "keep")
+    redis_client.set(f"{TEST_REDIS_ROOT}:owned", "delete")
+    try:
+        _cleanup_test_namespace(redis_client)
+        assert redis_client.exists(f"{TEST_REDIS_ROOT}:owned") == 0
+        assert redis_client.exists(foreign_key) == 1
+    finally:
+        redis_client.delete(foreign_key)
 
 
 def test_unreachable_redis_is_explicit():

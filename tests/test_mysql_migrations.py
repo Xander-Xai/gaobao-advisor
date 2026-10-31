@@ -19,6 +19,7 @@ import db.models  # noqa: F401 - register metadata
 from db.database import Base
 from db.models import School
 from db.schema_contract import ADMIN_TABLES, ALL_TABLES, HISTORICAL_TABLES, verify_tables
+from tests.mysql_guard import ensure_test_database
 
 MYSQL_URL = os.getenv("MYSQL_TEST_URL", "").strip()
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,9 +44,8 @@ def _drop_all(engine) -> None:
 
 @pytest.fixture
 def mysql_engine():
-    if "test" not in _database_name(MYSQL_URL):
-        pytest.skip("MYSQL_TEST_URL database name must contain 'test'")
     engine = create_engine(MYSQL_URL, pool_pre_ping=True, pool_recycle=1800)
+    ensure_test_database(engine, MYSQL_URL)
     _drop_all(engine)
     yield engine
     _drop_all(engine)
